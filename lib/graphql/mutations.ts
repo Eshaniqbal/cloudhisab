@@ -18,16 +18,7 @@ export const VERIFY_OTP = gql`
       tenantId
       userId
       email
-      role
-      accessToken
-      refreshToken
-      expiresIn
-      tenant {
-        tenantId
-        businessName
-        ownerName
-        plan
-      }
+      message
     }
   }
 `;
@@ -47,6 +38,28 @@ export const LOGIN = gql`
       role
       accessToken
       refreshToken
+      expiresIn
+      challengeName
+      session
+      tenant {
+        tenantId
+        businessName
+        ownerName
+      }
+    }
+  }
+`;
+
+export const RESPOND_TO_NEW_PASSWORD_CHALLENGE = gql`
+  mutation RespondToNewPasswordChallenge($email: String!, $session: String!, $newPassword: String!) {
+    respondToNewPasswordChallenge(email: $email, session: $session, newPassword: $newPassword) {
+      tenantId
+      userId
+      email
+      role
+      accessToken
+      refreshToken
+      expiresIn
       tenant {
         tenantId
         businessName
@@ -63,6 +76,7 @@ export const CREATE_PRODUCT = gql`
       productId
       name
       sku
+      hsnCode
       costPrice
       sellingPrice
       gstRate
@@ -81,6 +95,7 @@ export const UPDATE_PRODUCT = gql`
       productId
       name
       sku
+      hsnCode
       costPrice
       sellingPrice
       gstRate
@@ -185,5 +200,83 @@ export const DELETE_CUSTOMER = gql`
 export const DELETE_EXPENSE = gql`
   mutation DeleteExpense($expenseId: String!) {
     deleteExpense(expenseId: $expenseId)
+  }
+`;
+
+// ─── Tenant Settings ───
+export const UPDATE_TENANT_PROFILE = gql`
+  mutation UpdateTenantProfile($input: UpdateTenantInput!) {
+    updateTenantProfile(input: $input) {
+      tenantId
+      businessName
+      ownerName
+      email
+      phone
+      gstin
+      address
+      city
+      state
+      pincode
+      plan
+    }
+  }
+`;
+
+// ─── Password Reset ───
+export const FORGOT_PASSWORD = gql`
+  mutation ForgotPassword($email: String!) {
+    forgotPassword(email: $email)
+  }
+`;
+
+export const CONFIRM_FORGOT_PASSWORD = gql`
+  mutation ConfirmForgotPassword($email: String!, $code: String!, $newPassword: String!) {
+    confirmForgotPassword(email: $email, code: $code, newPassword: $newPassword)
+  }
+`;
+
+// ─── User / Team Management ───
+export const INVITE_USER = gql`
+  mutation InviteUser($input: InviteUserInput!) {
+    inviteUser(input: $input) {
+      userId
+      name
+      email
+      role
+      isActive
+      createdAt
+    }
+  }
+`;
+
+export const UPDATE_USER_ROLE = gql`
+  mutation UpdateUserRole($input: UpdateUserRoleInput!) {
+    updateUserRole(input: $input) {
+      userId
+      name
+      email
+      role
+      isActive
+      createdAt
+    }
+  }
+`;
+
+export const TOGGLE_USER_ACTIVE = gql`
+  mutation ToggleUserActive($userId: String!, $active: Boolean!) {
+    toggleUserActive(userId: $userId, active: $active) {
+      userId
+      name
+      email
+      role
+      isActive
+      createdAt
+    }
+  }
+`;
+
+export const REMOVE_USER = gql`
+  mutation RemoveUser($userId: String!) {
+    removeUser(userId: $userId)
   }
 `;

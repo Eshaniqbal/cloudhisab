@@ -43,6 +43,7 @@ export const LIST_PRODUCTS = gql`
         productId
         name
         sku
+        hsnCode
         costPrice
         sellingPrice
         gstRate
@@ -221,6 +222,39 @@ export const GET_PROFIT_REPORT = gql`
   }
 `;
 
+export const GET_GSTR1_REPORT = gql`
+  query GetGstr1Report($dateFrom: String!, $dateTo: String!) {
+    getGstr1Report(dateFrom: $dateFrom, dateTo: $dateTo) {
+      dateFrom
+      dateTo
+      totalTaxableValue
+      totalGstAmount
+      totalInvoiceValue
+      b2bB2c {
+        b2bTaxableValue
+        b2bGstAmount
+        b2bTotalValue
+        b2cTaxableValue
+        b2cGstAmount
+        b2cTotalValue
+      }
+      hsnSummary {
+        hsnCode
+        totalQuantity
+        totalTaxableValue
+        totalGstAmount
+        totalValue
+      }
+      taxSlabSummary {
+        gstRate
+        totalTaxableValue
+        totalGstAmount
+        totalValue
+      }
+    }
+  }
+`;
+
 // ─── Customers / Ledger ───
 export const LIST_CUSTOMERS = gql`
   query ListCustomers($search: String) {
@@ -282,6 +316,39 @@ export const GET_CUSTOMER_BY_PHONE = gql`
       totalInvoiced
       totalPaid
       invoiceCount
+    }
+  }
+`;
+
+// ─── Tenant Settings ───
+export const GET_TENANT_PROFILE = gql`
+  query GetTenantProfile {
+    getTenantProfile {
+      tenantId
+      businessName
+      ownerName
+      email
+      phone
+      gstin
+      address
+      city
+      state
+      pincode
+      plan
+      createdAt
+    }
+  }
+`;
+
+export const LIST_USERS = gql`
+  query ListUsers {
+    listUsers {
+      userId
+      name
+      email
+      role
+      isActive
+      createdAt
     }
   }
 `;

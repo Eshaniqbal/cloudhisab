@@ -4,8 +4,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useMutation } from "@apollo/client";
 import { REGISTER_TENANT, VERIFY_OTP, RESEND_OTP } from "@/lib/graphql/mutations";
-import { saveAuth } from "@/lib/auth";
-import { Zap, Loader2, Mail, CheckCircle, RefreshCw } from "lucide-react";
+import { Zap, Loader2, Mail, CheckCircle, RefreshCw, ShieldCheck } from "lucide-react";
 
 const GST_STATES = [
     "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Delhi",
@@ -82,12 +81,11 @@ export default function RegisterPage() {
         try {
             const { data } = await verifyOtp({ variables: { input: { email: pending!.email, otp } } } as any) as any;
             const p = data.verifyOtp;
-            saveAuth(p.accessToken, {
-                tenantId: p.tenantId, userId: p.userId,
-                email: p.email, role: p.role,
-                businessName: p.tenant.businessName,
-            });
-            router.push("/dashboard");
+            // Email verified via Cognito — redirect to login.
+            // We never receive tokens here; Cognito owns auth fully.
+            if (p.message === "EMAIL_VERIFIED" || p.tenantId) {
+                router.push(`/login?email=${encodeURIComponent(pending!.email)}&verified=1`);
+            }
         } catch (err: any) { setError(err.message || "OTP verification failed"); }
     };
 

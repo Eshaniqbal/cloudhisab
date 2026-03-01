@@ -6,18 +6,24 @@ import { logout, getUser } from "@/lib/auth";
 import { useTheme } from "@/lib/useTheme";
 import {
     LayoutDashboard, Package, Receipt, Layers,
-    TrendingUp, Wallet, LogOut, Zap, FileText, Sun, Moon, Users,
+    TrendingUp, Wallet, LogOut, Zap, FileText, Sun, Moon, Users, Settings,
 } from "lucide-react";
 
-const nav = [
-    { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
-    { href: "/billing", icon: Receipt, label: "Billing / POS" },
-    { href: "/invoices", icon: FileText, label: "Invoices" },
-    { href: "/products", icon: Package, label: "Products" },
-    { href: "/stock", icon: Layers, label: "Stock" },
-    { href: "/expenses", icon: Wallet, label: "Expenses" },
-    { href: "/customers", icon: Users, label: "Customers" },
-    { href: "/reports", icon: TrendingUp, label: "Reports" },
+const ROLE_LEVEL: Record<string, number> = {
+    ACCOUNTANT: 1, CASHIER: 2, MANAGER: 3, SUPER_ADMIN: 4,
+};
+
+const NAV_ITEMS = [
+    { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard", minRole: "CASHIER" },
+    { href: "/billing", icon: Receipt, label: "Billing/POS", minRole: "CASHIER" },
+    { href: "/invoices", icon: FileText, label: "Invoices", minRole: "ACCOUNTANT" },
+    { href: "/products", icon: Package, label: "Products", minRole: "MANAGER" },
+    { href: "/stock", icon: Layers, label: "Stock", minRole: "MANAGER" },
+    { href: "/expenses", icon: Wallet, label: "Expenses", minRole: "ACCOUNTANT" },
+    { href: "/customers", icon: Users, label: "Customers", minRole: "CASHIER" },
+    { href: "/reports", icon: TrendingUp, label: "Reports", minRole: "ACCOUNTANT" },
+    { href: "/reports/gstr1", icon: FileText, label: "GSTR-1 Summary", minRole: "ACCOUNTANT" },
+    { href: "/settings", icon: Settings, label: "Settings", minRole: "SUPER_ADMIN" },
 ];
 
 export function Sidebar() {
@@ -27,6 +33,13 @@ export function Sidebar() {
 
     useEffect(() => {
         setUser(getUser());
+
+        // Re-read localStorage whenever settings page patches the user
+        const onUserUpdated = (e: Event) => {
+            setUser((e as CustomEvent).detail);
+        };
+        window.addEventListener("ch:user-updated", onUserUpdated);
+        return () => window.removeEventListener("ch:user-updated", onUserUpdated);
     }, []);
 
     return (
@@ -62,9 +75,13 @@ export function Sidebar() {
                 )}
             </div>
 
-            {/* Nav links */}
+            {/* Nav links — filtered by role */}
             <nav style={{ flex: 1, display: "flex", flexDirection: "column", gap: 3 }}>
-                {nav.map(({ href, icon: Icon, label }) => {
+                {NAV_ITEMS.filter(item => {
+                    const userLevel = ROLE_LEVEL[user?.role || "CASHIER"] || 0;
+                    const minLevel = ROLE_LEVEL[item.minRole] || 0;
+                    return userLevel >= minLevel;
+                }).map(({ href, icon: Icon, label }) => {
                     const active = path === href || path.startsWith(href + "/");
                     return (
                         <Link key={href} href={href} className={`nav-item ${active ? "active" : ""}`}>

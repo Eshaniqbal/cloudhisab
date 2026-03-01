@@ -6,16 +6,19 @@ import { LIST_PRODUCTS } from "@/lib/graphql/queries";
 import { CREATE_PRODUCT, UPDATE_PRODUCT, DELETE_PRODUCT } from "@/lib/graphql/mutations";
 import { Plus, Pencil, Trash2, X, Loader2, Package, Search } from "lucide-react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { HSN_DICTIONARY } from "@/lib/hsn_dictionary";
 
 const GST_RATES = [0, 5, 12, 18, 28];
 const CATEGORIES = ["Electronics", "Clothing", "Food", "Grocery", "Medicine", "Stationery", "Hardware", "Other"];
 const UNITS = ["pcs", "kg", "g", "ltr", "ml", "box", "pack", "pair", "dozen", "meter", "ft"];
 
-const EMPTY = { name: "", sku: "", costPrice: "", sellingPrice: "", gstRate: "18", category: "Other", unit: "pcs", lowStockAlert: "10" };
+const EMPTY = { name: "", sku: "", hsnCode: "", costPrice: "", sellingPrice: "", gstRate: "18", category: "Other", unit: "pcs", lowStockAlert: "10" };
 
 function fmt(n: number) {
     return `₹${n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
+
+
 
 function ProductModal({ onClose, refetch, existing }: any) {
     const [form, setForm] = useState(
@@ -27,10 +30,18 @@ function ProductModal({ onClose, refetch, existing }: any) {
     const [updateProduct, { loading: ul }] = useMutation<any, any>(UPDATE_PRODUCT);
     const loading = cl || ul;
 
+    const [showHsnMenu, setShowHsnMenu] = useState(false);
+    const [hsnSearch, setHsnSearch] = useState("");
+
     const set = (k: string, v: string) => setForm((f: any) => ({ ...f, [k]: v }));
     const margin = form.sellingPrice && form.costPrice
         ? (((+form.sellingPrice - +form.costPrice) / +form.sellingPrice) * 100).toFixed(1)
         : "0.0";
+
+    // Auto-suggest HSN
+    const suggestion = form.name
+        ? HSN_DICTIONARY.find(d => d.keywords.some(k => form.name.toLowerCase().includes(k)))
+        : null;
 
     const submit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -40,6 +51,14 @@ function ProductModal({ onClose, refetch, existing }: any) {
         await refetch();
         onClose();
     };
+
+    const filteredHsn = hsnSearch
+        ? HSN_DICTIONARY.filter(d =>
+            d.hsn.includes(hsnSearch) ||
+            d.desc.toLowerCase().includes(hsnSearch.toLowerCase()) ||
+            (d.keywords && d.keywords.some(k => k.includes(hsnSearch.toLowerCase())))
+        ).slice(0, 10)
+        : HSN_DICTIONARY.slice(0, 10);
 
     return (
         <div className="modal-overlay" onClick={onClose}>
@@ -54,10 +73,78 @@ function ProductModal({ onClose, refetch, existing }: any) {
                         <div className="form-group col-span-2">
                             <label>Product Name</label>
                             <input className="input" value={form.name} onChange={e => set("name", e.target.value)} placeholder="e.g. Samsung Galaxy M14" required />
+                            {suggestion && !existing && (!form.hsnCode || form.hsnCode !== suggestion.hsn) && (
+                                <div className="mt-2 text-xs text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 p-2 rounded-lg cursor-pointer hover:bg-indigo-500/20 transition-all"
+                                    onClick={() => { set("hsnCode", suggestion.hsn); set("gstRate", suggestion.gst); }}>
+                                    <span className="font-bold">✨ Suggestion:</span> This looks like <b>{suggestion.desc}</b>. Click to auto-apply HSN <b>{suggestion.hsn}</b> & GST <b>{suggestion.gst}%</b>.
+                                </div>
+                            )}
                         </div>
                         <div className="form-group">
                             <label>SKU / Barcode</label>
                             <input className="input" value={form.sku} onChange={e => set("sku", e.target.value.toUpperCase())} placeholder="SGM14-BLK" required />
+                        </div>
+                        <div className="form-group relative">
+                            <label>HSN Code</label>
+                            <input
+                                className="input"
+                                value={showHsnMenu ? hsnSearch : (form.hsnCode || "")}
+                                onChange={e => {
+                                    if (!showHsnMenu) {
+                                        setHsnSearch(e.target.value);
+                                        setShowHsnMenu(true);
+                                    } else {
+                                        setHsnSearch(e.target.value);
+                                    }
+                                    set("hsnCode", e.target.value);
+                                }}
+                                onFocus={() => { setHsnSearch(form.hsnCode || ""); setShowHsnMenu(true); }}
+                                onBlur={() => setTimeout(() => setShowHsnMenu(false), 200)}
+                                placeholder="Search by name or code..."
+                            />
+                            {showHsnMenu && (
+                                <div
+                                    className="absolute z-50 w-full mt-2 rounded-xl shadow-2xl overflow-y-auto"
+                                    style={{
+                                        maxHeight: "260px",
+                                        background: "var(--glass-bg)",
+                                        backdropFilter: "blur(16px)",
+                                        border: "1px solid var(--border)",
+                                        boxShadow: "0 10px 40px var(--shadow)"
+                                    }}
+                                >
+                                    {filteredHsn.map(d => (
+                                        <div
+                                            key={d.hsn}
+                                            className="px-3 py-3 cursor-pointer border-b last:border-0 flex flex-col gap-1.5 transition-colors"
+                                            style={{ borderColor: "var(--border)" }}
+                                            onMouseEnter={e => e.currentTarget.style.background = "var(--bg-input)"}
+                                            onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                                            onMouseDown={(e) => { e.preventDefault(); set("hsnCode", d.hsn); set("gstRate", d.gst); setShowHsnMenu(false); }}
+                                        >
+                                            <div className="flex justify-between items-start gap-3">
+                                                <span className="font-semibold text-[13px] leading-snug text-wrap" style={{ color: "var(--text)" }}>
+                                                    {d.desc}
+                                                </span>
+                                                <span
+                                                    className="font-mono text-[11px] font-bold px-1.5 py-0.5 rounded shrink-0"
+                                                    style={{ color: "var(--indigo-l)", background: "rgba(99,102,241,0.1)" }}
+                                                >
+                                                    {d.hsn}
+                                                </span>
+                                            </div>
+                                            <div className="text-[11px] font-medium" style={{ color: "var(--muted)" }}>
+                                                GST Rate: <span style={{ color: "var(--red)" }}>{d.gst}%</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                    {filteredHsn.length === 0 && (
+                                        <div className="px-4 py-8 text-center text-[13px]" style={{ color: "var(--muted)" }}>
+                                            No matching HSN codes found.
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
                         <div className="form-group">
                             <label>Category</label>
@@ -191,6 +278,7 @@ export default function ProductsPage() {
                             <tr>
                                 <th>Product</th>
                                 <th>SKU</th>
+                                <th>HSN</th>
                                 <th>Category</th>
                                 <th>Cost</th>
                                 <th>Price</th>
@@ -219,6 +307,7 @@ export default function ProductsPage() {
                                         <div className="text-xs text-slate-500">{p.unit}</div>
                                     </td>
                                     <td className="font-mono text-xs text-slate-400">{p.sku}</td>
+                                    <td className="font-mono text-xs text-slate-500">{p.hsnCode || "—"}</td>
                                     <td><span className="badge badge-indigo">{p.category}</span></td>
                                     <td className="num text-slate-300">₹{p.costPrice.toFixed(2)}</td>
                                     <td className="num text-white font-medium">₹{p.sellingPrice.toFixed(2)}</td>
