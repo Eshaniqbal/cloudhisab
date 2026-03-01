@@ -141,8 +141,8 @@ export function Sidebar() {
                             <Zap size={16} color="#fff" />
                         </div>
                         <div>
-                            <div style={{ fontSize: 14, fontWeight: 800, color: "#f1f5f9", letterSpacing: "-0.2px" }}>CloudHisaab</div>
-                            <div style={{ fontSize: 10, color: "#475569", marginTop: 1 }}>Billing SaaS</div>
+                            <div style={{ fontSize: 14, fontWeight: 800, color: "var(--text)", letterSpacing: "-0.2px" }}>CloudHisaab</div>
+                            <div style={{ fontSize: 10, color: "var(--muted)", marginTop: 1 }}>Billing SaaS</div>
                         </div>
                     </div>
                 </div>
