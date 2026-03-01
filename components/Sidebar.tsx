@@ -6,11 +6,18 @@ import { logout, getUser } from "@/lib/auth";
 import { useTheme } from "@/lib/useTheme";
 import {
     LayoutDashboard, Package, Receipt, Layers,
-    TrendingUp, Wallet, LogOut, Zap, FileText, Sun, Moon, Users, Settings,
+    TrendingUp, Wallet, LogOut, Zap, FileText, Sun, Moon, Users, Settings, ChevronUp,
 } from "lucide-react";
 
 const ROLE_LEVEL: Record<string, number> = {
     ACCOUNTANT: 1, CASHIER: 2, MANAGER: 3, SUPER_ADMIN: 4,
+};
+
+const ROLE_COLOR: Record<string, string> = {
+    SUPER_ADMIN: "#818cf8",
+    MANAGER: "#34d399",
+    ACCOUNTANT: "#f59e0b",
+    CASHIER: "#94a3b8",
 };
 
 const NAV_ITEMS = [
@@ -26,107 +33,200 @@ const NAV_ITEMS = [
     { href: "/settings", icon: Settings, label: "Settings", minRole: "SUPER_ADMIN" },
 ];
 
+// ── Sign-out confirmation modal ──────────────────────────────────────────────
+function SignOutConfirmModal({ onConfirm, onCancel }: { onConfirm: () => void; onCancel: () => void }) {
+    return (
+        <div style={{
+            position: "fixed", inset: 0, zIndex: 1000,
+            background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+        }} onClick={onCancel}>
+            <div
+                onClick={e => e.stopPropagation()}
+                style={{
+                    background: "var(--bg-card)", border: "1px solid var(--border)",
+                    borderRadius: 18, padding: "30px 28px", width: 340,
+                    boxShadow: "0 24px 64px rgba(0,0,0,0.5)",
+                    animation: "fadeInScale 0.18s ease",
+                }}
+            >
+                {/* Icon */}
+                <div style={{
+                    width: 52, height: 52, borderRadius: 14,
+                    background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)",
+                    display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 18px",
+                }}>
+                    <LogOut size={22} color="#ef4444" />
+                </div>
+
+                <div style={{ textAlign: "center", marginBottom: 20 }}>
+                    <div style={{ fontSize: 17, fontWeight: 800, color: "var(--text)", marginBottom: 8 }}>
+                        Sign out?
+                    </div>
+                    <div style={{ fontSize: 13, color: "var(--muted)", lineHeight: 1.5 }}>
+                        You will be signed out of CloudHisaab and redirected to the login page.
+                    </div>
+                </div>
+
+                <div style={{ display: "flex", gap: 10 }}>
+                    <button
+                        onClick={onCancel}
+                        style={{
+                            flex: 1, padding: "10px 0", borderRadius: 10, fontSize: 13.5,
+                            fontWeight: 600, cursor: "pointer", border: "1px solid var(--border)",
+                            background: "var(--bg-input)", color: "var(--muted)", transition: "all 0.15s",
+                        }}
+                        onMouseEnter={e => { (e.currentTarget as any).style.color = "var(--text)"; (e.currentTarget as any).style.background = "var(--bg-card2)"; }}
+                        onMouseLeave={e => { (e.currentTarget as any).style.color = "var(--muted)"; (e.currentTarget as any).style.background = "var(--bg-input)"; }}
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        onClick={onConfirm}
+                        style={{
+                            flex: 1, padding: "10px 0", borderRadius: 10, fontSize: 13.5,
+                            fontWeight: 700, cursor: "pointer", border: "none",
+                            background: "linear-gradient(135deg,#ef4444,#dc2626)",
+                            color: "#fff", boxShadow: "0 4px 14px rgba(239,68,68,0.35)",
+                            transition: "all 0.15s",
+                        }}
+                        onMouseEnter={e => { (e.currentTarget as any).style.transform = "translateY(-1px)"; (e.currentTarget as any).style.boxShadow = "0 7px 20px rgba(239,68,68,0.45)"; }}
+                        onMouseLeave={e => { (e.currentTarget as any).style.transform = "none"; (e.currentTarget as any).style.boxShadow = "0 4px 14px rgba(239,68,68,0.35)"; }}
+                    >
+                        Yes, Sign out
+                    </button>
+                </div>
+            </div>
+
+            <style>{`@keyframes fadeInScale { from { opacity:0; transform:scale(0.94); } to { opacity:1; transform:scale(1); } }`}</style>
+        </div>
+    );
+}
+
 export function Sidebar() {
     const path = usePathname();
     const [user, setUser] = useState<any>(null);
     const { theme, toggle } = useTheme();
+    const [showSignOutModal, setShowSignOutModal] = useState(false);
 
     useEffect(() => {
         setUser(getUser());
-
-        // Re-read localStorage whenever settings page patches the user
-        const onUserUpdated = (e: Event) => {
-            setUser((e as CustomEvent).detail);
-        };
+        const onUserUpdated = (e: Event) => setUser((e as CustomEvent).detail);
         window.addEventListener("ch:user-updated", onUserUpdated);
         return () => window.removeEventListener("ch:user-updated", onUserUpdated);
     }, []);
 
+    const initials = user?.businessName?.charAt(0)?.toUpperCase() || "?";
+    const roleColor = ROLE_COLOR[user?.role] || "#94a3b8";
+
     return (
-        <aside className="sidebar no-print">
-            {/* Logo */}
-            <div style={{ padding: "4px 4px 20px" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 4px" }}>
-                    <div style={{
-                        width: 34, height: 34, borderRadius: 10,
-                        background: "linear-gradient(135deg,#4f46e5,#6366f1)",
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        boxShadow: "0 4px 14px rgba(79,70,229,0.4)",
-                        flexShrink: 0,
-                    }}>
-                        <Zap size={16} color="#fff" />
-                    </div>
-                    <div>
-                        <div style={{ fontSize: 14, fontWeight: 800, color: "#f1f5f9", letterSpacing: "-0.2px" }}>CloudHisaab</div>
-                        <div style={{ fontSize: 10, color: "#475569", marginTop: 1 }}>Billing SaaS</div>
+        <>
+            {showSignOutModal && (
+                <SignOutConfirmModal
+                    onConfirm={() => { setShowSignOutModal(false); logout(); }}
+                    onCancel={() => setShowSignOutModal(false)}
+                />
+            )}
+
+            <aside className="sidebar no-print">
+                {/* ── Logo ── */}
+                <div style={{ padding: "4px 4px 20px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 4px" }}>
+                        <div style={{
+                            width: 34, height: 34, borderRadius: 10,
+                            background: "linear-gradient(135deg,#4f46e5,#6366f1)",
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                            boxShadow: "0 4px 14px rgba(79,70,229,0.4)", flexShrink: 0,
+                        }}>
+                            <Zap size={16} color="#fff" />
+                        </div>
+                        <div>
+                            <div style={{ fontSize: 14, fontWeight: 800, color: "#f1f5f9", letterSpacing: "-0.2px" }}>CloudHisaab</div>
+                            <div style={{ fontSize: 10, color: "#475569", marginTop: 1 }}>Billing SaaS</div>
+                        </div>
                     </div>
                 </div>
 
-                {user && (
-                    <div style={{
-                        marginTop: 4, padding: "8px 12px", borderRadius: 10,
-                        background: "rgba(79,70,229,0.1)", border: "1px solid rgba(99,102,241,0.2)",
-                    }}>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: "#e2e8f0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {user.businessName}
+                {/* ── Nav links ── */}
+                <nav style={{ flex: 1, display: "flex", flexDirection: "column", gap: 3 }}>
+                    {NAV_ITEMS.filter(item => {
+                        const userLevel = ROLE_LEVEL[user?.role || "CASHIER"] || 0;
+                        const minLevel = ROLE_LEVEL[item.minRole] || 0;
+                        return userLevel >= minLevel;
+                    }).map(({ href, icon: Icon, label }) => {
+                        const active = path === href || path.startsWith(href + "/");
+                        return (
+                            <Link key={href} href={href} className={`nav-item ${active ? "active" : ""}`}>
+                                <Icon size={15} style={{ flexShrink: 0 }} />
+                                {label}
+                            </Link>
+                        );
+                    })}
+                </nav>
+
+                {/* ── Bottom: Theme + Profile + Sign out ── */}
+                <div style={{ borderTop: "1px solid var(--border)", paddingTop: 12, marginTop: 12 }}>
+
+                    {/* Theme toggle */}
+                    <button
+                        onClick={toggle}
+                        title={theme === "dark" ? "Switch to Light mode" : "Switch to Dark mode"}
+                        style={{
+                            display: "flex", alignItems: "center", gap: 10, width: "100%",
+                            padding: "9px 12px", borderRadius: 10, fontSize: 13.5, fontWeight: 500,
+                            color: "var(--muted)", background: "none", border: "none", cursor: "pointer",
+                            transition: "all 0.15s", marginBottom: 6,
+                        }}
+                        onMouseEnter={e => { (e.currentTarget as any).style.color = "var(--text)"; (e.currentTarget as any).style.background = "var(--bg-input)"; }}
+                        onMouseLeave={e => { (e.currentTarget as any).style.color = "var(--muted)"; (e.currentTarget as any).style.background = "none"; }}
+                    >
+                        {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
+                        {theme === "dark" ? "Light Mode" : "Dark Mode"}
+                    </button>
+
+                    {/* Profile + Sign out card */}
+                    {user && (
+                        <div style={{
+                            display: "flex", alignItems: "center", gap: 10,
+                            padding: "10px 12px", borderRadius: 12,
+                            background: "var(--bg-card2)", border: "1px solid var(--border)",
+                            cursor: "pointer", transition: "all 0.15s", position: "relative",
+                        }}
+                            onMouseEnter={e => { (e.currentTarget as any).style.borderColor = "rgba(239,68,68,0.3)"; (e.currentTarget as any).style.background = "rgba(239,68,68,0.04)"; }}
+                            onMouseLeave={e => { (e.currentTarget as any).style.borderColor = "var(--border)"; (e.currentTarget as any).style.background = "var(--bg-card2)"; }}
+                            onClick={() => setShowSignOutModal(true)}
+                            title="Sign out"
+                        >
+                            {/* Avatar */}
+                            <div style={{
+                                width: 32, height: 32, borderRadius: 99, flexShrink: 0,
+                                background: "linear-gradient(135deg,#4f46e5,#6366f1)",
+                                display: "flex", alignItems: "center", justifyContent: "center",
+                                fontSize: 13, fontWeight: 800, color: "#fff",
+                                boxShadow: "0 2px 8px rgba(79,70,229,0.4)",
+                            }}>
+                                {initials}
+                            </div>
+
+                            {/* Name + role */}
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{
+                                    fontSize: 12.5, fontWeight: 700, color: "var(--text)",
+                                    overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                                }}>
+                                    {user.businessName}
+                                </div>
+                                <div style={{ fontSize: 10, fontWeight: 700, color: roleColor, marginTop: 1 }}>
+                                    {user.role}
+                                </div>
+                            </div>
+
+                            {/* LogOut icon hint */}
+                            <LogOut size={14} style={{ color: "#ef4444", opacity: 0.7, flexShrink: 0 }} />
                         </div>
-                        <div style={{ fontSize: 10, color: "#818cf8", marginTop: 2 }}>{user.role}</div>
-                    </div>
-                )}
-            </div>
-
-            {/* Nav links — filtered by role */}
-            <nav style={{ flex: 1, display: "flex", flexDirection: "column", gap: 3 }}>
-                {NAV_ITEMS.filter(item => {
-                    const userLevel = ROLE_LEVEL[user?.role || "CASHIER"] || 0;
-                    const minLevel = ROLE_LEVEL[item.minRole] || 0;
-                    return userLevel >= minLevel;
-                }).map(({ href, icon: Icon, label }) => {
-                    const active = path === href || path.startsWith(href + "/");
-                    return (
-                        <Link key={href} href={href} className={`nav-item ${active ? "active" : ""}`}>
-                            <Icon size={15} style={{ flexShrink: 0 }} />
-                            {label}
-                        </Link>
-                    );
-                })}
-            </nav>
-
-            {/* Theme toggle + Logout */}
-            <div style={{ borderTop: "1px solid var(--border)", paddingTop: 12, marginTop: 12 }}>
-                {/* Theme toggle */}
-                <button
-                    onClick={toggle}
-                    title={theme === "dark" ? "Switch to Light mode" : "Switch to Dark mode"}
-                    style={{
-                        display: "flex", alignItems: "center", gap: 10, width: "100%",
-                        padding: "9px 12px", borderRadius: 10, fontSize: 13.5, fontWeight: 500,
-                        color: "var(--muted)", background: "none", border: "none", cursor: "pointer",
-                        transition: "all 0.15s", marginBottom: 4,
-                    }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text)"; (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-input)"; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--muted)"; (e.currentTarget as HTMLButtonElement).style.background = "none"; }}
-                >
-                    {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
-                    {theme === "dark" ? "Light Mode" : "Dark Mode"}
-                </button>
-
-                {/* Logout */}
-                <button
-                    onClick={logout}
-                    style={{
-                        display: "flex", alignItems: "center", gap: 10, width: "100%",
-                        padding: "9px 12px", borderRadius: 10, fontSize: 13.5, fontWeight: 500,
-                        color: "var(--muted)", background: "none", border: "none", cursor: "pointer",
-                        transition: "all 0.15s",
-                    }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = "#f87171"; (e.currentTarget as HTMLButtonElement).style.background = "rgba(239,68,68,0.08)"; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--muted)"; (e.currentTarget as HTMLButtonElement).style.background = "none"; }}
-                >
-                    <LogOut size={15} />
-                    Sign out
-                </button>
-            </div>
-        </aside>
+                    )}
+                </div>
+            </aside>
+        </>
     );
 }

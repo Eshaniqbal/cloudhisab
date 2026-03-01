@@ -17,24 +17,23 @@ function PurchaseModal({ onClose, refetch }: any) {
     const { data: prodData } = useQuery<any, any>(LIST_PRODUCTS, { fetchPolicy: "cache-and-network" } as any);
     const [recordPurchase, { loading }] = useMutation<any, any>(RECORD_PURCHASE);
     const [supplier, setSupplier] = useState({ supplierName: "", supplierInvoice: "", notes: "" });
-    const [items, setItems] = useState([{ productId: "", quantity: "", costPrice: "" }]);
+    const [items, setItems] = useState([{ productId: "", quantity: "" }]);
 
     const products = prodData?.listProducts?.items || [];
-    const addItem = () => setItems(i => [...i, { productId: "", quantity: "", costPrice: "" }]);
+    const addItem = () => setItems(i => [...i, { productId: "", quantity: "" }]);
     const setItem = (idx: number, k: string, v: string) =>
         setItems(items.map((it, i) => i === idx ? { ...it, [k]: v } : it));
     const removeItem = (idx: number) => setItems(items.filter((_, i) => i !== idx));
-    const total = items.reduce((s, i) => s + (+i.quantity || 0) * (+i.costPrice || 0), 0);
 
     const submit = async (e: React.FormEvent) => {
         e.preventDefault();
-        const validItems = items.filter(i => i.productId && +i.quantity > 0 && +i.costPrice > 0);
+        const validItems = items.filter(i => i.productId && +i.quantity > 0);
         if (validItems.length === 0) { alert("Add at least one valid item"); return; }
         await recordPurchase({
             variables: {
                 input: {
                     ...supplier,
-                    items: validItems.map(i => ({ productId: i.productId, quantity: +i.quantity, costPrice: +i.costPrice })),
+                    items: validItems.map(i => ({ productId: i.productId, quantity: +i.quantity, costPrice: 0 })),
                 },
             },
         } as any);
@@ -104,7 +103,7 @@ function PurchaseModal({ onClose, refetch }: any) {
                         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                             {items.map((item, idx) => (
                                 <div key={idx} style={{
-                                    display: "grid", gridTemplateColumns: "1fr 90px 110px 32px",
+                                    display: "grid", gridTemplateColumns: "1fr 90px 32px",
                                     gap: 8, alignItems: "center",
                                     background: "var(--bg-card2)", borderRadius: 10, padding: "10px 12px",
                                     border: "1px solid var(--border)",
@@ -119,9 +118,6 @@ function PurchaseModal({ onClose, refetch }: any) {
                                     <input type="number" className="input" style={{ fontSize: 13 }}
                                         placeholder="Qty" min="0.1" step="0.1"
                                         value={item.quantity} onChange={e => setItem(idx, "quantity", e.target.value)} />
-                                    <input type="number" className="input" style={{ fontSize: 13 }}
-                                        placeholder="Cost ₹" min="0" step="0.01"
-                                        value={item.costPrice} onChange={e => setItem(idx, "costPrice", e.target.value)} />
                                     <button type="button" onClick={() => removeItem(idx)}
                                         disabled={items.length === 1}
                                         style={{
@@ -138,14 +134,7 @@ function PurchaseModal({ onClose, refetch }: any) {
                             ))}
                         </div>
 
-                        {total > 0 && (
-                            <div style={{
-                                display: "flex", justifyContent: "flex-end", marginTop: 10,
-                                fontSize: 13, fontWeight: 700, color: "#10b981",
-                            }}>
-                                Purchase Total: ₹{total.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                            </div>
-                        )}
+
                     </div>
 
                     {/* Notes */}
