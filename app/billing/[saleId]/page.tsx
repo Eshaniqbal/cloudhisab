@@ -181,7 +181,7 @@ export default function InvoiceDetailPage() {
                 <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 16, fontSize: 13 }}>
                     <thead>
                         <tr style={{ background: "#4f46e5" }}>
-                            {["#", "Product", "SKU", "Qty", "Rate (₹)", "GST%", "GST (₹)", "Amount (₹)"].map((h, i) => (
+                            {["#", "Product", "SKU", "Qty / Unit", "Rate (₹)", "GST%", "GST (₹)", "Amount (₹)"].map((h, i) => (
                                 <th key={h} style={{
                                     padding: "9px 11px", color: "#fff", fontWeight: 700, fontSize: 10,
                                     textTransform: "uppercase", letterSpacing: 0.5,
@@ -196,7 +196,10 @@ export default function InvoiceDetailPage() {
                                 <td style={{ padding: "9px 11px", color: "#9ca3af" }}>{idx + 1}</td>
                                 <td style={{ padding: "9px 11px" }}><div style={{ fontWeight: 600 }}>{item.productName}</div></td>
                                 <td style={{ padding: "9px 11px", color: "#9ca3af", fontSize: 11, fontFamily: "monospace" }}>{item.sku}</td>
-                                <td style={{ padding: "9px 11px", textAlign: "right" }}>{item.quantity}</td>
+                                <td style={{ padding: "9px 11px", textAlign: "right", whiteSpace: "nowrap" }}>
+                                    <span style={{ fontWeight: 700 }}>{item.quantity}</span>
+                                    {item.unit && <span style={{ fontSize: 10, color: "#6b7280", marginLeft: 4 }}>{item.unit}</span>}
+                                </td>
                                 <td style={{ padding: "9px 11px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>₹{fmt(item.sellingPrice)}</td>
                                 <td style={{ padding: "9px 11px", textAlign: "right", color: "#6b7280" }}>{item.gstRate}%</td>
                                 <td style={{ padding: "9px 11px", textAlign: "right", color: "#6b7280", fontVariantNumeric: "tabular-nums" }}>₹{fmt(item.gstAmount)}</td>
@@ -296,13 +299,9 @@ export default function InvoiceDetailPage() {
                 </div>
             </div>
 
-            {/* ── Profit & PDF status badges ─────── */}
-            <div className="no-print" style={{ maxWidth: 820, margin: "16px auto 0", display: "flex", gap: 12 }}>
-                <div className="glass" style={{ flex: 1, padding: "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ fontSize: 12, color: "#64748b" }}>Your Profit</span>
-                    <span style={{ fontSize: 18, fontWeight: 800, color: "#34d399", fontVariantNumeric: "tabular-nums" }}>₹{fmt(inv.totalProfit)}</span>
-                </div>
-                <div className="glass" style={{ flex: 1, padding: "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            {/* ── PDF status badge ─────── */}
+            <div className="no-print" style={{ maxWidth: 820, margin: "16px auto 0" }}>
+                <div className="glass" style={{ padding: "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <span style={{ fontSize: 12, color: "#64748b" }}>PDF Status</span>
                     <span style={{ fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 5, color: downloadUrl ? "#34d399" : "#f59e0b" }}>
                         {downloadUrl ? <><CheckCircle2 size={14} /> Ready — <a href={downloadUrl} target="_blank" rel="noreferrer" style={{ color: "#818cf8", textDecoration: "underline" }}>Download</a></> : <><Clock size={14} /> Generating…</>}

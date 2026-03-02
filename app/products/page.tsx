@@ -45,7 +45,20 @@ function ProductModal({ onClose, refetch, existing }: any) {
 
     const submit = async (e: React.FormEvent) => {
         e.preventDefault();
-        const input = { ...form, costPrice: +form.costPrice, sellingPrice: +form.sellingPrice, gstRate: +form.gstRate, lowStockAlert: +form.lowStockAlert };
+        // Only send fields that ProductInput accepts — strip Apollo __typename,
+        // computed fields (marginPercent, gstAmount, sellingPriceWithGst) and
+        // server-generated fields (productId, createdAt).
+        const input = {
+            name: form.name,
+            sku: form.sku || "",
+            hsnCode: form.hsnCode || "",
+            costPrice: +form.costPrice,
+            sellingPrice: +form.sellingPrice,
+            gstRate: +form.gstRate,
+            category: form.category,
+            unit: form.unit,
+            lowStockAlert: +form.lowStockAlert,
+        };
         if (existing) await updateProduct({ variables: { productId: existing.productId, input } } as any);
         else await createProduct({ variables: { input } } as any);
         await refetch();

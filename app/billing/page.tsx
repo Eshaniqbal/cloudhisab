@@ -168,7 +168,6 @@ export default function BillingPage() {
                             { label: "Paid Now", val: `₹${fmtN(success.amountPaid)}`, color: "#10b981", size: 15, bold: false },
                             { label: "Balance Due", val: `₹${fmtN(success.balanceDue)}`, color: hasBal ? "#f87171" : "#10b981", size: 15, bold: false },
                             { label: "GST Collected", val: `₹${fmtN(success.totalGst)}`, color: "#818cf8", size: 13, bold: false },
-                            { label: "Your Profit", val: `₹${fmtN(success.totalProfit)}`, color: "#10b981", size: 13, bold: false },
                         ].map((row, i) => (
                             <div key={row.label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0", borderBottom: i < 4 ? "1px solid var(--border)" : "none" }}>
                                 <span style={{ fontSize: 13, color: "var(--muted)" }}>{row.label}</span>
@@ -490,10 +489,6 @@ export default function BillingPage() {
                                 <span style={{ fontSize: 22, fontWeight: 900, color: "#818cf8", fontVariantNumeric: "tabular-nums", letterSpacing: "-0.5px" }}>
                                     ₹{fmtN(totalAmount)}
                                 </span>
-                            </div>
-                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
-                                <span style={{ color: "var(--muted)" }}>Your Profit</span>
-                                <span style={{ color: "#10b981", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>+₹{fmtN(totalProfit)}</span>
                             </div>
                         </div>
                     </div>

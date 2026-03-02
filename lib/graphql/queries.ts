@@ -99,6 +99,7 @@ export const LIST_INVOICES = gql`
           productName
           sku
           quantity
+          unit
           sellingPrice
           gstRate
           gstAmount
@@ -124,6 +125,7 @@ export const GET_INVOICE = gql`
         productName
         sku
         quantity
+        unit
         costPrice
         sellingPrice
         gstRate

@@ -5,7 +5,7 @@ import { AuthGuard } from "@/components/AuthGuard";
 import { LIST_INVOICES } from "@/lib/graphql/queries";
 import {
     FileText, Search, Printer, Eye, Loader2,
-    TrendingUp, IndianRupee, Receipt, Calendar,
+    IndianRupee, Receipt, Calendar,
     ChevronLeft, ChevronRight, Clock, CheckCircle2,
 } from "lucide-react";
 
@@ -62,7 +62,6 @@ export default function InvoicesPage() {
 
     // Summary stats
     const totalRevenue = allInvoices.reduce((s: number, i: any) => s + (i.totalAmount || 0), 0);
-    const totalProfit = allInvoices.reduce((s: number, i: any) => s + (i.totalProfit || 0), 0);
     const totalGst = allInvoices.reduce((s: number, i: any) => s + (i.totalGst || 0), 0);
 
     return (
@@ -79,11 +78,10 @@ export default function InvoicesPage() {
             </div>
 
             {/* ── Summary cards ───────────────────────── */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 20 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginBottom: 20 }}>
                 {[
                     { label: "Total Invoices", val: String(total), icon: FileText, color: "#818cf8" },
                     { label: "Revenue", val: `₹${fmtShort(totalRevenue)}`, icon: IndianRupee, color: "#34d399" },
-                    { label: "Your Profit", val: `₹${fmtShort(totalProfit)}`, icon: TrendingUp, color: "#f59e0b" },
                     { label: "GST Collected", val: `₹${fmtShort(totalGst)}`, icon: Receipt, color: "#818cf8" },
                 ].map(card => (
                     <div key={card.label} className="stat-card" style={{ display: "flex", alignItems: "center", gap: 14 }}>
@@ -167,7 +165,6 @@ export default function InvoicesPage() {
                                     <th>Items</th>
                                     <th>Payment</th>
                                     <th>Amount</th>
-                                    <th>Profit</th>
                                     <th>PDF</th>
                                     <th></th>
                                 </tr>
@@ -209,9 +206,6 @@ export default function InvoicesPage() {
                                             </td>
                                             <td className="num" style={{ fontWeight: 700, fontSize: 14 }}>
                                                 ₹{fmt(inv.totalAmount)}
-                                            </td>
-                                            <td className="num" style={{ color: "#34d399", fontWeight: 600 }}>
-                                                ₹{fmt(inv.totalProfit)}
                                             </td>
                                             <td>
                                                 {inv.pdfUrl ? (
