@@ -233,6 +233,54 @@ export default function InvoiceDetailPage() {
                     </div>
                 </div>
 
+                {/* Payment Summary */}
+                {(() => {
+                    const amountPaid = inv.amountPaid ?? inv.totalAmount;
+                    const balanceDue = inv.balanceDue ?? 0;
+                    const totalAmount = inv.totalAmount ?? 0;
+                    return (
+                        <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 24, border: "1px solid #e5e7eb" }}>
+                            <thead>
+                                <tr style={{ background: "#f9fafb", borderBottom: "1px solid #e5e7eb" }}>
+                                    <th colSpan={2} style={{ padding: "8px 14px", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, color: "#6b7280", textAlign: "left" }}>
+                                        Payment Summary
+                                    </th>
+                                    <th style={{ padding: "8px 14px", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, color: "#6b7280", textAlign: "right" }}>
+                                        Mode: {inv.paymentMethod}
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td style={{ padding: "14px 16px", width: "33.33%", borderRight: "1px solid #f0f0f0", verticalAlign: "top" }}>
+                                        <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 0.8, color: "#9ca3af", fontWeight: 600, marginBottom: 4 }}>Invoice Total</div>
+                                        <div style={{ fontSize: 16, fontWeight: 800, color: "#4f46e5", fontVariantNumeric: "tabular-nums" }}>₹{fmt(totalAmount)}</div>
+                                    </td>
+                                    <td style={{ padding: "14px 16px", width: "33.33%", borderRight: "1px solid #f0f0f0", verticalAlign: "top" }}>
+                                        <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 0.8, color: "#9ca3af", fontWeight: 600, marginBottom: 4 }}>Amount Paid</div>
+                                        <div style={{ fontSize: 16, fontWeight: 800, color: "#15803d", fontVariantNumeric: "tabular-nums" }}>₹{fmt(amountPaid)}</div>
+                                    </td>
+                                    <td style={{ padding: "14px 16px", width: "33.33%", verticalAlign: "top" }}>
+                                        <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 0.8, color: "#9ca3af", fontWeight: 600, marginBottom: 4 }}>Balance Due</div>
+                                        {balanceDue <= 0
+                                            ? <div style={{ fontSize: 16, fontWeight: 800, color: "#9ca3af" }}>✓ Nil</div>
+                                            : <div style={{ fontSize: 16, fontWeight: 800, color: "#dc2626", fontVariantNumeric: "tabular-nums" }}>₹{fmt(balanceDue)}</div>
+                                        }
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    );
+                })()
+                }
+
+                {/* Outstanding balance alert */}
+                {(inv.balanceDue ?? 0) > 0 && (
+                    <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 8, padding: "10px 16px", marginBottom: 20, fontSize: 11.5, color: "#b91c1c" }}>
+                        ⚠ <strong>Outstanding Balance:</strong> ₹{fmt(inv.balanceDue)} is pending. Please settle at the earliest.
+                    </div>
+                )}
+
                 {/* Notes */}
                 {inv.notes && (
                     <div style={{ background: "#f9fafb", borderLeft: "3px solid #4f46e5", padding: "10px 16px", borderRadius: "0 6px 6px 0", marginBottom: 24 }}>

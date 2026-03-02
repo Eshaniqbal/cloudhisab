@@ -136,6 +136,8 @@ export const GET_INVOICE = gql`
       totalGst
       discountAmount
       totalAmount
+      amountPaid
+      balanceDue
       totalCost
       totalProfit
       paymentMethod
