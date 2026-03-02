@@ -1,11 +1,13 @@
 "use client";
-import { useQuery } from "@apollo/client";
+import { useState, useEffect, useRef } from "react";
+import { useQuery, useLazyQuery } from "@apollo/client";
 import { AuthGuard } from "@/components/AuthGuard";
-import { GET_DASHBOARD } from "@/lib/graphql/queries";
+import { GET_DASHBOARD, GET_PROFIT_REPORT } from "@/lib/graphql/queries";
 import {
     TrendingUp, TrendingDown, Receipt, Package,
     IndianRupee, AlertTriangle, BarChart3, RefreshCw,
     ArrowUpRight, ArrowDownRight, ShoppingBag, Zap,
+    Calendar, ArrowRight, Download, Loader2, ChevronDown, X,
 } from "lucide-react";
 
 function fmt(n: number) {
@@ -15,6 +17,21 @@ function fmtShort(n: number) {
     if (n >= 100000) return `₹${(n / 100000).toFixed(1)}L`;
     if (n >= 1000) return `₹${(n / 1000).toFixed(1)}K`;
     return `₹${n}`;
+}
+function fmtFull(n: number) {
+    return `₹${n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+/* ─── CSV Export Helper ─────────────────────────────────────────────── */
+function downloadCSV(rows: string[][], filename: string) {
+    const csv = rows.map(r => r.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
 }
 
 /* ─── Animated Metric Card ─────────────────────────────────────────── */
@@ -43,7 +60,6 @@ function MetricCard({ label, value, sub, icon: Icon, gradient, trend, trendLabel
                 el.style.boxShadow = "none";
             }}
         >
-            {/* Top row: icon + trend badge */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
                 <div style={{
                     width: 42, height: 42, borderRadius: 12,
@@ -66,17 +82,12 @@ function MetricCard({ label, value, sub, icon: Icon, gradient, trend, trendLabel
                     </div>
                 )}
             </div>
-
-            {/* Value */}
             <div style={{ fontSize: 28, fontWeight: 900, color: "var(--text)", fontVariantNumeric: "tabular-nums", letterSpacing: "-0.5px", lineHeight: 1 }}>
                 {value}
             </div>
-
-            {/* Label */}
             <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 6, fontWeight: 600, letterSpacing: "0.3px" }}>
                 {label}
             </div>
-
             {sub && (
                 <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4, opacity: 0.7 }}>{sub}</div>
             )}
@@ -148,6 +159,344 @@ function SkeletonCard({ height = 130 }: { height?: number }) {
     return <div className="skeleton" style={{ height, borderRadius: 18 }} />;
 }
 
+/* ─── Date Range Filter Dropdown ────────────────────────────────────── */
+function DateRangeFilter() {
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const todayStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+    const firstDay = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-01`;
+
+    const [open, setOpen] = useState(false);
+    const [dateFrom, setDateFrom] = useState(firstDay);
+    const [dateTo, setDateTo] = useState(todayStr);
+    const [hasResult, setHasResult] = useState(false);
+    const dropdownRef = useRef<HTMLDivElement>(null);
+
+    const [runReport, { data, loading }] = useLazyQuery(GET_PROFIT_REPORT, {
+        fetchPolicy: "network-only",
+    } as any);
+
+    const r = data?.getProfitReport;
+
+    // Close on outside click
+    useEffect(() => {
+        function handleClick(e: MouseEvent) {
+            if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+                setOpen(false);
+            }
+        }
+        if (open) document.addEventListener("mousedown", handleClick);
+        return () => document.removeEventListener("mousedown", handleClick);
+    }, [open]);
+
+    const generate = () => {
+        runReport({ variables: { dateFrom, dateTo } } as any);
+        setHasResult(true);
+    };
+
+    const handleCSVSummary = () => {
+        if (!r) return;
+        downloadCSV([
+            ["CloudHisaab Report", `${dateFrom} to ${dateTo}`],
+            [],
+            ["Metric", "Value"],
+            ["Total Revenue", fmtFull(r.totalRevenue)],
+            ["Cost of Goods Sold", fmtFull(r.totalCost)],
+            ["Gross Profit", fmtFull(r.grossProfit)],
+            ["Total Expenses", fmtFull(r.totalExpenses)],
+            ["Net Profit", fmtFull(r.netProfit)],
+            ["Profit Margin %", `${r.profitMarginPercent.toFixed(2)}%`],
+            ["Total Invoices", String(r.invoiceCount)],
+        ], `cloudhisaab-report-${dateFrom}-to-${dateTo}.csv`);
+    };
+
+    const handleCSVDaily = () => {
+        if (!r?.dailyBreakdown?.length) return;
+        downloadCSV([
+            [`Daily Breakdown: ${dateFrom} to ${dateTo}`],
+            [],
+            ["Date", "Revenue", "Gross Profit", "Expenses", "Net Profit", "Invoices"],
+            ...r.dailyBreakdown.map((d: any) => [
+                d.date,
+                fmtFull(d.totalSales),
+                fmtFull(d.totalProfit),
+                fmtFull(d.totalExpenses),
+                fmtFull(d.netProfit),
+                String(d.invoiceCount),
+            ]),
+        ], `cloudhisaab-daily-${dateFrom}-to-${dateTo}.csv`);
+    };
+
+    const marginColor = r
+        ? r.profitMarginPercent >= 20 ? "#10b981"
+            : r.profitMarginPercent >= 10 ? "#f59e0b" : "#ef4444"
+        : "#818cf8";
+
+    const isFiltered = hasResult && r;
+
+    return (
+        <div ref={dropdownRef} style={{ position: "relative" }}>
+            {/* ── Trigger button ── */}
+            <button
+                id="date-filter-btn"
+                onClick={() => setOpen(o => !o)}
+                className="btn btn-ghost"
+                style={{
+                    display: "flex", alignItems: "center", gap: 7, fontSize: 13,
+                    borderColor: isFiltered ? "rgba(99,102,241,0.5)" : undefined,
+                    color: isFiltered ? "#818cf8" : undefined,
+                    background: isFiltered ? "rgba(99,102,241,0.08)" : undefined,
+                    position: "relative",
+                }}
+            >
+                <Calendar size={13} />
+                {isFiltered ? `${dateFrom} → ${dateTo}` : "Date Filter"}
+                {isFiltered && (
+                    <span style={{
+                        width: 6, height: 6, borderRadius: "50%",
+                        background: "#818cf8", display: "inline-block",
+                    }} />
+                )}
+                <ChevronDown size={12} style={{ opacity: 0.6, transform: open ? "rotate(180deg)" : "none", transition: "transform 0.2s" }} />
+            </button>
+
+            {/* ── Dropdown panel ── */}
+            {open && (
+                <div style={{
+                    position: "absolute", top: "calc(100% + 8px)", right: 0,
+                    width: 520, zIndex: 200,
+                    background: "var(--bg-card)",
+                    border: "1px solid var(--border)",
+                    borderRadius: 18,
+                    boxShadow: "0 24px 64px rgba(0,0,0,0.18)",
+                    overflow: "hidden",
+                    animation: "fadeSlideDown 0.15s ease",
+                }}>
+                    {/* Panel header */}
+                    <div style={{
+                        display: "flex", alignItems: "center", justifyContent: "space-between",
+                        padding: "16px 20px 12px",
+                        borderBottom: "1px solid var(--border)",
+                    }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <div style={{
+                                width: 28, height: 28, borderRadius: 8,
+                                background: "linear-gradient(135deg,#4f46e5,#818cf8)",
+                                display: "flex", alignItems: "center", justifyContent: "center",
+                            }}>
+                                <BarChart3 size={13} color="#fff" />
+                            </div>
+                            <span style={{ fontSize: 14, fontWeight: 800, color: "var(--text)" }}>
+                                Date Range Report
+                            </span>
+                        </div>
+                        <button
+                            onClick={() => setOpen(false)}
+                            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: 4, borderRadius: 6, display: "flex" }}
+                        >
+                            <X size={15} />
+                        </button>
+                    </div>
+
+                    {/* Date picker row */}
+                    <div style={{ padding: "14px 20px", borderBottom: "1px solid var(--border)" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                            <Calendar size={13} color="var(--muted)" />
+                            <input
+                                id="filter-date-from"
+                                type="date"
+                                className="input"
+                                style={{ flex: 1, minWidth: 120, fontSize: 13, padding: "7px 10px" }}
+                                value={dateFrom}
+                                onChange={e => setDateFrom(e.target.value)}
+                            />
+                            <ArrowRight size={13} color="var(--muted)" style={{ flexShrink: 0 }} />
+                            <input
+                                id="filter-date-to"
+                                type="date"
+                                className="input"
+                                style={{ flex: 1, minWidth: 120, fontSize: 13, padding: "7px 10px" }}
+                                value={dateTo}
+                                onChange={e => setDateTo(e.target.value)}
+                            />
+                            <button
+                                id="filter-generate-btn"
+                                className="btn btn-primary"
+                                style={{ padding: "8px 16px", fontSize: 13, whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 5 }}
+                                onClick={generate}
+                                disabled={loading}
+                            >
+                                {loading
+                                    ? <><Loader2 size={12} style={{ animation: "spin 0.7s linear infinite" }} /> Loading…</>
+                                    : <><BarChart3 size={12} /> Generate</>
+                                }
+                            </button>
+                        </div>
+
+                        {/* Quick range presets */}
+                        <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
+                            {[
+                                { label: "Today", from: todayStr, to: todayStr },
+                                { label: "This month", from: firstDay, to: todayStr },
+                                {
+                                    label: "Last 7 days",
+                                    from: (() => { const d = new Date(now); d.setDate(d.getDate() - 6); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; })(),
+                                    to: todayStr,
+                                },
+                                {
+                                    label: "Last 30 days",
+                                    from: (() => { const d = new Date(now); d.setDate(d.getDate() - 29); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; })(),
+                                    to: todayStr,
+                                },
+                                {
+                                    label: "Last month",
+                                    from: (() => { const d = new Date(now.getFullYear(), now.getMonth() - 1, 1); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-01`; })(),
+                                    to: (() => { const d = new Date(now.getFullYear(), now.getMonth(), 0); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; })(),
+                                },
+                            ].map(preset => (
+                                <button
+                                    key={preset.label}
+                                    onClick={() => { setDateFrom(preset.from); setDateTo(preset.to); }}
+                                    style={{
+                                        fontSize: 11, padding: "4px 10px", borderRadius: 20, border: "1px solid var(--border)",
+                                        background: dateFrom === preset.from && dateTo === preset.to ? "rgba(99,102,241,0.12)" : "var(--bg-card2)",
+                                        color: dateFrom === preset.from && dateTo === preset.to ? "#818cf8" : "var(--muted)",
+                                        cursor: "pointer", fontWeight: 600, transition: "all 0.15s",
+                                    }}
+                                >
+                                    {preset.label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* ── Results ── */}
+                    {loading && (
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "32px 0", gap: 10 }}>
+                            <Loader2 size={20} style={{ animation: "spin 0.7s linear infinite", color: "#4f46e5" }} />
+                            <span style={{ color: "var(--muted)", fontSize: 13 }}>Generating report…</span>
+                        </div>
+                    )}
+
+                    {!loading && hasResult && !r && (
+                        <div style={{ padding: "32px 20px", textAlign: "center", color: "var(--muted)", fontSize: 13 }}>
+                            No transactions found in this date range.
+                        </div>
+                    )}
+
+                    {!loading && r && (
+                        <div style={{ padding: "16px 20px" }}>
+                            {/* 4 mini stat tiles */}
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8, marginBottom: 12 }}>
+                                {[
+                                    { label: "Revenue", value: fmtShort(r.totalRevenue), full: fmtFull(r.totalRevenue), color: "#818cf8" },
+                                    { label: "Gross Profit", value: fmtShort(r.grossProfit), full: `${r.profitMarginPercent.toFixed(1)}% margin`, color: "#10b981" },
+                                    { label: "Expenses", value: fmtShort(r.totalExpenses), full: fmtFull(r.totalExpenses), color: "#f87171" },
+                                    { label: "Net Profit", value: fmtShort(r.netProfit), full: fmtFull(r.netProfit), color: r.netProfit >= 0 ? "#fbbf24" : "#f87171" },
+                                ].map(tile => (
+                                    <div key={tile.label} style={{
+                                        background: "var(--bg-card2)", border: "1px solid var(--border)",
+                                        borderRadius: 12, padding: "12px 14px",
+                                    }}>
+                                        <div style={{ fontSize: 9, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 5 }}>{tile.label}</div>
+                                        <div style={{ fontSize: 17, fontWeight: 900, color: tile.color, fontVariantNumeric: "tabular-nums" }}>{tile.value}</div>
+                                        <div style={{ fontSize: 9, color: "var(--muted)", marginTop: 3, opacity: 0.8 }}>{tile.full}</div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Margin bar + invoices row */}
+                            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+                                <div style={{ flex: 1, background: "var(--bg-card2)", border: "1px solid var(--border)", borderRadius: 10, padding: "10px 14px" }}>
+                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                                        <span style={{ fontSize: 10, fontWeight: 700, color: "var(--muted)" }}>PROFIT MARGIN</span>
+                                        <span style={{ fontSize: 10, fontWeight: 700, color: marginColor, background: marginColor + "1a", padding: "2px 8px", borderRadius: 20 }}>
+                                            {r.profitMarginPercent >= 20 ? "Excellent" : r.profitMarginPercent >= 10 ? "Good" : "Low"}
+                                        </span>
+                                    </div>
+                                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                        <div style={{ flex: 1, height: 5, background: "var(--border)", borderRadius: 99, overflow: "hidden" }}>
+                                            <div style={{ height: "100%", borderRadius: 99, width: `${Math.min(r.profitMarginPercent, 100)}%`, background: `linear-gradient(90deg,${marginColor},${marginColor}88)`, transition: "width 0.8s ease" }} />
+                                        </div>
+                                        <span style={{ fontSize: 13, fontWeight: 900, color: marginColor, minWidth: 36 }}>{r.profitMarginPercent.toFixed(1)}%</span>
+                                    </div>
+                                </div>
+                                <div style={{ background: "var(--bg-card2)", border: "1px solid var(--border)", borderRadius: 10, padding: "10px 16px", display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                                    <Receipt size={14} color="#818cf8" />
+                                    <div>
+                                        <div style={{ fontSize: 16, fontWeight: 900, color: "#818cf8" }}>{r.invoiceCount}</div>
+                                        <div style={{ fontSize: 9, color: "var(--muted)", fontWeight: 600 }}>INVOICES</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Daily breakdown (compact) */}
+                            {r.dailyBreakdown?.length > 0 && (
+                                <div style={{ marginBottom: 14 }}>
+                                    <div style={{ fontSize: 10, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.6px", marginBottom: 8 }}>Daily Breakdown</div>
+                                    <div style={{ maxHeight: 180, overflowY: "auto", borderRadius: 10, border: "1px solid var(--border)" }}>
+                                        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                                            <thead>
+                                                <tr style={{ background: "var(--bg-card2)", position: "sticky", top: 0 }}>
+                                                    <th style={{ padding: "8px 12px", textAlign: "left", fontWeight: 700, color: "var(--muted)", fontSize: 10 }}>Date</th>
+                                                    <th style={{ padding: "8px 12px", textAlign: "right", fontWeight: 700, color: "var(--muted)", fontSize: 10 }}>Revenue</th>
+                                                    <th style={{ padding: "8px 12px", textAlign: "right", fontWeight: 700, color: "var(--muted)", fontSize: 10 }}>Profit</th>
+                                                    <th style={{ padding: "8px 12px", textAlign: "right", fontWeight: 700, color: "var(--muted)", fontSize: 10 }}>Net</th>
+                                                    <th style={{ padding: "8px 12px", textAlign: "right", fontWeight: 700, color: "var(--muted)", fontSize: 10 }}>Inv</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {r.dailyBreakdown.map((day: any, i: number) => (
+                                                    <tr key={day.date} style={{ borderTop: "1px solid var(--border)", background: i % 2 === 0 ? "transparent" : "var(--bg-card2)" }}>
+                                                        <td style={{ padding: "7px 12px", fontFamily: "monospace", color: "var(--muted)", fontSize: 11 }}>{day.date}</td>
+                                                        <td style={{ padding: "7px 12px", textAlign: "right", color: "#818cf8", fontWeight: 700 }}>{fmtShort(day.totalSales)}</td>
+                                                        <td style={{ padding: "7px 12px", textAlign: "right", color: "#10b981", fontWeight: 700 }}>{fmtShort(day.totalProfit)}</td>
+                                                        <td style={{ padding: "7px 12px", textAlign: "right", color: day.netProfit >= 0 ? "#fbbf24" : "#f87171", fontWeight: 800 }}>{fmtShort(day.netProfit)}</td>
+                                                        <td style={{ padding: "7px 12px", textAlign: "right", color: "var(--muted)" }}>{day.invoiceCount}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* CSV Export buttons */}
+                            <div style={{ display: "flex", gap: 8 }}>
+                                <button
+                                    id="filter-csv-summary-btn"
+                                    className="btn btn-ghost"
+                                    style={{ flex: 1, fontSize: 12, padding: "8px 12px", display: "flex", alignItems: "center", justifyContent: "center", gap: 5, color: "#10b981", borderColor: "rgba(16,185,129,0.3)" }}
+                                    onClick={handleCSVSummary}
+                                >
+                                    <Download size={12} /> Summary CSV
+                                </button>
+                                {r.dailyBreakdown?.length > 0 && (
+                                    <button
+                                        id="filter-csv-daily-btn"
+                                        className="btn btn-ghost"
+                                        style={{ flex: 1, fontSize: 12, padding: "8px 12px", display: "flex", alignItems: "center", justifyContent: "center", gap: 5, color: "#818cf8", borderColor: "rgba(129,140,248,0.3)" }}
+                                        onClick={handleCSVDaily}
+                                    >
+                                        <Download size={12} /> Daily CSV
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            <style>{`
+                @keyframes fadeSlideDown {
+                    from { opacity: 0; transform: translateY(-6px); }
+                    to   { opacity: 1; transform: translateY(0); }
+                }
+            `}</style>
+        </div>
+    );
+}
+
 /* ─── Main Page ─────────────────────────────────────────────────────── */
 export default function DashboardPage() {
     const today = new Date().toISOString().split("T")[0];
@@ -163,7 +512,6 @@ export default function DashboardPage() {
         weekday: "long", day: "numeric", month: "long", year: "numeric",
     });
 
-    // Month progress (days elapsed / days in month)
     const now = new Date();
     const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
     const daysElapsed = now.getDate();
@@ -194,11 +542,16 @@ export default function DashboardPage() {
                         </div>
                         <p style={{ fontSize: 13, color: "var(--muted)" }}>{dateStr}</p>
                     </div>
-                    <button onClick={() => refetch()}
-                        className="btn btn-ghost"
-                        style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 13 }}>
-                        <RefreshCw size={13} /> Refresh
-                    </button>
+
+                    {/* ── Top-bar actions: Date filter + Refresh ── */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <DateRangeFilter />
+                        <button onClick={() => refetch()}
+                            className="btn btn-ghost"
+                            style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 13 }}>
+                            <RefreshCw size={13} /> Refresh
+                        </button>
+                    </div>
                 </div>
 
                 {/* ── TODAY SECTION ────────────────────────────────── */}
