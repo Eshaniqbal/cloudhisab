@@ -147,6 +147,20 @@ export const RECORD_PURCHASE = gql`
   }
 `;
 
+export const ADJUST_STOCK = gql`
+  mutation AdjustStock($input: StockAdjustmentInput!) {
+    adjustStock(input: $input) {
+      productId
+      productName
+      entryType
+      quantity
+      newStock
+      notes
+      createdAt
+    }
+  }
+`;
+
 // ─── Expenses ───
 export const ADD_EXPENSE = gql`
   mutation AddExpense($input: ExpenseInput!) {

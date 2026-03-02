@@ -61,143 +61,186 @@ function ProductModal({ onClose, refetch, existing }: any) {
         : HSN_DICTIONARY.slice(0, 10);
 
     return (
-        <div className="modal-overlay" onClick={onClose}>
-            <div className="modal-box" onClick={e => e.stopPropagation()}>
-                <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-lg font-bold">{existing ? "Edit Product" : "Add New Product"}</h2>
-                    <button onClick={onClose} className="text-slate-400 hover:text-white"><X size={18} /></button>
+        <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={onClose}>
+            <div style={{ width: "100%", maxWidth: 640, background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 24, padding: 32, position: "relative", boxShadow: "0 24px 64px rgba(0,0,0,0.5)", animation: "fadeInScale 0.2s ease", maxHeight: "90vh", display: "flex", flexDirection: "column" }} onClick={e => e.stopPropagation()}>
+                <button onClick={onClose} style={{ position: "absolute", top: 16, right: 16, background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: 8, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 8 }} onMouseEnter={e => e.currentTarget.style.background = "var(--bg-input)"} onMouseLeave={e => e.currentTarget.style.background = "none"}>
+                    <X size={18} />
+                </button>
+
+                <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 28, flexShrink: 0 }}>
+                    <div style={{ width: 48, height: 48, borderRadius: 14, background: "linear-gradient(135deg,#4f46e5,#6366f1)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 8px 20px rgba(79,70,229,0.35)" }}>
+                        {existing ? <Pencil size={22} color="#fff" /> : <Package size={22} color="#fff" />}
+                    </div>
+                    <div>
+                        <h2 style={{ fontSize: 20, fontWeight: 900, color: "var(--text)", letterSpacing: "-0.3px" }}>{existing ? "Edit Product" : "Add New Product"}</h2>
+                        <p style={{ fontSize: 13, color: "var(--muted)", marginTop: 2 }}>{existing ? "Update inventory details" : "Add a new item to your catalogue"}</p>
+                    </div>
                 </div>
 
-                <form onSubmit={submit} className="space-y-4">
-                    <div className="grid grid-cols-2 gap-3">
-                        <div className="form-group col-span-2">
-                            <label>Product Name</label>
-                            <input className="input" value={form.name} onChange={e => set("name", e.target.value)} placeholder="e.g. Samsung Galaxy M14" required />
-                            {suggestion && !existing && (!form.hsnCode || form.hsnCode !== suggestion.hsn) && (
-                                <div className="mt-2 text-xs text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 p-2 rounded-lg cursor-pointer hover:bg-indigo-500/20 transition-all"
-                                    onClick={() => { set("hsnCode", suggestion.hsn); set("gstRate", suggestion.gst); }}>
-                                    <span className="font-bold">✨ Suggestion:</span> This looks like <b>{suggestion.desc}</b>. Click to auto-apply HSN <b>{suggestion.hsn}</b> & GST <b>{suggestion.gst}%</b>.
-                                </div>
-                            )}
-                        </div>
-                        <div className="form-group">
-                            <label>SKU / Barcode</label>
-                            <input className="input" value={form.sku} onChange={e => set("sku", e.target.value.toUpperCase())} placeholder="SGM14-BLK" required />
-                        </div>
-                        <div className="form-group relative">
-                            <label>HSN Code</label>
-                            <input
-                                className="input"
-                                value={showHsnMenu ? hsnSearch : (form.hsnCode || "")}
-                                onChange={e => {
-                                    if (!showHsnMenu) {
-                                        setHsnSearch(e.target.value);
-                                        setShowHsnMenu(true);
-                                    } else {
-                                        setHsnSearch(e.target.value);
-                                    }
-                                    set("hsnCode", e.target.value);
-                                }}
-                                onFocus={() => { setHsnSearch(form.hsnCode || ""); setShowHsnMenu(true); }}
-                                onBlur={() => setTimeout(() => setShowHsnMenu(false), 200)}
-                                placeholder="Search by name or code..."
-                            />
-                            {showHsnMenu && (
-                                <div
-                                    className="absolute z-50 w-full mt-2 rounded-xl shadow-2xl overflow-y-auto"
-                                    style={{
-                                        maxHeight: "260px",
-                                        background: "var(--glass-bg)",
-                                        backdropFilter: "blur(16px)",
-                                        border: "1px solid var(--border)",
-                                        boxShadow: "0 10px 40px var(--shadow)"
+                <div style={{ flex: 1, overflowY: "auto", paddingRight: 8, margin: "0 -8px 0 0" }}>
+                    <form id="product-form" onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+                            <div className="form-group" style={{ gridColumn: "1 / -1" }}>
+                                <label style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)" }}>Product Name <span style={{ color: "#ef4444" }}>*</span></label>
+                                <input className="input" style={{ fontSize: 15 }} value={form.name} onChange={e => set("name", e.target.value)} placeholder="e.g. Samsung Galaxy M14" required autoFocus />
+                                {suggestion && !existing && (!form.hsnCode || form.hsnCode !== suggestion.hsn) && (
+                                    <div style={{ marginTop: 10, padding: "12px 14px", borderRadius: 12, background: "rgba(99,102,241,0.08)", border: "1px solid rgba(99,102,241,0.2)", cursor: "pointer", display: "flex", gap: 10, alignItems: "flex-start", transition: "all 0.15s" }}
+                                        onClick={() => { set("hsnCode", suggestion.hsn); set("gstRate", suggestion.gst); }}
+                                        onMouseEnter={e => e.currentTarget.style.background = "rgba(99,102,241,0.12)"}
+                                        onMouseLeave={e => e.currentTarget.style.background = "rgba(99,102,241,0.08)"}>
+                                        <span style={{ fontSize: 14 }}>✨</span>
+                                        <div style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.5 }}>
+                                            <span style={{ color: "#818cf8", fontWeight: 700 }}>Intelligent Match</span> — Looks like <b>{suggestion.desc}</b>.<br />
+                                            Click to auto-apply HSN <span style={{ fontFamily: "monospace", color: "var(--text)", background: "var(--bg-input)", padding: "1px 4px", borderRadius: 4 }}>{suggestion.hsn}</span> & GST <strong style={{ color: "var(--text)" }}>{suggestion.gst}%</strong>.
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="form-group">
+                                <label style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)" }}>SKU / Barcode</label>
+                                <input className="input" style={{ fontFamily: "monospace", fontSize: 14 }} value={form.sku} onChange={e => set("sku", e.target.value.toUpperCase())} placeholder="SGM14-BLK (optional)" />
+                            </div>
+
+                            <div className="form-group" style={{ position: "relative" }}>
+                                <label style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)" }}>HSN Code</label>
+                                <input
+                                    className="input" style={{ fontFamily: "monospace", fontSize: 14 }}
+                                    value={showHsnMenu ? hsnSearch : (form.hsnCode || "")}
+                                    onChange={e => {
+                                        if (!showHsnMenu) {
+                                            setHsnSearch(e.target.value);
+                                            setShowHsnMenu(true);
+                                        } else {
+                                            setHsnSearch(e.target.value);
+                                        }
+                                        set("hsnCode", e.target.value);
                                     }}
-                                >
-                                    {filteredHsn.map(d => (
-                                        <div
-                                            key={d.hsn}
-                                            className="px-3 py-3 cursor-pointer border-b last:border-0 flex flex-col gap-1.5 transition-colors"
-                                            style={{ borderColor: "var(--border)" }}
-                                            onMouseEnter={e => e.currentTarget.style.background = "var(--bg-input)"}
-                                            onMouseLeave={e => e.currentTarget.style.background = "transparent"}
-                                            onMouseDown={(e) => { e.preventDefault(); set("hsnCode", d.hsn); set("gstRate", d.gst); setShowHsnMenu(false); }}
-                                        >
-                                            <div className="flex justify-between items-start gap-3">
-                                                <span className="font-semibold text-[13px] leading-snug text-wrap" style={{ color: "var(--text)" }}>
-                                                    {d.desc}
-                                                </span>
-                                                <span
-                                                    className="font-mono text-[11px] font-bold px-1.5 py-0.5 rounded shrink-0"
-                                                    style={{ color: "var(--indigo-l)", background: "rgba(99,102,241,0.1)" }}
-                                                >
-                                                    {d.hsn}
-                                                </span>
+                                    onFocus={() => { setHsnSearch(form.hsnCode || ""); setShowHsnMenu(true); }}
+                                    onBlur={() => setTimeout(() => setShowHsnMenu(false), 200)}
+                                    placeholder="Search by name or code…"
+                                />
+                                {showHsnMenu && (
+                                    <div
+                                        style={{
+                                            position: "absolute", zIndex: 50, top: "100%", left: 0, right: 0, marginTop: 8,
+                                            background: "var(--glass-bg)", backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)",
+                                            border: "1px solid var(--border)", borderRadius: 16, boxShadow: "0 16px 48px rgba(0,0,0,0.5)",
+                                            maxHeight: 280, overflowY: "auto", overflowX: "hidden"
+                                        }}
+                                    >
+                                        {filteredHsn.map(d => (
+                                            <div
+                                                key={d.hsn}
+                                                style={{ padding: "12px 14px", cursor: "pointer", borderBottom: "1px solid var(--border)", transition: "all 0.1s" }}
+                                                onMouseEnter={e => e.currentTarget.style.background = "var(--bg-input)"}
+                                                onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                                                onMouseDown={(e) => { e.preventDefault(); set("hsnCode", d.hsn); set("gstRate", d.gst); setShowHsnMenu(false); }}
+                                            >
+                                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 6 }}>
+                                                    <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", lineHeight: 1.4 }}>{d.desc}</span>
+                                                    <span style={{ fontFamily: "monospace", fontSize: 11, fontWeight: 800, padding: "3px 6px", borderRadius: 6, color: "#818cf8", background: "rgba(99,102,241,0.1)", flexShrink: 0 }}>
+                                                        {d.hsn}
+                                                    </span>
+                                                </div>
+                                                <div style={{ fontSize: 11, fontWeight: 600, color: "var(--muted)" }}>
+                                                    GST Rate: <span style={{ color: Number(d.gst) > 0 ? "#f87171" : "#10b981" }}>{d.gst}%</span>
+                                                </div>
                                             </div>
-                                            <div className="text-[11px] font-medium" style={{ color: "var(--muted)" }}>
-                                                GST Rate: <span style={{ color: "var(--red)" }}>{d.gst}%</span>
+                                        ))}
+                                        {filteredHsn.length === 0 && (
+                                            <div style={{ padding: "32px 20px", textAlign: "center", fontSize: 13, color: "var(--muted)" }}>
+                                                No matching HSN codes found.
                                             </div>
-                                        </div>
-                                    ))}
-                                    {filteredHsn.length === 0 && (
-                                        <div className="px-4 py-8 text-center text-[13px]" style={{ color: "var(--muted)" }}>
-                                            No matching HSN codes found.
-                                        </div>
-                                    )}
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="form-group">
+                                <label style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)" }}>Category</label>
+                                <div style={{ position: "relative" }}>
+                                    <select className="input" style={{ appearance: "none", cursor: "pointer" }} value={form.category} onChange={e => set("category", e.target.value)}>
+                                        {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                                    </select>
+                                    <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", color: "var(--muted)", pointerEvents: "none" }}><polyline points="6 9 12 15 18 9"></polyline></svg>
                                 </div>
-                            )}
-                        </div>
-                        <div className="form-group">
-                            <label>Category</label>
-                            <select className="input" value={form.category} onChange={e => set("category", e.target.value)}>
-                                {CATEGORIES.map(c => <option key={c}>{c}</option>)}
-                            </select>
-                        </div>
-                        <div className="form-group">
-                            <label>Cost Price (₹)</label>
-                            <input type="number" step="0.01" className="input" value={form.costPrice} onChange={e => set("costPrice", e.target.value)} placeholder="0.00" required />
-                        </div>
-                        <div className="form-group">
-                            <label>Selling Price (₹)</label>
-                            <input type="number" step="0.01" className="input" value={form.sellingPrice} onChange={e => set("sellingPrice", e.target.value)} placeholder="0.00" required />
-                        </div>
-                        <div className="form-group">
-                            <label>GST Rate (%)</label>
-                            <select className="input" value={form.gstRate} onChange={e => set("gstRate", e.target.value)}>
-                                {GST_RATES.map(r => <option key={r} value={r}>{r}%</option>)}
-                            </select>
-                        </div>
-                        <div className="form-group">
-                            <label>Unit</label>
-                            <select className="input" value={form.unit} onChange={e => set("unit", e.target.value)}>
-                                {UNITS.map(u => <option key={u}>{u}</option>)}
-                            </select>
-                        </div>
-                        <div className="form-group col-span-2">
-                            <label>Low Stock Alert Threshold</label>
-                            <input type="number" className="input" value={form.lowStockAlert} onChange={e => set("lowStockAlert", e.target.value)} min={0} />
-                        </div>
-                    </div>
+                            </div>
 
-                    {/* Margin preview */}
-                    {+form.sellingPrice > 0 && (
-                        <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-xl p-3 flex justify-between text-sm">
-                            <span className="text-slate-400">Margin</span>
-                            <span className={`font-bold ${+margin > 0 ? "text-green-400" : "text-red-400"}`}>{margin}%</span>
-                            <span className="text-slate-400">GST Amount</span>
-                            <span className="text-indigo-400 font-semibold">₹{(+form.sellingPrice * +form.gstRate / 100).toFixed(2)}</span>
-                            <span className="text-slate-400">MRP inc. GST</span>
-                            <span className="text-white font-bold">₹{(+form.sellingPrice * (1 + +form.gstRate / 100)).toFixed(2)}</span>
-                        </div>
-                    )}
+                            <div className="form-group">
+                                <label style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)" }}>Unit</label>
+                                <div style={{ position: "relative" }}>
+                                    <select className="input" style={{ appearance: "none", cursor: "pointer" }} value={form.unit} onChange={e => set("unit", e.target.value)}>
+                                        {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                                    </select>
+                                    <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", color: "var(--muted)", pointerEvents: "none" }}><polyline points="6 9 12 15 18 9"></polyline></svg>
+                                </div>
+                            </div>
 
-                    <div className="flex gap-3 pt-2">
-                        <button type="button" className="btn btn-ghost flex-1" onClick={onClose}>Cancel</button>
-                        <button type="submit" className="btn btn-primary flex-1" disabled={loading}>
-                            {loading && <Loader2 size={14} className="animate-spin" />}
-                            {existing ? "Update" : "Add Product"}
-                        </button>
-                    </div>
-                </form>
+                            <div className="form-group">
+                                <label style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)" }}>GST Rate (%)</label>
+                                <div style={{ position: "relative" }}>
+                                    <select className="input" style={{ appearance: "none", cursor: "pointer" }} value={form.gstRate} onChange={e => set("gstRate", e.target.value)}>
+                                        {GST_RATES.map(r => <option key={r} value={r}>{r}%</option>)}
+                                    </select>
+                                    <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", color: "var(--muted)", pointerEvents: "none" }}><polyline points="6 9 12 15 18 9"></polyline></svg>
+                                </div>
+                            </div>
+
+                            <div className="form-group">
+                                <label style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)" }}>Cost Price (₹) <span style={{ color: "#ef4444" }}>*</span></label>
+                                <input type="number" step="0.01" className="input" style={{ fontSize: 15, fontWeight: 800, fontVariantNumeric: "tabular-nums" }} value={form.costPrice} onChange={e => set("costPrice", e.target.value)} placeholder="0.00" required />
+                            </div>
+
+                            <div className="form-group">
+                                <label style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)" }}>Selling Price (₹) <span style={{ color: "#ef4444" }}>*</span></label>
+                                <input type="number" step="0.01" className="input" style={{ fontSize: 15, fontWeight: 800, fontVariantNumeric: "tabular-nums" }} value={form.sellingPrice} onChange={e => set("sellingPrice", e.target.value)} placeholder="0.00" required />
+                            </div>
+
+                            <div className="form-group" style={{ gridColumn: "1 / -1" }}>
+                                <label style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)" }}>Low Stock Alert Threshold</label>
+                                <input type="number" className="input" value={form.lowStockAlert} onChange={e => set("lowStockAlert", e.target.value)} min={0} />
+                                <div style={{ fontSize: 10, color: "var(--muted)", marginTop: 6 }}>You'll see a warning when inventory drops below this number.</div>
+                            </div>
+                        </div>
+
+                        {/* Margin preview */}
+                        {+form.sellingPrice > 0 && (
+                            <div style={{ background: "var(--bg-card2)", border: "1px solid var(--border)", borderRadius: 14, padding: "16px 20px", display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
+                                <div>
+                                    <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)", marginBottom: 4 }}>Margin</div>
+                                    <div style={{ fontSize: 16, fontWeight: 900, color: +margin > 0 ? "#10b981" : "#f87171" }}>{margin}%</div>
+                                </div>
+                                <div>
+                                    <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)", marginBottom: 4 }}>GST Amount</div>
+                                    <div style={{ fontSize: 16, fontWeight: 900, color: "#818cf8" }}>₹{(+form.sellingPrice * +form.gstRate / 100).toFixed(2)}</div>
+                                </div>
+                                <div>
+                                    <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)", marginBottom: 4 }}>MRP (inc. GST)</div>
+                                    <div style={{ fontSize: 16, fontWeight: 900, color: "var(--text)" }}>₹{(+form.sellingPrice * (1 + +form.gstRate / 100)).toFixed(2)}</div>
+                                </div>
+                            </div>
+                        )}
+                    </form>
+                </div>
+
+                <div style={{ display: "flex", gap: 12, marginTop: 24, paddingTop: 20, borderTop: "1px solid var(--border)", flexShrink: 0 }}>
+                    <button type="button" className="btn btn-ghost" style={{ flex: 1, padding: "12px", fontSize: 14, fontWeight: 700 }} onClick={onClose}>Cancel</button>
+                    <button type="submit" form="product-form" className="btn btn-primary" style={{ flex: 2, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "12px", fontSize: 14, fontWeight: 800, boxShadow: "0 8px 24px rgba(79,70,229,0.35)" }} disabled={loading}>
+                        {loading && <Loader2 size={16} style={{ animation: "spin 0.7s linear infinite" }} />}
+                        {existing ? "Save Changes" : "Create Product"}
+                    </button>
+                </div>
+                <style>{`
+                    @keyframes fadeInScale { from { opacity:0; transform:scale(0.95); } to { opacity:1; transform:scale(1); } }
+                    @keyframes spin { to { transform: rotate(360deg); } }
+                    select option { background: #1e1b4b; color: #f1f5f9; }
+                    /* Fix weird scrollbar sizing on webkit */
+                    ::-webkit-scrollbar { width: 6px; }
+                    ::-webkit-scrollbar-track { background: transparent; }
+                    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+                    ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+                `}</style>
             </div>
         </div>
     );
