@@ -247,11 +247,9 @@ function ImportModal({ onClose, refetch }: { onClose: () => void; refetch: () =>
     }, []);
 
     const startImport = async () => {
-        if (!file) return;
+        if (!file || pollingRef.current) return;
 
-        // Prevent double-submission (e.g. double-click)
-        if (pollingRef.current) return;
-
+        pollingRef.current = true;
         setPhase("uploading");
         setProgress(10);
 
@@ -278,8 +276,7 @@ function ImportModal({ onClose, refetch }: { onClose: () => void; refetch: () =>
             setProgress(60);
             setPhase("processing");
 
-            // 3. Poll for job completion — guard ensures only one loop runs
-            pollingRef.current = true;
+            // 3. Poll for job completion
             let attempts = 0;
 
             const poll = async () => {
@@ -304,7 +301,7 @@ function ImportModal({ onClose, refetch }: { onClose: () => void; refetch: () =>
                         setPhase("error");
                     } else if (attempts < 60) {
                         setProgress(Math.min(95, 60 + attempts * 0.6));
-                        pollRef.current = setTimeout(poll, 3000);
+                        pollRef.current = setTimeout(poll, 5000);
                     } else {
                         pollingRef.current = false;
                         setErrMsg("Import is taking too long. Check job status later.");
@@ -312,11 +309,11 @@ function ImportModal({ onClose, refetch }: { onClose: () => void; refetch: () =>
                     }
                 } catch {
                     // Network hiccup — keep retrying silently
-                    if (attempts < 60) pollRef.current = setTimeout(poll, 3000);
+                    if (attempts < 60) pollRef.current = setTimeout(poll, 5000);
                 }
             };
 
-            pollRef.current = setTimeout(poll, 3000);
+            pollRef.current = setTimeout(poll, 5000);
 
         } catch (e: any) {
             pollingRef.current = false;
@@ -425,8 +422,8 @@ function ImportModal({ onClose, refetch }: { onClose: () => void; refetch: () =>
                             <button onClick={downloadTemplate} className="btn btn-ghost" style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 7, fontSize: 13 }}>
                                 <Download size={14} /> Template
                             </button>
-                            <button onClick={startImport} disabled={!file} className="btn btn-primary" style={{ flex: 2, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "12px", fontSize: 14, fontWeight: 800, opacity: file ? 1 : 0.5 }}>
-                                <Upload size={16} /> Start Import
+                            <button onClick={startImport} disabled={!file || isProcessing} className="btn btn-primary" style={{ flex: 2, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "12px", fontSize: 14, fontWeight: 800, opacity: (file && !isProcessing) ? 1 : 0.5 }}>
+                                <Upload size={16} /> {isProcessing ? "Processing..." : "Start Import"}
                             </button>
                         </div>
                     </>
