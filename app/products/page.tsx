@@ -3,7 +3,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { useQuery, useMutation, useLazyQuery } from "@apollo/client";
 import { AuthGuard } from "@/components/AuthGuard";
 import { LIST_PRODUCTS, GET_IMPORT_JOB_STATUS } from "@/lib/graphql/queries";
-import { CREATE_PRODUCT, UPDATE_PRODUCT, DELETE_PRODUCT, CREATE_PRODUCT_IMPORT_URL } from "@/lib/graphql/mutations";
+import { CREATE_PRODUCT, UPDATE_PRODUCT, DELETE_PRODUCT, CREATE_PRODUCT_IMPORT_URL, NOTIFY_IMPORT_UPLOADED } from "@/lib/graphql/mutations";
 import {
     Plus, Pencil, Trash2, X, Loader2, Package, Search,
     Upload, FileSpreadsheet, CheckCircle, AlertTriangle,
@@ -222,6 +222,7 @@ function ImportModal({ onClose, refetch }: { onClose: () => void; refetch: () =>
     const pollingRef = useRef(false);  // guard: only one poll loop at a time
 
     const [createImportUrl] = useMutation<any, any>(CREATE_PRODUCT_IMPORT_URL);
+    const [notifyUploaded] = useMutation<any, any>(NOTIFY_IMPORT_UPLOADED);
     const [fetchJobStatus] = useLazyQuery<any, any>(GET_IMPORT_JOB_STATUS, { fetchPolicy: "network-only" });
 
     // Cleanup poll timer on unmount
@@ -276,7 +277,10 @@ function ImportModal({ onClose, refetch }: { onClose: () => void; refetch: () =>
             setProgress(60);
             setPhase("processing");
 
-            // 3. Poll for job completion
+            // 3. Notify backend that upload is done — this triggers Lambda via SQS
+            await notifyUploaded({ variables: { importJobId } });
+
+            // 4. Poll for job completion
             let attempts = 0;
 
             const poll = async () => {

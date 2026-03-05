@@ -305,3 +305,10 @@ export const CREATE_PRODUCT_IMPORT_URL = gql`
     }
   }
 `;
+
+// Called AFTER the S3 PUT upload succeeds — triggers the Lambda via SQS
+export const NOTIFY_IMPORT_UPLOADED = gql`
+  mutation NotifyImportUploaded($importJobId: String!) {
+    notifyImportUploaded(importJobId: $importJobId)
+  }
+`;
