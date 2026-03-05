@@ -294,3 +294,14 @@ export const REMOVE_USER = gql`
     removeUser(userId: $userId)
   }
 `;
+
+// ─── Product Import ───
+export const CREATE_PRODUCT_IMPORT_URL = gql`
+  mutation CreateProductImportUrl($fileName: String!, $onDuplicate: String) {
+    createProductImportUrl(fileName: $fileName, onDuplicate: $onDuplicate) {
+      uploadUrl
+      importJobId
+      s3Key
+    }
+  }
+`;

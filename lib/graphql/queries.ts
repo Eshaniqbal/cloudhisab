@@ -356,3 +356,24 @@ export const LIST_USERS = gql`
     }
   }
 `;
+
+// ─── Product Import (status polling — read-only query) ───
+export const GET_IMPORT_JOB_STATUS = gql`
+  query GetImportJobStatus($importJobId: String!) {
+    getImportJobStatus(importJobId: $importJobId) {
+      importJobId
+      status
+      totalRows
+      imported
+      skipped
+      errors {
+        row
+        name
+        reason
+      }
+      errorMsg
+      startedAt
+      completedAt
+    }
+  }
+`;
