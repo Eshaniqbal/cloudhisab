@@ -548,18 +548,29 @@ function ImportModal({ onClose, refetch }: { onClose: () => void; refetch: () =>
 // Products Page
 // ─────────────────────────────────────────────────────────────────────────────
 export default function ProductsPage() {
-    const { data, loading, refetch } = useQuery<any, any>(LIST_PRODUCTS, { fetchPolicy: "cache-and-network" });
+    const searchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const [search, setSearch] = useState("");
+    const { data, loading, refetch } = useQuery<any, any>(LIST_PRODUCTS, {
+        fetchPolicy: "cache-and-network",
+        variables: { search: "" },
+    });
+
+    // Debounced GraphQL search — fires 300 ms after user stops typing
+    const handleSearch = (val: string) => {
+        setSearch(val);
+        if (searchDebounce.current) clearTimeout(searchDebounce.current);
+        searchDebounce.current = setTimeout(() => {
+            refetch({ search: val.trim() || undefined });
+        }, 300);
+    };
+
     const [deleteProduct] = useMutation<any, any>(DELETE_PRODUCT);
     const [modal, setModal] = useState<"add" | "edit" | "import" | null>(null);
     const [editing, setEditing] = useState<any>(null);
-    const [search, setSearch] = useState("");
     const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
     const [deleteLoading, setDeleteLoading] = useState(false);
 
-    const products = (data?.listProducts?.items || []).filter((p: any) =>
-        p.name.toLowerCase().includes(search.toLowerCase()) ||
-        p.sku.toLowerCase().includes(search.toLowerCase())
-    );
+    const products = data?.listProducts?.items || [];
 
     const handleDelete = (id: string, name: string) => setDeleteTarget({ id, name });
     const confirmDelete = async () => {
@@ -608,7 +619,16 @@ export default function ProductsPage() {
                 {/* Search */}
                 <div style={{ position: "relative", marginBottom: 16, maxWidth: 360 }}>
                     <Search size={15} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--muted)", pointerEvents: "none" }} />
-                    <input className="input" style={{ paddingLeft: 36 }} placeholder="Search by name or SKU…" value={search} onChange={e => setSearch(e.target.value)} />
+                    <input
+                        className="input"
+                        style={{ paddingLeft: 36 }}
+                        placeholder="Search by name or SKU…"
+                        value={search}
+                        onChange={e => handleSearch(e.target.value)}
+                    />
+                    {loading && search && (
+                        <Loader2 size={13} style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", color: "var(--muted)", animation: "spin 0.7s linear infinite" }} />
+                    )}
                 </div>
 
                 {/* Table */}
@@ -618,7 +638,7 @@ export default function ProductsPage() {
                             <tr>
                                 <th>Product</th><th>SKU</th><th>HSN</th><th>Category</th>
                                 <th>Cost</th><th>Price</th><th>GST</th><th>Margin</th>
-                                <th>MRP (incl. GST)</th><th></th>
+                                <th>MRP (incl. GST)</th><th>Stock</th><th></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -631,25 +651,43 @@ export default function ProductsPage() {
                                     </td>
                                 </tr>
                             )}
-                            {products.map((p: any) => (
-                                <tr key={p.productId}>
-                                    <td><div className="font-medium text-white">{p.name}</div><div className="text-xs text-slate-500">{p.unit}</div></td>
-                                    <td className="font-mono text-xs text-slate-400">{p.sku}</td>
-                                    <td className="font-mono text-xs text-slate-500">{p.hsnCode || "—"}</td>
-                                    <td><span className="badge badge-indigo">{p.category}</span></td>
-                                    <td className="num text-slate-300">₹{p.costPrice.toFixed(2)}</td>
-                                    <td className="num text-white font-medium">₹{p.sellingPrice.toFixed(2)}</td>
-                                    <td className="num text-slate-400">{p.gstRate}%</td>
-                                    <td className={`num font-semibold ${p.marginPercent > 0 ? "text-green-400" : "text-red-400"}`}>{p.marginPercent.toFixed(1)}%</td>
-                                    <td className="num text-indigo-400">₹{p.sellingPriceWithGst.toFixed(2)}</td>
-                                    <td>
-                                        <div className="flex items-center gap-2">
-                                            <button className="btn btn-ghost px-2 py-1.5" onClick={() => { setEditing(p); setModal("edit"); }}><Pencil size={13} /></button>
-                                            <button className="btn btn-danger px-2 py-1.5" onClick={() => handleDelete(p.productId, p.name)}><Trash2 size={13} /></button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
+                            {products.map((p: any) => {
+                                const stock = p.currentStock ?? null;
+                                const isOut = stock !== null && stock <= 0;
+                                const isLow = stock !== null && stock > 0 && stock <= p.lowStockAlert;
+                                return (
+                                    <tr key={p.productId}>
+                                        <td><div className="font-medium text-white">{p.name}</div><div className="text-xs text-slate-500">{p.unit}</div></td>
+                                        <td className="font-mono text-xs text-slate-400">{p.sku}</td>
+                                        <td className="font-mono text-xs text-slate-500">{p.hsnCode || "—"}</td>
+                                        <td><span className="badge badge-indigo">{p.category}</span></td>
+                                        <td className="num text-slate-300">₹{p.costPrice.toFixed(2)}</td>
+                                        <td className="num text-white font-medium">₹{p.sellingPrice.toFixed(2)}</td>
+                                        <td className="num text-slate-400">{p.gstRate}%</td>
+                                        <td className={`num font-semibold ${p.marginPercent > 0 ? "text-green-400" : "text-red-400"}`}>{p.marginPercent.toFixed(1)}%</td>
+                                        <td className="num text-indigo-400">₹{p.sellingPriceWithGst.toFixed(2)}</td>
+                                        <td className="num">
+                                            {stock === null ? (
+                                                <span style={{ color: "var(--muted)", fontSize: 11 }}>—</span>
+                                            ) : (
+                                                <span style={{
+                                                    fontWeight: 800, fontSize: 13,
+                                                    color: isOut ? "#f87171" : isLow ? "#f59e0b" : "#34d399",
+                                                    display: "flex", alignItems: "center", gap: 4,
+                                                }}>
+                                                    {isOut ? "⚠" : isLow ? "▼" : "✓"} {stock}
+                                                </span>
+                                            )}
+                                        </td>
+                                        <td>
+                                            <div className="flex items-center gap-2">
+                                                <button className="btn btn-ghost px-2 py-1.5" onClick={() => { setEditing(p); setModal("edit"); }}><Pencil size={13} /></button>
+                                                <button className="btn btn-danger px-2 py-1.5" onClick={() => handleDelete(p.productId, p.name)}><Trash2 size={13} /></button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
                         </tbody>
                     </table>
                 </div>

@@ -37,8 +37,8 @@ export const GET_DASHBOARD = gql`
 
 // ─── Products ───
 export const LIST_PRODUCTS = gql`
-  query ListProducts {
-    listProducts {
+  query ListProducts($search: String) {
+    listProducts(search: $search) {
       items {
         productId
         name
