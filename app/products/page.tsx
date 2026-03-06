@@ -15,7 +15,7 @@ import { HSN_DICTIONARY } from "@/lib/hsn_dictionary";
 const GST_RATES = [0, 5, 12, 18, 28];
 const CATEGORIES = ["Electronics", "Clothing", "Food", "Grocery", "Medicine", "Stationery", "Hardware", "Other"];
 const UNITS = ["pcs", "kg", "g", "ltr", "ml", "box", "pack", "pair", "dozen", "meter", "ft"];
-const EMPTY = { name: "", sku: "", hsnCode: "", costPrice: "", sellingPrice: "", gstRate: "18", category: "Other", unit: "pcs", lowStockAlert: "10" };
+const EMPTY = { name: "", sku: "", hsnCode: "", costPrice: "", sellingPrice: "", gstRate: "18", category: "Other", unit: "pcs", lowStockAlert: "10", initialStock: "0" };
 
 function fmt(n: number) {
     return `₹${n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -48,12 +48,15 @@ function ProductModal({ onClose, refetch, existing }: any) {
 
     const submit = async (e: React.FormEvent) => {
         e.preventDefault();
-        const input = {
+        const input: any = {
             name: form.name, sku: form.sku || "", hsnCode: form.hsnCode || "",
             costPrice: +form.costPrice, sellingPrice: +form.sellingPrice,
             gstRate: +form.gstRate, category: form.category, unit: form.unit,
             lowStockAlert: +form.lowStockAlert,
         };
+        if (!existing && form.initialStock && +form.initialStock > 0) {
+            input.initialStock = +form.initialStock;
+        }
         if (existing) await updateProduct({ variables: { productId: existing.productId, input } } as any);
         else await createProduct({ variables: { input } } as any);
         await refetch();
@@ -167,6 +170,25 @@ function ProductModal({ onClose, refetch, existing }: any) {
                                 <label style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)" }}>Selling Price (₹) <span style={{ color: "#ef4444" }}>*</span></label>
                                 <input type="number" step="0.01" className="input" style={{ fontSize: 15, fontWeight: 800, fontVariantNumeric: "tabular-nums" }} value={form.sellingPrice} onChange={e => set("sellingPrice", e.target.value)} placeholder="0.00" required />
                             </div>
+                            {/* Initial Stock — only on create */}
+                            {!existing && (
+                                <div className="form-group" style={{ gridColumn: "1 / -1" }}>
+                                    <label style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)" }}>
+                                        Initial Stock <span style={{ color: "#818cf8", fontWeight: 500, textTransform: "none", fontSize: 10 }}>(optional — set opening stock)</span>
+                                    </label>
+                                    <input
+                                        type="number" min="0" step="1" className="input"
+                                        style={{ fontSize: 15, fontWeight: 800, fontVariantNumeric: "tabular-nums" }}
+                                        value={form.initialStock}
+                                        onChange={e => set("initialStock", e.target.value)}
+                                        placeholder="0"
+                                    />
+                                    <div style={{ fontSize: 10, color: "var(--muted)", marginTop: 6, display: "flex", alignItems: "center", gap: 5 }}>
+                                        <span style={{ color: "#818cf8" }}>ℹ</span>
+                                        This sets the opening stock once. Manage stock later from the <strong style={{ color: "var(--text)" }}>Stock</strong> page.
+                                    </div>
+                                </div>
+                            )}
                             <div className="form-group" style={{ gridColumn: "1 / -1" }}>
                                 <label style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)" }}>Low Stock Alert Threshold</label>
                                 <input type="number" className="input" value={form.lowStockAlert} onChange={e => set("lowStockAlert", e.target.value)} min={0} />
@@ -335,9 +357,9 @@ function ImportModal({ onClose, refetch }: { onClose: () => void; refetch: () =>
     // ── Sample template download (generates a real CSV in-browser) ──
     const downloadTemplate = () => {
         const rows = [
-            ["Product Name", "SKU", "HSN Code", "Category", "Unit", "Cost Price", "Selling Price", "GST Rate (%)", "Low Stock Alert"],
-            ["Example Product", "EX-001", "8471", "Electronics", "pcs", "500", "799", "18", "10"],
-            ["Basmati Rice 5kg", "RICE-5K", "1006", "Grocery", "pack", "280", "350", "5", "20"],
+            ["Product Name", "SKU", "HSN Code", "Category", "Unit", "Cost Price", "Selling Price", "GST Rate (%)", "Low Stock Alert", "Initial Stock"],
+            ["Example Product", "EX-001", "8471", "Electronics", "pcs", "500", "799", "18", "10", "50"],
+            ["Basmati Rice 5kg", "RICE-5K", "1006", "Grocery", "pack", "280", "350", "5", "20", "100"],
         ];
         const csv = rows.map(r => r.join(",")).join("\n");
         const blob = new Blob([csv], { type: "text/csv" });

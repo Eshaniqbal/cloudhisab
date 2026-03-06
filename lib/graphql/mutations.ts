@@ -84,10 +84,12 @@ export const CREATE_PRODUCT = gql`
       unit
       marginPercent
       sellingPriceWithGst
+      currentStock
       createdAt
     }
   }
 `;
+
 
 export const UPDATE_PRODUCT = gql`
   mutation UpdateProduct($productId: String!, $input: ProductInput!) {
