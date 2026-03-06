@@ -164,7 +164,7 @@ export default function InvoiceDetailPage() {
                                 {inv.businessEmail && <>Email: {inv.businessEmail}</>}
                             </div>
                         )}
-                        {inv.businessGstin && <div style={{ fontSize: 9, marginTop: 2 }}>GSTIN: {inv.businessGstin}</div>}
+
                         {/* TAX INVOICE badge */}
                         <div style={{
                             display: "inline-block",
@@ -178,11 +178,9 @@ export default function InvoiceDetailPage() {
                         }}>Tax Invoice</div>
                     </div>
 
-                    {/* Right — Licence numbers */}
+                    {/* Right — GSTIN only */}
                     <div style={{ display: "table-cell", width: "25%", padding: 5, textAlign: "right", fontSize: 8, verticalAlign: "middle" }}>
-                        {inv.dlNo && <div><strong>DL No.:</strong> {inv.dlNo}</div>}
-                        {inv.tin && <div><strong>TIN:</strong> {inv.tin}</div>}
-                        {inv.cstNo && <div><strong>CST No.:</strong> {inv.cstNo}</div>}
+                        {inv.businessGstin && <div><strong>GSTIN:</strong> {inv.businessGstin}</div>}
                     </div>
                 </div>
 
@@ -207,9 +205,6 @@ export default function InvoiceDetailPage() {
                             <tbody style={{ fontSize: 9 }}>
                                 {[
                                     ["Invoice No.", inv.invoiceNumber, "Date", dateStr],
-                                    ["Order No.", inv.orderNo || "---", "Date", inv.orderDate || "---"],
-                                    ["L.R. No.", inv.lrNo || "---", "Date", inv.lrDate || "---"],
-                                    ["Transport", inv.transport || "---", "Cases", inv.cases || "---"],
                                     ["Due Date", inv.dueDate || "---", "Mode", paymentMethod],
                                 ].map(([l1, v1, l2, v2]) => (
                                     <tr key={l1 as string}>
