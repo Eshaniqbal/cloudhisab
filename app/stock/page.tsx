@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@apollo/client";
 import { AuthGuard } from "@/components/AuthGuard";
 import { GET_STOCK_LEVELS, LIST_PRODUCTS } from "@/lib/graphql/queries";
@@ -8,6 +8,7 @@ import {
     Plus, Minus, AlertTriangle, CheckCircle, Layers,
     X, Loader2, PackagePlus, TrendingDown, TrendingUp,
     ShoppingCart, Archive, ArrowUpCircle, ArrowDownCircle,
+    Search,
 } from "lucide-react";
 
 function fmt(n: number) { return n % 1 === 0 ? n.toString() : n.toFixed(1); }
@@ -384,9 +385,24 @@ function StockRow({ l, onRestock }: { l: any; onRestock: (p: { productId: string
 
 /* ─── Page ──────────────────────────────────────────────────────────── */
 export default function StockPage() {
-    const { data, loading, refetch } = useQuery<any, any>(GET_STOCK_LEVELS, { fetchPolicy: "cache-and-network" } as any);
+    const searchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const [search, setSearch] = useState("");
+    const { data, loading, refetch } = useQuery<any, any>(GET_STOCK_LEVELS, {
+        fetchPolicy: "cache-and-network",
+        variables: { search: "" },
+    });
+
     const [modal, setModal] = useState(false);
     const [restockProduct, setRestockProduct] = useState<{ productId: string; productName: string; sku: string; currentStock: number } | null>(null);
+
+    // Debounced GraphQL search
+    const handleSearch = (val: string) => {
+        setSearch(val);
+        if (searchDebounce.current) clearTimeout(searchDebounce.current);
+        searchDebounce.current = setTimeout(() => {
+            refetch({ search: val.trim() || undefined });
+        }, 300);
+    };
 
     const levels = data?.getStockLevels || [];
     const lowStock = levels.filter((l: any) => l.isLowStock);
@@ -413,6 +429,29 @@ export default function StockPage() {
                         style={{ display: "flex", alignItems: "center", gap: 8 }}>
                         <PackagePlus size={15} /> Record Purchase
                     </button>
+                </div>
+
+                {/* ── Search ── */}
+                <div style={{ position: "relative", marginBottom: 16, maxWidth: 360 }}>
+                    <Search size={15} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--muted)", pointerEvents: "none" }} />
+                    <input
+                        className="input"
+                        style={{ paddingLeft: 36, paddingRight: 36 }}
+                        placeholder="Search by name or SKU…"
+                        value={search}
+                        onChange={e => handleSearch(e.target.value)}
+                    />
+                    {loading && search && (
+                        <Loader2 size={13} style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", color: "var(--muted)", animation: "spin 0.7s linear infinite" }} />
+                    )}
+                    {search && !loading && (
+                        <button
+                            onClick={() => handleSearch("")}
+                            style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: 0 }}
+                        >
+                            <X size={14} />
+                        </button>
+                    )}
                 </div>
 
                 {/* ── Summary stat strip ── */}

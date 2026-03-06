@@ -166,8 +166,8 @@ export const GET_INVOICE_DOWNLOAD_URL = gql`
 
 // ─── Stock ───
 export const GET_STOCK_LEVELS = gql`
-  query GetStockLevels {
-    getStockLevels {
+  query GetStockLevels($search: String) {
+    getStockLevels(search: $search) {
       productId
       productName
       sku

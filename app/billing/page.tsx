@@ -42,7 +42,10 @@ const getProductColor = (name: string) => {
 };
 
 export default function BillingPage() {
-    const { data, loading: prodLoading } = useQuery<any, any>(LIST_PRODUCTS, { fetchPolicy: "cache-and-network" } as any);
+    const { data, loading: prodLoading, refetch: refetchProducts } = useQuery<any, any>(
+        LIST_PRODUCTS,
+        { fetchPolicy: "cache-and-network", variables: { search: "" } } as any
+    );
     const [createInvoice, { loading: invoiceLoading }] = useMutation<any, any>(CREATE_INVOICE);
 
     const [cart, setCart] = useState<CartItem[]>([]);
@@ -59,7 +62,20 @@ export default function BillingPage() {
     const searchRef = useRef<HTMLInputElement>(null);
     const stockAlertTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const phoneDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const searchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [foundCustomer, setFoundCustomer] = useState<any>(null);
+    const [searchLoading, setSearchLoading] = useState(false);
+
+    // Debounced GraphQL product search
+    const handleSearch = (val: string) => {
+        setSearch(val);
+        if (searchDebounce.current) clearTimeout(searchDebounce.current);
+        setSearchLoading(true);
+        searchDebounce.current = setTimeout(async () => {
+            await refetchProducts({ search: val.trim() || undefined });
+            setSearchLoading(false);
+        }, 250);
+    };
 
     const showStockAlert = (msg: string) => {
         setStockAlert(msg);
@@ -95,11 +111,7 @@ export default function BillingPage() {
     }, [lookupCustomer]);
 
     const products = data?.listProducts?.items || [];
-    const filtered = search.length > 0
-        ? products.filter((p: any) =>
-            p.name.toLowerCase().includes(search.toLowerCase()) ||
-            p.sku.toLowerCase().includes(search.toLowerCase())
-        ).slice(0, 20) : products.slice(0, 50);
+    const filtered = products.slice(0, search ? 20 : 50);
 
     useEffect(() => { if (paymentMethod !== "PARTIAL") setAmountPaid(""); }, [paymentMethod]);
 
@@ -265,10 +277,13 @@ export default function BillingPage() {
                             style={{ paddingLeft: 30, paddingRight: search ? 28 : 10, fontSize: 12, height: 36 }}
                             placeholder="Search products by name or SKU…"
                             value={search}
-                            onChange={e => setSearch(e.target.value)}
+                            onChange={e => handleSearch(e.target.value)}
                             autoComplete="off" />
-                        {search && (
-                            <button onClick={() => setSearch("")}
+                        {searchLoading && (
+                            <Loader2 size={11} style={{ position: "absolute", right: 9, top: "50%", transform: "translateY(-50%)", color: "var(--muted)", animation: "spin 0.7s linear infinite" }} />
+                        )}
+                        {search && !searchLoading && (
+                            <button onClick={() => handleSearch("")}
                                 style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "var(--muted)", display: "flex" }}>
                                 <X size={11} />
                             </button>
