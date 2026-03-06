@@ -22,7 +22,7 @@ const PM = [
 interface CartItem {
     productId: string; name: string; sku: string;
     sellingPrice: number; costPrice: number; gstRate: number;
-    quantity: number; unit: string;
+    quantity: number; unit: string; stock: number;
 }
 
 const fmtN = (n: number) =>
@@ -54,9 +54,18 @@ export default function BillingPage() {
     const [search, setSearch] = useState("");
     const [success, setSuccess] = useState<any>(null);
     const [error, setError] = useState("");
+    const [stockAlert, setStockAlert] = useState("");
+    const [qtyDraft, setQtyDraft] = useState<Record<string, string>>({});  // raw typed value per productId
     const searchRef = useRef<HTMLInputElement>(null);
+    const stockAlertTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const phoneDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const [foundCustomer, setFoundCustomer] = useState<any>(null);     // existing customer from DB
+    const [foundCustomer, setFoundCustomer] = useState<any>(null);
+
+    const showStockAlert = (msg: string) => {
+        setStockAlert(msg);
+        if (stockAlertTimer.current) clearTimeout(stockAlertTimer.current);
+        stockAlertTimer.current = setTimeout(() => setStockAlert(""), 2800);
+    };
 
     const [lookupCustomer] = useLazyQuery(GET_CUSTOMER_BY_PHONE, { fetchPolicy: "network-only" } as any);
 
@@ -95,15 +104,36 @@ export default function BillingPage() {
     useEffect(() => { if (paymentMethod !== "PARTIAL") setAmountPaid(""); }, [paymentMethod]);
 
     const addToCart = (p: any) => {
+        const stock = p.currentStock ?? p.stock ?? 0;
+        if (stock <= 0) { showStockAlert(`"${p.name}" is out of stock`); return; }
         setCart(c => {
             const ex = c.find(i => i.productId === p.productId);
-            if (ex) return c.map(i => i.productId === p.productId ? { ...i, quantity: i.quantity + 1 } : i);
-            return [...c, { productId: p.productId, name: p.name, sku: p.sku, sellingPrice: p.sellingPrice, costPrice: p.costPrice, gstRate: p.gstRate, unit: p.unit, quantity: 1 }];
+            if (ex) {
+                if (ex.quantity >= stock) { showStockAlert(`Only ${stock} unit(s) of "${p.name}" available`); return c; }
+                return c.map(i => i.productId === p.productId ? { ...i, quantity: i.quantity + 1 } : i);
+            }
+            return [...c, { productId: p.productId, name: p.name, sku: p.sku, sellingPrice: p.sellingPrice, costPrice: p.costPrice, gstRate: p.gstRate, unit: p.unit, quantity: 1, stock }];
         });
     };
 
     const updateQty = (id: string, delta: number) =>
-        setCart(c => c.map(i => i.productId === id ? { ...i, quantity: Math.max(0.5, +(i.quantity + delta).toFixed(1)) } : i).filter(i => i.quantity > 0));
+        setCart(c => c.map(i => {
+            if (i.productId !== id) return i;
+            const next = Math.max(1, +(i.quantity + delta).toFixed(0));
+            if (delta > 0 && next > i.stock) { showStockAlert(`Only ${i.stock} unit(s) of "${i.name}" available`); return i; }
+            return { ...i, quantity: next };
+        }).filter(i => i.quantity > 0));
+
+    const commitQty = (id: string, raw: string) => {
+        const val = parseInt(raw, 10);
+        setCart(c => c.map(i => {
+            if (i.productId !== id) return i;
+            if (!raw || isNaN(val) || val < 1) return { ...i, quantity: 1 };
+            if (val > i.stock) { showStockAlert(`Only ${i.stock} unit(s) of "${i.name}" available`); return { ...i, quantity: i.stock }; }
+            return { ...i, quantity: val };
+        }));
+        setQtyDraft(d => ({ ...d, [id]: "" }));
+    };
 
     const removeItem = (id: string) => setCart(c => c.filter(i => i.productId !== id));
     const clearCart = () => { setCart([]); setCustomer({ name: "", phone: "", gstin: "" }); setDiscount(0); setNotes(""); setAmountPaid(""); };
@@ -197,6 +227,19 @@ export default function BillingPage() {
     /* ── Main POS layout ─────────────────────────────────── */
     return (
         <AuthGuard>
+            {/* Stock Alert Toast */}
+            {stockAlert && (
+                <div style={{
+                    position: "fixed", top: 20, left: "50%", transform: "translateX(-50%)",
+                    zIndex: 9999, background: "rgba(239,68,68,0.95)", color: "#fff",
+                    padding: "10px 20px", borderRadius: 12, fontSize: 13, fontWeight: 700,
+                    boxShadow: "0 8px 30px rgba(239,68,68,0.4)",
+                    display: "flex", alignItems: "center", gap: 8,
+                    animation: "slideDown 0.2s ease",
+                }}>
+                    <AlertTriangle size={14} /> {stockAlert}
+                </div>
+            )}
             <div style={{ display: "flex", gap: 14, height: "calc(100vh - 64px)", overflow: "hidden" }}>
 
                 {/* ══════════════════════════════════════════════
@@ -241,15 +284,17 @@ export default function BillingPage() {
                         )}
                         {filtered.map((p: any) => {
                             const inCart = cart.find(c => c.productId === p.productId);
+                            const stock = p.currentStock ?? p.stock ?? 0;
+                            const outOfStock = stock <= 0;
                             return (
                                 <button key={p.productId} onClick={() => addToCart(p)}
                                     style={{
                                         display: "flex", alignItems: "center", gap: 12,
-                                        background: inCart ? "rgba(79,70,229,0.05)" : "var(--bg-card)",
-                                        border: inCart ? "1px solid rgba(99,102,241,0.3)" : "1px solid var(--border)",
-                                        borderRadius: 11, padding: "10px 13px", cursor: "pointer",
+                                        background: outOfStock ? "rgba(239,68,68,0.03)" : inCart ? "rgba(79,70,229,0.05)" : "var(--bg-card)",
+                                        border: outOfStock ? "1px solid rgba(239,68,68,0.2)" : inCart ? "1px solid rgba(99,102,241,0.3)" : "1px solid var(--border)",
+                                        borderRadius: 11, padding: "10px 13px", cursor: outOfStock ? "not-allowed" : "pointer",
                                         textAlign: "left", width: "100%", transition: "all 0.12s",
-                                        flexShrink: 0,
+                                        flexShrink: 0, opacity: outOfStock ? 0.65 : 1,
                                     }}
                                     onMouseEnter={e => {
                                         const b = e.currentTarget as HTMLButtonElement;
@@ -283,7 +328,7 @@ export default function BillingPage() {
                                         <div style={{ fontSize: 10, color: "var(--muted)", marginTop: 1, fontFamily: "monospace" }}>{p.sku}</div>
                                     </div>
 
-                                    {/* Price + GST + qty badge */}
+                                    {/* Price + GST + stock */}
                                     <div style={{ textAlign: "right", flexShrink: 0 }}>
                                         <div style={{ fontSize: 13, fontWeight: 900, color: "#818cf8", fontVariantNumeric: "tabular-nums" }}>
                                             ₹{fmtN(p.sellingPrice)}
@@ -291,10 +336,23 @@ export default function BillingPage() {
                                         <div style={{ fontSize: 9, color: "var(--muted)", marginTop: 1 }}>
                                             {p.gstRate > 0 ? `+${p.gstRate}% GST` : p.unit}
                                         </div>
+                                        {/* Stock indicator */}
+                                        {(() => {
+                                            const s = p.currentStock ?? p.stock ?? 0;
+                                            if (s <= 0) return <div style={{ fontSize: 9, color: "#f87171", fontWeight: 700, marginTop: 2 }}>Out of stock</div>;
+                                            if (s <= 5) return <div style={{ fontSize: 9, color: "#f59e0b", fontWeight: 700, marginTop: 2 }}>Stock: {s}</div>;
+                                            return <div style={{ fontSize: 9, color: "#34d399", marginTop: 2 }}>Stock: {s}</div>;
+                                        })()}
                                     </div>
 
-                                    {/* In-cart qty badge */}
-                                    {inCart ? (
+                                    {/* In-cart qty badge / out-of-stock */}
+                                    {outOfStock ? (
+                                        <div style={{
+                                            fontSize: 9, fontWeight: 700, color: "#f87171",
+                                            background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)",
+                                            borderRadius: 8, padding: "2px 7px", whiteSpace: "nowrap",
+                                        }}>No stock</div>
+                                    ) : inCart ? (
                                         <div style={{
                                             width: 22, height: 22, borderRadius: 22, flexShrink: 0,
                                             background: "linear-gradient(135deg,#10b981,#34d399)",
@@ -358,11 +416,11 @@ export default function BillingPage() {
                                 </button>
                             </div>
 
-                            {/* Cart rows */}
                             <div style={{ maxHeight: 220, overflowY: "auto", padding: "8px 12px", display: "flex", flexDirection: "column", gap: 6 }}>
                                 {cart.map((item, idx) => {
                                     const gstAmt = item.sellingPrice * item.gstRate / 100 * item.quantity;
                                     const lineTotal = (item.sellingPrice + item.sellingPrice * item.gstRate / 100) * item.quantity;
+                                    const stockLeft = item.stock - item.quantity;
                                     return (
                                         <div key={item.productId} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", background: "var(--bg-input)", borderRadius: 10 }}>
                                             <span style={{ fontSize: 10, fontWeight: 900, color: "#818cf8", minWidth: 16, textAlign: "center" }}>{idx + 1}</span>
@@ -372,11 +430,36 @@ export default function BillingPage() {
                                             <div style={{ flex: 1, minWidth: 0 }}>
                                                 <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{item.name}</div>
                                                 <div style={{ fontSize: 10, color: "var(--muted)" }}>₹{fmtN(item.sellingPrice)}/{item.unit}</div>
+                                                {/* Remaining stock */}
+                                                <div style={{ fontSize: 9, marginTop: 1, fontWeight: 700, color: stockLeft <= 0 ? "#f87171" : stockLeft <= 3 ? "#f59e0b" : "#34d399" }}>
+                                                    {stockLeft <= 0 ? "⚠ Max stock reached" : `${stockLeft} left in stock`}
+                                                </div>
                                             </div>
-                                            <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
-                                                <button onClick={() => updateQty(item.productId, -1)} style={{ width: 24, height: 24, borderRadius: 6, background: "var(--bg-card)", border: "1px solid var(--border)", cursor: "pointer", color: "var(--muted)", display: "flex", alignItems: "center", justifyContent: "center" }}><Minus size={10} /></button>
-                                                <span style={{ minWidth: 24, textAlign: "center", fontWeight: 900, fontSize: 13, fontVariantNumeric: "tabular-nums", color: "var(--text)" }}>{item.quantity}</span>
-                                                <button onClick={() => updateQty(item.productId, 1)} style={{ width: 24, height: 24, borderRadius: 6, background: "rgba(79,70,229,0.12)", border: "1px solid rgba(79,70,229,0.2)", cursor: "pointer", color: "#818cf8", display: "flex", alignItems: "center", justifyContent: "center" }}><Plus size={10} /></button>
+                                            {/* Qty controls — with direct input */}
+                                            <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+                                                <button onClick={() => updateQty(item.productId, -1)} style={{ width: 22, height: 22, borderRadius: 6, background: "var(--bg-card)", border: "1px solid var(--border)", cursor: "pointer", color: "var(--muted)", display: "flex", alignItems: "center", justifyContent: "center" }}><Minus size={10} /></button>
+                                                <input
+                                                    type="number"
+                                                    min={1}
+                                                    max={item.stock}
+                                                    value={qtyDraft[item.productId] !== undefined && qtyDraft[item.productId] !== ""
+                                                        ? qtyDraft[item.productId]
+                                                        : item.quantity}
+                                                    onChange={e => setQtyDraft(d => ({ ...d, [item.productId]: e.target.value }))}
+                                                    onBlur={e => commitQty(item.productId, e.target.value)}
+                                                    onKeyDown={e => { if (e.key === "Enter") commitQty(item.productId, (e.target as HTMLInputElement).value); }}
+                                                    style={{
+                                                        width: 44, height: 22, borderRadius: 6,
+                                                        border: "1px solid var(--border)",
+                                                        background: "var(--bg-card)",
+                                                        color: "var(--text)",
+                                                        fontWeight: 900, fontSize: 12,
+                                                        textAlign: "center",
+                                                        fontVariantNumeric: "tabular-nums",
+                                                        padding: 0,
+                                                    }}
+                                                />
+                                                <button onClick={() => updateQty(item.productId, 1)} style={{ width: 22, height: 22, borderRadius: 6, background: "rgba(79,70,229,0.12)", border: "1px solid rgba(79,70,229,0.2)", cursor: "pointer", color: "#818cf8", display: "flex", alignItems: "center", justifyContent: "center" }}><Plus size={10} /></button>
                                             </div>
                                             <div style={{ textAlign: "right", flexShrink: 0, minWidth: 72 }}>
                                                 <div style={{ fontWeight: 800, fontSize: 13, color: "var(--text)", fontVariantNumeric: "tabular-nums" }}>₹{fmtN(lineTotal)}</div>

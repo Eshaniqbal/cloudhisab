@@ -53,12 +53,14 @@ export const LIST_PRODUCTS = gql`
         marginPercent
         gstAmount
         sellingPriceWithGst
+        currentStock
         createdAt
       }
       total
     }
   }
 `;
+
 
 export const GET_PRODUCT = gql`
   query GetProduct($productId: String!) {
