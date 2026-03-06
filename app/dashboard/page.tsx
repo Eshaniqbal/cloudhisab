@@ -76,8 +76,8 @@ function MetricCard({ label, value, sub, icon: Icon, gradient, trend, trendLabel
                         display: "flex", alignItems: "center", gap: 4,
                         fontSize: 11, fontWeight: 700, borderRadius: 20,
                         padding: "3px 10px",
-                        background: trend === "up" ? "rgba(16,185,129,0.12)" : trend === "down" ? "rgba(239,68,68,0.1)" : "rgba(100,116,139,0.1)",
-                        color: trend === "up" ? "#10b981" : trend === "down" ? "#ef4444" : "var(--muted)",
+                        background: "var(--bg-input)",
+                        color: trend === "up" ? "var(--green)" : trend === "down" ? "var(--red)" : "var(--muted)",
                     }}>
                         {trend === "up" ? <ArrowUpRight size={11} /> : trend === "down" ? <ArrowDownRight size={11} /> : null}
                         {trendLabel}
@@ -230,9 +230,9 @@ function DateRangeFilter() {
     };
 
     const marginColor = r
-        ? r.profitMarginPercent >= 20 ? "#10b981"
-            : r.profitMarginPercent >= 10 ? "#f59e0b" : "#ef4444"
-        : "#818cf8";
+        ? r.profitMarginPercent >= 20 ? "var(--green)"
+            : r.profitMarginPercent >= 10 ? "var(--yellow)" : "var(--red)"
+        : "var(--indigo-l)";
 
     const isFiltered = hasResult && r;
 
@@ -246,7 +246,7 @@ function DateRangeFilter() {
                 style={{
                     display: "flex", alignItems: "center", gap: 7, fontSize: 13,
                     borderColor: isFiltered ? "rgba(99,102,241,0.5)" : undefined,
-                    color: isFiltered ? "#818cf8" : undefined,
+                    color: isFiltered ? "var(--indigo-l)" : undefined,
                     background: isFiltered ? "rgba(99,102,241,0.08)" : undefined,
                     position: "relative",
                 }}
@@ -256,7 +256,7 @@ function DateRangeFilter() {
                 {isFiltered && (
                     <span style={{
                         width: 6, height: 6, borderRadius: "50%",
-                        background: "#818cf8", display: "inline-block",
+                        background: "var(--indigo-l)", display: "inline-block",
                     }} />
                 )}
                 <ChevronDown size={12} style={{ opacity: 0.6, transform: open ? "rotate(180deg)" : "none", transition: "transform 0.2s" }} />
@@ -283,7 +283,7 @@ function DateRangeFilter() {
                         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                             <div style={{
                                 width: 28, height: 28, borderRadius: 8,
-                                background: "linear-gradient(135deg,#4f46e5,#818cf8)",
+                                background: "linear-gradient(135deg,var(--indigo),var(--indigo-l))",
                                 display: "flex", alignItems: "center", justifyContent: "center",
                             }}>
                                 <BarChart3 size={13} color="#fff" />
@@ -362,7 +362,7 @@ function DateRangeFilter() {
                                     style={{
                                         fontSize: 11, padding: "4px 10px", borderRadius: 20, border: "1px solid var(--border)",
                                         background: dateFrom === preset.from && dateTo === preset.to ? "rgba(99,102,241,0.12)" : "var(--bg-card2)",
-                                        color: dateFrom === preset.from && dateTo === preset.to ? "#818cf8" : "var(--muted)",
+                                        color: dateFrom === preset.from && dateTo === preset.to ? "var(--indigo-l)" : "var(--muted)",
                                         cursor: "pointer", fontWeight: 600, transition: "all 0.15s",
                                     }}
                                 >
@@ -375,7 +375,7 @@ function DateRangeFilter() {
                     {/* ── Results ── */}
                     {loading && (
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "32px 0", gap: 10 }}>
-                            <Loader2 size={20} style={{ animation: "spin 0.7s linear infinite", color: "#4f46e5" }} />
+                            <Loader2 size={20} style={{ animation: "spin 0.7s linear infinite", color: "var(--indigo)" }} />
                             <span style={{ color: "var(--muted)", fontSize: 13 }}>Generating report…</span>
                         </div>
                     )}
@@ -391,10 +391,10 @@ function DateRangeFilter() {
                             {/* 4 mini stat tiles */}
                             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8, marginBottom: 12 }}>
                                 {[
-                                    { label: "Revenue", value: fmtShort(r.totalRevenue), full: fmtFull(r.totalRevenue), color: "#818cf8" },
-                                    { label: "Gross Profit", value: fmtShort(r.grossProfit), full: `${r.profitMarginPercent.toFixed(1)}% margin`, color: "#10b981" },
-                                    { label: "Expenses", value: fmtShort(r.totalExpenses), full: fmtFull(r.totalExpenses), color: "#f87171" },
-                                    { label: "Net Profit", value: fmtShort(r.netProfit), full: fmtFull(r.netProfit), color: r.netProfit >= 0 ? "#fbbf24" : "#f87171" },
+                                    { label: "Revenue", value: fmtShort(r.totalRevenue), full: fmtFull(r.totalRevenue), color: "var(--indigo-l)" },
+                                    { label: "Gross Profit", value: fmtShort(r.grossProfit), full: `${r.profitMarginPercent.toFixed(1)}% margin`, color: "var(--green)" },
+                                    { label: "Expenses", value: fmtShort(r.totalExpenses), full: fmtFull(r.totalExpenses), color: "var(--red)" },
+                                    { label: "Net Profit", value: fmtShort(r.netProfit), full: fmtFull(r.netProfit), color: r.netProfit >= 0 ? "var(--yellow)" : "var(--red)" },
                                 ].map(tile => (
                                     <div key={tile.label} style={{
                                         background: "var(--bg-card2)", border: "1px solid var(--border)",
@@ -424,9 +424,9 @@ function DateRangeFilter() {
                                     </div>
                                 </div>
                                 <div style={{ background: "var(--bg-card2)", border: "1px solid var(--border)", borderRadius: 10, padding: "10px 16px", display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-                                    <Receipt size={14} color="#818cf8" />
+                                    <Receipt size={14} color="var(--indigo-l)" />
                                     <div>
-                                        <div style={{ fontSize: 16, fontWeight: 900, color: "#818cf8" }}>{r.invoiceCount}</div>
+                                        <div style={{ fontSize: 16, fontWeight: 900, color: "var(--indigo-l)" }}>{r.invoiceCount}</div>
                                         <div style={{ fontSize: 9, color: "var(--muted)", fontWeight: 600 }}>INVOICES</div>
                                     </div>
                                 </div>
@@ -451,9 +451,9 @@ function DateRangeFilter() {
                                                 {r.dailyBreakdown.map((day: any, i: number) => (
                                                     <tr key={day.date} style={{ borderTop: "1px solid var(--border)", background: i % 2 === 0 ? "transparent" : "var(--bg-card2)" }}>
                                                         <td style={{ padding: "7px 12px", fontFamily: "monospace", color: "var(--muted)", fontSize: 11 }}>{day.date}</td>
-                                                        <td style={{ padding: "7px 12px", textAlign: "right", color: "#818cf8", fontWeight: 700 }}>{fmtShort(day.totalSales)}</td>
-                                                        <td style={{ padding: "7px 12px", textAlign: "right", color: "#10b981", fontWeight: 700 }}>{fmtShort(day.totalProfit)}</td>
-                                                        <td style={{ padding: "7px 12px", textAlign: "right", color: day.netProfit >= 0 ? "#fbbf24" : "#f87171", fontWeight: 800 }}>{fmtShort(day.netProfit)}</td>
+                                                        <td style={{ padding: "7px 12px", textAlign: "right", color: "var(--indigo-l)", fontWeight: 700 }}>{fmtShort(day.totalSales)}</td>
+                                                        <td style={{ padding: "7px 12px", textAlign: "right", color: "var(--green)", fontWeight: 700 }}>{fmtShort(day.totalProfit)}</td>
+                                                        <td style={{ padding: "7px 12px", textAlign: "right", color: day.netProfit >= 0 ? "var(--yellow)" : "var(--red)", fontWeight: 800 }}>{fmtShort(day.netProfit)}</td>
                                                         <td style={{ padding: "7px 12px", textAlign: "right", color: "var(--muted)" }}>{day.invoiceCount}</td>
                                                     </tr>
                                                 ))}
@@ -468,7 +468,7 @@ function DateRangeFilter() {
                                 <button
                                     id="filter-csv-summary-btn"
                                     className="btn btn-ghost"
-                                    style={{ flex: 1, fontSize: 12, padding: "8px 12px", display: "flex", alignItems: "center", justifyContent: "center", gap: 5, color: "#10b981", borderColor: "rgba(16,185,129,0.3)" }}
+                                    style={{ flex: 1, fontSize: 12, padding: "8px 12px", display: "flex", alignItems: "center", justifyContent: "center", gap: 5, color: "var(--green)", borderColor: "rgba(16,185,129,0.3)" }}
                                     onClick={handleCSVSummary}
                                 >
                                     <Download size={12} /> Summary CSV
@@ -477,7 +477,7 @@ function DateRangeFilter() {
                                     <button
                                         id="filter-csv-daily-btn"
                                         className="btn btn-ghost"
-                                        style={{ flex: 1, fontSize: 12, padding: "8px 12px", display: "flex", alignItems: "center", justifyContent: "center", gap: 5, color: "#818cf8", borderColor: "rgba(129,140,248,0.3)" }}
+                                        style={{ flex: 1, fontSize: 12, padding: "8px 12px", display: "flex", alignItems: "center", justifyContent: "center", gap: 5, color: "var(--indigo-l)", borderColor: "rgba(129,140,248,0.3)" }}
                                         onClick={handleCSVDaily}
                                     >
                                         <Download size={12} /> Daily CSV
@@ -534,7 +534,7 @@ export default function DashboardPage() {
                             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                                 <div style={{
                                     width: 32, height: 32, borderRadius: 9,
-                                    background: "linear-gradient(135deg,#4f46e5,#6366f1)",
+                                    background: "linear-gradient(135deg,var(--indigo),#6366f1)",
                                     display: "flex", alignItems: "center", justifyContent: "center",
                                     boxShadow: "0 4px 14px rgba(79,70,229,0.35)",
                                 }}>
@@ -554,8 +554,8 @@ export default function DashboardPage() {
                                     border: `1px solid ${status.status === "active" ? "rgba(16,185,129,0.2)" : "rgba(99,102,241,0.2)"}`,
                                     animation: "fadeSlideDown 0.3s ease",
                                 }}>
-                                    <ShieldCheck size={12} color={status.status === "active" ? "#10b981" : "#818cf8"} />
-                                    <span style={{ fontSize: 11, fontWeight: 800, color: status.status === "active" ? "#10b981" : "#818cf8", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                                    <ShieldCheck size={12} color={status.status === "active" ? "var(--green)" : "var(--indigo-l)"} />
+                                    <span style={{ fontSize: 11, fontWeight: 800, color: status.status === "active" ? "var(--green)" : "var(--indigo-l)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
                                         {status.plan} {status.status === "active" ? "Active" : "Trialing"}
                                     </span>
                                 </div>
@@ -576,7 +576,7 @@ export default function DashboardPage() {
                 </div>
 
                 {/* ── TODAY SECTION ────────────────────────────────── */}
-                <SectionHeader icon={BarChart3} title="Today's Overview" color="#4f46e5" />
+                <SectionHeader icon={BarChart3} title="Today's Overview" color="var(--indigo)" />
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 14 }}>
                     {loading ? [1, 2, 3, 4].map(i => <SkeletonCard key={i} />) : (<>
                         <MetricCard
@@ -584,7 +584,7 @@ export default function DashboardPage() {
                             value={fmtShort(t?.totalSales || 0)}
                             sub={`${t?.invoiceCount || 0} invoice${(t?.invoiceCount || 0) !== 1 ? "s" : ""}`}
                             icon={IndianRupee}
-                            gradient="linear-gradient(135deg,#4f46e5,#6366f1)"
+                            gradient="linear-gradient(135deg,var(--indigo),#6366f1)"
                             trend="up"
                             trendLabel="Today"
                         />
@@ -592,7 +592,7 @@ export default function DashboardPage() {
                             label="Gross Profit"
                             value={fmtShort(t?.totalProfit || 0)}
                             icon={TrendingUp}
-                            gradient="linear-gradient(135deg,#10b981,#34d399)"
+                            gradient="linear-gradient(135deg,var(--green),var(--green))"
                             trend={t?.totalProfit > 0 ? "up" : "neutral"}
                             trendLabel="Earned"
                         />
@@ -600,7 +600,7 @@ export default function DashboardPage() {
                             label="Expenses"
                             value={fmtShort(t?.totalExpenses || 0)}
                             icon={TrendingDown}
-                            gradient="linear-gradient(135deg,#ef4444,#f87171)"
+                            gradient="linear-gradient(135deg,var(--red),var(--red))"
                             trend={t?.totalExpenses > 0 ? "down" : "neutral"}
                             trendLabel="Spent"
                         />
@@ -608,7 +608,7 @@ export default function DashboardPage() {
                             label="Net Profit"
                             value={fmtShort(t?.netProfit || 0)}
                             icon={BarChart3}
-                            gradient="linear-gradient(135deg,#f59e0b,#fbbf24)"
+                            gradient="linear-gradient(135deg,var(--yellow),var(--yellow))"
                             trend={t?.netProfit > 0 ? "up" : "down"}
                             trendLabel="Net"
                         />
@@ -622,14 +622,14 @@ export default function DashboardPage() {
                             value={t?.invoiceCount || 0}
                             label="Invoices Today"
                             icon={Receipt}
-                            color="#818cf8"
+                            color="var(--indigo-l)"
                             bg="rgba(79,70,229,0.10)"
                         />
                         <CountCard
                             value={d?.lowStockCount || 0}
                             label="Low Stock Items"
                             icon={AlertTriangle}
-                            color={(d?.lowStockCount || 0) > 0 ? "#fbbf24" : "#10b981"}
+                            color={(d?.lowStockCount || 0) > 0 ? "var(--yellow)" : "var(--green)"}
                             bg={(d?.lowStockCount || 0) > 0 ? "rgba(245,158,11,0.12)" : "rgba(16,185,129,0.10)"}
                         />
                         <CountCard
@@ -643,7 +643,7 @@ export default function DashboardPage() {
                 )}
 
                 {/* ── THIS MONTH SECTION ───────────────────────────── */}
-                <SectionHeader icon={ShoppingBag} title="This Month" color="#10b981" />
+                <SectionHeader icon={ShoppingBag} title="This Month" color="var(--green)" />
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 14 }}>
                     {loading ? [1, 2, 3, 4].map(i => <SkeletonCard key={i} />) : (<>
                         <MetricCard
@@ -651,14 +651,14 @@ export default function DashboardPage() {
                             value={fmtShort(m?.totalSales || 0)}
                             sub={fmt(m?.totalSales || 0)}
                             icon={IndianRupee}
-                            gradient="linear-gradient(135deg,#4f46e5,#6366f1)"
+                            gradient="linear-gradient(135deg,var(--indigo),#6366f1)"
                         />
                         <MetricCard
                             label="Monthly Profit"
                             value={fmtShort(m?.totalProfit || 0)}
                             sub={fmt(m?.totalProfit || 0)}
                             icon={TrendingUp}
-                            gradient="linear-gradient(135deg,#10b981,#34d399)"
+                            gradient="linear-gradient(135deg,var(--green),var(--green))"
                             trend="up"
                         />
                         <MetricCard
@@ -666,14 +666,14 @@ export default function DashboardPage() {
                             value={fmtShort(m?.totalExpenses || 0)}
                             sub={fmt(m?.totalExpenses || 0)}
                             icon={TrendingDown}
-                            gradient="linear-gradient(135deg,#ef4444,#f87171)"
+                            gradient="linear-gradient(135deg,var(--red),var(--red))"
                         />
                         <MetricCard
                             label="Net Profit"
                             value={fmtShort(m?.netProfit || 0)}
                             sub={fmt(m?.netProfit || 0)}
                             icon={BarChart3}
-                            gradient="linear-gradient(135deg,#f59e0b,#fbbf24)"
+                            gradient="linear-gradient(135deg,var(--yellow),var(--yellow))"
                             trend={(m?.netProfit || 0) > 0 ? "up" : "down"}
                         />
                     </>)}
@@ -693,7 +693,7 @@ export default function DashboardPage() {
                             <div style={{
                                 height: "100%", borderRadius: 99,
                                 width: `${monthProgress}%`,
-                                background: "linear-gradient(90deg,#4f46e5,#818cf8)",
+                                background: "linear-gradient(90deg,var(--indigo),var(--indigo-l))",
                                 transition: "width 1s ease",
                             }} />
                         </div>
@@ -706,7 +706,7 @@ export default function DashboardPage() {
                 {/* ── TOP PRODUCTS TABLE ───────────────────────────── */}
                 {(d?.topProducts?.length > 0) && (
                     <div>
-                        <SectionHeader icon={TrendingUp} title="Top Products Today" color="#f59e0b" />
+                        <SectionHeader icon={TrendingUp} title="Top Products Today" color="var(--yellow)" />
                         <div className="table-wrapper">
                             <table className="data-table">
                                 <thead>
@@ -733,7 +733,7 @@ export default function DashboardPage() {
                                                         background: i === 0 ? "rgba(245,158,11,0.15)" : i === 1 ? "rgba(148,163,184,0.12)" : "rgba(79,70,229,0.08)",
                                                         display: "flex", alignItems: "center", justifyContent: "center",
                                                         fontSize: 11, fontWeight: 800,
-                                                        color: i === 0 ? "#f59e0b" : i === 1 ? "#94a3b8" : "#818cf8",
+                                                        color: i === 0 ? "var(--yellow)" : i === 1 ? "#94a3b8" : "var(--indigo-l)",
                                                     }}>
                                                         {i + 1}
                                                     </div>
@@ -741,17 +741,17 @@ export default function DashboardPage() {
                                                 <td style={{ fontWeight: 700, color: "var(--text)" }}>{p.productName}</td>
                                                 <td style={{ color: "var(--muted)", fontFamily: "monospace", fontSize: 12 }}>{p.sku}</td>
                                                 <td className="num" style={{ fontWeight: 700 }}>{p.totalQuantitySold}</td>
-                                                <td className="num" style={{ color: "#818cf8", fontWeight: 700 }}>{fmt(p.totalRevenue)}</td>
-                                                <td className="num" style={{ color: "#34d399", fontWeight: 700 }}>{fmt(p.totalProfit)}</td>
+                                                <td className="num" style={{ color: "var(--indigo-l)", fontWeight: 700 }}>{fmt(p.totalRevenue)}</td>
+                                                <td className="num" style={{ color: "var(--green)", fontWeight: 700 }}>{fmt(p.totalProfit)}</td>
                                                 <td className="num">
                                                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                                         <div style={{ flex: 1, height: 5, background: "var(--bg-card2)", borderRadius: 99, overflow: "hidden" }}>
                                                             <div style={{
                                                                 height: "100%", borderRadius: 99, width: `${Math.min(margin, 100)}%`,
-                                                                background: margin > 20 ? "linear-gradient(90deg,#10b981,#34d399)" : margin > 10 ? "linear-gradient(90deg,#f59e0b,#fbbf24)" : "linear-gradient(90deg,#ef4444,#f87171)",
+                                                                background: margin > 20 ? "var(--green)" : margin > 10 ? "var(--yellow)" : "var(--red)",
                                                             }} />
                                                         </div>
-                                                        <span style={{ fontSize: 11, fontWeight: 700, color: margin > 20 ? "#34d399" : margin > 10 ? "#fbbf24" : "#f87171", minWidth: 32 }}>
+                                                        <span style={{ fontSize: 11, fontWeight: 700, color: margin > 20 ? "var(--green)" : margin > 10 ? "var(--yellow)" : "var(--red)", minWidth: 32 }}>
                                                             {margin}%
                                                         </span>
                                                     </div>

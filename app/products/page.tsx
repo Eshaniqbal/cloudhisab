@@ -646,8 +646,8 @@ export default function ProductsPage() {
                             {!loading && products.length === 0 && (
                                 <tr>
                                     <td colSpan={10} className="text-center py-16">
-                                        <Package size={32} className="mx-auto text-slate-600 mb-2" />
-                                        <p className="text-slate-500">No products yet. Add your first product or import from Excel!</p>
+                                        <Package size={32} style={{ margin: "0 auto 8px", color: "var(--muted)" }} />
+                                        <p style={{ color: "var(--muted)" }}>No products yet. Add your first product or import from Excel!</p>
                                     </td>
                                 </tr>
                             )}
@@ -657,13 +657,13 @@ export default function ProductsPage() {
                                 const isLow = stock !== null && stock > 0 && stock <= p.lowStockAlert;
                                 return (
                                     <tr key={p.productId}>
-                                        <td><div className="font-medium text-white">{p.name}</div><div className="text-xs text-slate-500">{p.unit}</div></td>
-                                        <td className="font-mono text-xs text-slate-400">{p.sku}</td>
-                                        <td className="font-mono text-xs text-slate-500">{p.hsnCode || "—"}</td>
+                                        <td><div style={{ fontWeight: 500, color: "var(--text)" }}>{p.name}</div><div style={{ fontSize: 11, color: "var(--muted)" }}>{p.unit}</div></td>
+                                        <td style={{ fontFamily: "monospace", fontSize: 11, color: "var(--muted)" }}>{p.sku}</td>
+                                        <td style={{ fontFamily: "monospace", fontSize: 11, color: "var(--muted)" }}>{p.hsnCode || "—"}</td>
                                         <td><span className="badge badge-indigo">{p.category}</span></td>
-                                        <td className="num text-slate-300">₹{p.costPrice.toFixed(2)}</td>
-                                        <td className="num text-white font-medium">₹{p.sellingPrice.toFixed(2)}</td>
-                                        <td className="num text-slate-400">{p.gstRate}%</td>
+                                        <td className="num" style={{ color: "var(--muted)" }}>₹{p.costPrice.toFixed(2)}</td>
+                                        <td className="num" style={{ color: "var(--text)", fontWeight: 500 }}>₹{p.sellingPrice.toFixed(2)}</td>
+                                        <td className="num" style={{ color: "var(--muted)" }}>{p.gstRate}%</td>
                                         <td className={`num font-semibold ${p.marginPercent > 0 ? "text-green-400" : "text-red-400"}`}>{p.marginPercent.toFixed(1)}%</td>
                                         <td className="num text-indigo-400">₹{p.sellingPriceWithGst.toFixed(2)}</td>
                                         <td className="num">

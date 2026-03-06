@@ -39,7 +39,7 @@ export default function InvoiceDetailPage() {
 
     if (loading) return (
         <AuthGuard>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "50vh", gap: 12, color: "#64748b" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "50vh", gap: 12, color: "var(--muted)" }}>
                 <Loader2 size={22} style={{ animation: "spin 0.8s linear infinite" }} />
                 <span>Loading invoice…</span>
             </div>
@@ -48,10 +48,10 @@ export default function InvoiceDetailPage() {
 
     if (error || !inv) return (
         <AuthGuard>
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "50vh", gap: 14, color: "#64748b" }}>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "50vh", gap: 14, color: "var(--muted)" }}>
                 <div style={{ fontSize: 40 }}>📄</div>
                 <p style={{ fontSize: 15, fontWeight: 600 }}>Invoice not found</p>
-                {error && <p style={{ fontSize: 12, color: "#f87171", maxWidth: 400, textAlign: "center" }}>{error.message}</p>}
+                {error && <p style={{ fontSize: 12, color: "var(--red)", maxWidth: 400, textAlign: "center" }}>{error.message}</p>}
                 <div style={{ display: "flex", gap: 10 }}>
                     <button onClick={() => refetch()} className="btn btn-ghost" style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
                         <RefreshCw size={13} /> Retry
@@ -100,7 +100,7 @@ export default function InvoiceDetailPage() {
         <AuthGuard>
             {/* ── Screen nav bar (hidden on print) ── */}
             <div className="no-print" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
-                <a href="/invoices" style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#64748b", textDecoration: "none" }}>
+                <a href="/invoices" style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--muted)", textDecoration: "none" }}>
                     <ArrowLeft size={14} /> All Invoices
                 </a>
                 <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
@@ -110,12 +110,12 @@ export default function InvoiceDetailPage() {
                             <Download size={14} /> Download PDF
                         </a>
                     ) : urlLoading ? (
-                        <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: "#94a3b8" }}>
+                        <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: "var(--muted)" }}>
                             <Loader2 size={12} style={{ animation: "spin 0.8s linear infinite" }} /> Fetching PDF…
                         </span>
                     ) : (
                         <button onClick={() => fetchDownloadUrl()}
-                            className="btn btn-ghost" style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#f59e0b" }}>
+                            className="btn btn-ghost" style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--yellow)" }}>
                             <Clock size={13} /> PDF pending — refresh
                         </button>
                     )}
@@ -350,10 +350,10 @@ export default function InvoiceDetailPage() {
             {/* PDF Status bar */}
             <div className="no-print" style={{ maxWidth: 860, margin: "16px auto 0" }}>
                 <div className="glass" style={{ padding: "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ fontSize: 12, color: "#64748b" }}>PDF Status</span>
-                    <span style={{ fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 5, color: downloadUrl ? "#34d399" : "#f59e0b" }}>
+                    <span style={{ fontSize: 12, color: "var(--muted)" }}>PDF Status</span>
+                    <span style={{ fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 5, color: downloadUrl ? "var(--green)" : "var(--yellow)" }}>
                         {downloadUrl
-                            ? <><CheckCircle2 size={14} /> Ready — <a href={downloadUrl} target="_blank" rel="noreferrer" style={{ color: "#818cf8", textDecoration: "underline" }}>Download</a></>
+                            ? <><CheckCircle2 size={14} /> Ready — <a href={downloadUrl} target="_blank" rel="noreferrer" style={{ color: "var(--indigo-l)", textDecoration: "underline" }}>Download</a></>
                             : <><Clock size={14} /> Generating…</>}
                     </span>
                 </div>

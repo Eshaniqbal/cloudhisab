@@ -272,27 +272,27 @@ select.input option {
 }
 
 .badge-green {
-  background: rgba(16, 185, 129, 0.1);
-  color: #34d399;
-  border: 1px solid rgba(16, 185, 129, 0.2);
+  background: var(--bg-input);
+  color: var(--green);
+  border: 1px solid var(--border);
 }
 
 .badge-red {
-  background: rgba(239, 68, 68, 0.1);
-  color: #f87171;
-  border: 1px solid rgba(239, 68, 68, 0.2);
+  background: var(--bg-input);
+  color: var(--red);
+  border: 1px solid var(--border);
 }
 
 .badge-yellow {
-  background: rgba(245, 158, 11, 0.1);
-  color: #fbbf24;
-  border: 1px solid rgba(245, 158, 11, 0.2);
+  background: var(--bg-input);
+  color: var(--yellow);
+  border: 1px solid var(--border);
 }
 
 .badge-indigo {
-  background: rgba(99, 102, 241, 0.12);
-  color: #a5b4fc;
-  border: 1px solid rgba(99, 102, 241, 0.2);
+  background: var(--bg-input);
+  color: var(--indigo-l);
+  border: 1px solid var(--border);
 }
 
 .badge-muted {

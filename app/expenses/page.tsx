@@ -135,15 +135,15 @@ export default function ExpensesPage() {
                 {/* Summary cards */}
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                     <div className="stat-card col-span-2 lg:col-span-1">
-                        <div className="text-xs text-slate-400 uppercase tracking-widest mb-1">Total This Month</div>
-                        <div className="text-2xl font-bold text-red-400 num">₹{total.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</div>
-                        <div className="text-xs text-slate-500 mt-1">{expenses.length} entries</div>
+                        <div style={{ fontSize: "10px", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "4px" }}>Total This Month</div>
+                        <div style={{ fontSize: "24px", fontWeight: "bold", color: "var(--red)" }} className="num">₹{total.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</div>
+                        <div style={{ fontSize: "10px", color: "var(--muted)", marginTop: "4px" }}>{expenses.length} entries</div>
                     </div>
                     {byCategory.slice(0, 3).map((c: any) => (
                         <div key={c.category} className="stat-card">
-                            <div className="text-xs text-slate-400 mb-1">{c.category}</div>
-                            <div className="text-lg font-bold text-white num">₹{c.total.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</div>
-                            <div className="text-xs text-slate-500">{c.count} entries</div>
+                            <div style={{ fontSize: "11px", color: "var(--muted)", marginBottom: "4px" }}>{c.category}</div>
+                            <div style={{ fontSize: "18px", fontWeight: "bold", color: "var(--text)" }} className="num">₹{c.total.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</div>
+                            <div style={{ fontSize: "10px", color: "var(--muted)" }}>{c.count} entries</div>
                         </div>
                     ))}
                 </div>
@@ -175,11 +175,11 @@ export default function ExpensesPage() {
                             )}
                             {expenses.map((e: any) => (
                                 <tr key={e.expenseId}>
-                                    <td className="text-slate-400 text-xs">{e.date}</td>
+                                    <td style={{ fontSize: "11px", color: "var(--muted)" }}>{e.date}</td>
                                     <td><span className={`badge ${CAT_COLORS[e.category] || "badge-indigo"}`}>{e.category}</span></td>
-                                    <td className="text-white">{e.description}</td>
-                                    <td className="text-slate-400 text-xs">{e.paymentMethod}</td>
-                                    <td className="num font-semibold text-red-400">₹{e.amount.toFixed(2)}</td>
+                                    <td style={{ color: "var(--text)" }}>{e.description}</td>
+                                    <td style={{ fontSize: "11px", color: "var(--muted)" }}>{e.paymentMethod}</td>
+                                    <td className="num" style={{ fontWeight: 600, color: "var(--red)" }}>₹{e.amount.toFixed(2)}</td>
                                     <td>
                                         <button className="btn btn-danger px-2 py-1.5" onClick={() => handleDelete(e.expenseId, e.description)}>
                                             <Trash2 size={13} />

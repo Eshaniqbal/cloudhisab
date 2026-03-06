@@ -16,10 +16,10 @@ const fmtShort = (n: number) =>
     new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 }).format(n);
 
 const PM_COLOR: Record<string, { bg: string; color: string }> = {
-    CASH: { bg: "rgba(16,185,129,0.12)", color: "#34d399" },
-    UPI: { bg: "rgba(129,140,248,0.12)", color: "#818cf8" },
-    CARD: { bg: "rgba(245,158,11,0.12)", color: "#f59e0b" },
-    CREDIT: { bg: "rgba(248,113,113,0.12)", color: "#f87171" },
+    CASH: { bg: "var(--bg-input)", color: "var(--green)" },
+    UPI: { bg: "var(--bg-input)", color: "var(--indigo-l)" },
+    CARD: { bg: "var(--bg-input)", color: "var(--yellow)" },
+    CREDIT: { bg: "var(--bg-input)", color: "var(--red)" },
 };
 
 function todayStr() {
@@ -92,8 +92,8 @@ export default function InvoicesPage() {
                             <card.icon size={18} color={card.color} />
                         </div>
                         <div>
-                            <div style={{ fontSize: 18, fontWeight: 800, color: "#f1f5f9", fontVariantNumeric: "tabular-nums" }}>{card.val}</div>
-                            <div style={{ fontSize: 11, color: "#475569", marginTop: 1 }}>{card.label}</div>
+                            <div style={{ fontSize: 18, fontWeight: 800, color: "var(--text)", fontVariantNumeric: "tabular-nums" }}>{card.val}</div>
+                            <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 1 }}>{card.label}</div>
                         </div>
                     </div>
                 ))}
@@ -103,7 +103,7 @@ export default function InvoicesPage() {
             <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
                 {/* Search */}
                 <div style={{ position: "relative", flex: 1, minWidth: 220 }}>
-                    <Search size={14} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: "#64748b", pointerEvents: "none" }} />
+                    <Search size={14} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: "var(--muted)", pointerEvents: "none" }} />
                     <input
                         className="input"
                         style={{ paddingLeft: 34 }}
@@ -115,8 +115,8 @@ export default function InvoicesPage() {
 
                 {/* Date from */}
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <Calendar size={14} style={{ color: "#64748b", flexShrink: 0 }} />
-                    <span style={{ fontSize: 12, color: "#64748b", whiteSpace: "nowrap" }}>From</span>
+                    <Calendar size={14} style={{ color: "var(--muted)", flexShrink: 0 }} />
+                    <span style={{ fontSize: 12, color: "var(--muted)", whiteSpace: "nowrap" }}>From</span>
                     <input
                         type="date" className="input" style={{ width: 148 }}
                         value={dateFrom}
@@ -133,7 +133,7 @@ export default function InvoicesPage() {
                     <button key={f.label}
                         onClick={() => { setDateFrom(f.val); setPage(0); refetch({ dateFrom: f.val }); }}
                         className="btn btn-ghost"
-                        style={{ fontSize: 12, padding: "6px 12px", background: dateFrom === f.val ? "rgba(79,70,229,0.15)" : undefined, color: dateFrom === f.val ? "#818cf8" : undefined }}>
+                        style={{ fontSize: 12, padding: "6px 12px", background: dateFrom === f.val ? "var(--bg-input)" : undefined, color: dateFrom === f.val ? "var(--indigo-l)" : undefined }}>
                         {f.label}
                     </button>
                 ))}
@@ -141,14 +141,14 @@ export default function InvoicesPage() {
 
             {/* ── Table ───────────────────────────────── */}
             {loading && allInvoices.length === 0 ? (
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "60px 0", gap: 10, color: "#475569" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "60px 0", gap: 10, color: "var(--muted)" }}>
                     <Loader2 size={18} style={{ animation: "spin 0.8s linear infinite" }} />
                     <span>Loading invoices…</span>
                 </div>
             ) : error ? (
-                <div style={{ textAlign: "center", padding: "60px 0", color: "#f87171" }}>Failed to load invoices. {error.message}</div>
+                <div style={{ textAlign: "center", padding: "60px 0", color: "var(--red)" }}>Failed to load invoices. {error.message}</div>
             ) : filtered.length === 0 ? (
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "60px 0", gap: 12, color: "#334155" }}>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "60px 0", gap: 12, color: "var(--muted)" }}>
                     <FileText size={44} strokeWidth={1} />
                     <p style={{ fontSize: 14 }}>{search ? `No invoices match "${search}"` : "No invoices found for this period"}</p>
                     {!search && <a href="/billing" className="btn btn-primary" style={{ display: "flex", alignItems: "center", gap: 6 }}><Receipt size={13} /> Create First Invoice</a>}
@@ -171,7 +171,7 @@ export default function InvoicesPage() {
                             </thead>
                             <tbody>
                                 {pageSlice.map((inv: any) => {
-                                    const pm = PM_COLOR[inv.paymentMethod] || { bg: "rgba(100,116,139,0.1)", color: "#64748b" };
+                                    const pm = PM_COLOR[inv.paymentMethod] || { bg: "var(--bg-input)", color: "var(--muted)" };
                                     const d = new Date(inv.createdAt);
                                     const dateStr = d.toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
                                     const timeStr = d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
@@ -180,19 +180,19 @@ export default function InvoicesPage() {
                                             style={{ cursor: "pointer" }}
                                             onClick={() => window.location.href = `/billing/${inv.saleId}`}>
                                             <td>
-                                                <span style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 700, color: "#818cf8" }}>
+                                                <span style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 700, color: "var(--indigo-l)" }}>
                                                     {inv.invoiceNumber}
                                                 </span>
                                             </td>
                                             <td>
                                                 <div style={{ fontWeight: 600, fontSize: 13 }}>{inv.customerName}</div>
-                                                {inv.customerPhone && <div style={{ fontSize: 11, color: "#475569" }}>{inv.customerPhone}</div>}
+                                                {inv.customerPhone && <div style={{ fontSize: 11, color: "var(--muted)" }}>{inv.customerPhone}</div>}
                                             </td>
                                             <td>
                                                 <div style={{ fontSize: 13 }}>{dateStr}</div>
-                                                <div style={{ fontSize: 11, color: "#475569" }}>{timeStr}</div>
+                                                <div style={{ fontSize: 11, color: "var(--muted)" }}>{timeStr}</div>
                                             </td>
-                                            <td className="num" style={{ color: "#94a3b8", fontSize: 13 }}>
+                                            <td className="num" style={{ color: "var(--muted)", fontSize: 13 }}>
                                                 {inv.items?.length ?? "—"}
                                             </td>
                                             <td>
@@ -209,11 +209,11 @@ export default function InvoicesPage() {
                                             </td>
                                             <td>
                                                 {inv.pdfUrl ? (
-                                                    <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "#34d399" }}>
+                                                    <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "var(--green)" }}>
                                                         <CheckCircle2 size={12} /> Ready
                                                     </span>
                                                 ) : (
-                                                    <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "#f59e0b" }}>
+                                                    <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "var(--yellow)" }}>
                                                         <Clock size={12} /> Pending
                                                     </span>
                                                 )}
@@ -222,17 +222,17 @@ export default function InvoicesPage() {
                                                 <div style={{ display: "flex", gap: 6 }}>
                                                     <a href={`/billing/${inv.saleId}`}
                                                         title="View invoice"
-                                                        style={{ display: "flex", alignItems: "center", padding: 5, borderRadius: 6, background: "rgba(255,255,255,0.05)", color: "#94a3b8", textDecoration: "none" }}
+                                                        style={{ display: "flex", alignItems: "center", padding: 5, borderRadius: 6, background: "rgba(255,255,255,0.05)", color: "var(--muted)", textDecoration: "none" }}
                                                         onMouseEnter={e => (e.currentTarget.style.color = "#818cf8")}
-                                                        onMouseLeave={e => (e.currentTarget.style.color = "#94a3b8")}>
+                                                        onMouseLeave={e => (e.currentTarget.style.color = "var(--muted)")}>
                                                         <Eye size={13} />
                                                     </a>
                                                     <a href={`/billing/${inv.saleId}`}
                                                         title="Print invoice"
                                                         onClick={e => { e.preventDefault(); window.open(`/billing/${inv.saleId}`, "_blank"); }}
-                                                        style={{ display: "flex", alignItems: "center", padding: 5, borderRadius: 6, background: "rgba(255,255,255,0.05)", color: "#94a3b8", textDecoration: "none" }}
-                                                        onMouseEnter={e => (e.currentTarget.style.color = "#34d399")}
-                                                        onMouseLeave={e => (e.currentTarget.style.color = "#94a3b8")}>
+                                                        style={{ display: "flex", alignItems: "center", padding: 5, borderRadius: 6, background: "var(--bg-input)", color: "var(--muted)", textDecoration: "none" }}
+                                                        onMouseEnter={e => (e.currentTarget.style.color = "var(--green)")}
+                                                        onMouseLeave={e => (e.currentTarget.style.color = "var(--muted)")}>
                                                         <Printer size={13} />
                                                     </a>
                                                 </div>
@@ -246,7 +246,7 @@ export default function InvoicesPage() {
 
                     {/* ── Pagination ───────────────────────── */}
                     {pages > 1 && (
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 14, fontSize: 12, color: "#64748b" }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 14, fontSize: 12, color: "var(--muted)" }}>
                             <span>Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, filtered.length)} of {filtered.length}</span>
                             <div style={{ display: "flex", gap: 6 }}>
                                 <button
@@ -270,9 +270,10 @@ export default function InvoicesPage() {
                         </div>
                     )}
                 </>
-            )}
+            )
+            }
 
             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-        </AuthGuard>
+        </AuthGuard >
     );
 }

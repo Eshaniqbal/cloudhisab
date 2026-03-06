@@ -14,10 +14,10 @@ const ROLE_LEVEL: Record<string, number> = {
 };
 
 const ROLE_COLOR: Record<string, string> = {
-    SUPER_ADMIN: "#818cf8",
-    MANAGER: "#34d399",
-    ACCOUNTANT: "#f59e0b",
-    CASHIER: "#94a3b8",
+    SUPER_ADMIN: "var(--indigo-l)",
+    MANAGER: "var(--green)",
+    ACCOUNTANT: "var(--yellow)",
+    CASHIER: "var(--muted)",
 };
 
 const NAV_ITEMS = [
@@ -53,10 +53,10 @@ function SignOutConfirmModal({ onConfirm, onCancel }: { onConfirm: () => void; o
                 {/* Icon */}
                 <div style={{
                     width: 52, height: 52, borderRadius: 14,
-                    background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)",
+                    background: "var(--bg-input)", border: "1px solid var(--border)",
                     display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 18px",
                 }}>
-                    <LogOut size={22} color="#ef4444" />
+                    <LogOut size={22} color="var(--red)" />
                 </div>
 
                 <div style={{ textAlign: "center", marginBottom: 20 }}>
@@ -86,12 +86,12 @@ function SignOutConfirmModal({ onConfirm, onCancel }: { onConfirm: () => void; o
                         style={{
                             flex: 1, padding: "10px 0", borderRadius: 10, fontSize: 13.5,
                             fontWeight: 700, cursor: "pointer", border: "none",
-                            background: "linear-gradient(135deg,#ef4444,#dc2626)",
-                            color: "#fff", boxShadow: "0 4px 14px rgba(239,68,68,0.35)",
+                            background: "var(--red)",
+                            color: "#fff", boxShadow: "0 4px 14px rgba(239,68,68,0.2)",
                             transition: "all 0.15s",
                         }}
-                        onMouseEnter={e => { (e.currentTarget as any).style.transform = "translateY(-1px)"; (e.currentTarget as any).style.boxShadow = "0 7px 20px rgba(239,68,68,0.45)"; }}
-                        onMouseLeave={e => { (e.currentTarget as any).style.transform = "none"; (e.currentTarget as any).style.boxShadow = "0 4px 14px rgba(239,68,68,0.35)"; }}
+                        onMouseEnter={e => { (e.currentTarget as any).style.transform = "translateY(-1px)"; }}
+                        onMouseLeave={e => { (e.currentTarget as any).style.transform = "none"; }}
                     >
                         Yes, Sign out
                     </button>
@@ -222,7 +222,7 @@ export function Sidebar() {
                             </div>
 
                             {/* LogOut icon hint */}
-                            <LogOut size={14} style={{ color: "#ef4444", opacity: 0.7, flexShrink: 0 }} />
+                            <LogOut size={14} style={{ color: "var(--red)", opacity: 0.7, flexShrink: 0 }} />
                         </div>
                     )}
                 </div>

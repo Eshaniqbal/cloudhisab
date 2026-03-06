@@ -12,11 +12,11 @@ import {
 } from "lucide-react";
 
 const PM = [
-    { id: "CASH", label: "Cash", icon: "💵", color: "#10b981" },
-    { id: "UPI", label: "UPI", icon: "📱", color: "#818cf8" },
-    { id: "CARD", label: "Card", icon: "💳", color: "#60a5fa" },
-    { id: "CREDIT", label: "Credit", icon: "📋", color: "#f59e0b" },
-    { id: "PARTIAL", label: "Partial", icon: "⚡", color: "#f87171" },
+    { id: "CASH", label: "Cash", icon: "💵", color: "var(--green)" },
+    { id: "UPI", label: "UPI", icon: "📱", color: "var(--indigo-l)" },
+    { id: "CARD", label: "Card", icon: "💳", color: "var(--yellow)" },
+    { id: "CREDIT", label: "Credit", icon: "📋", color: "var(--red)" },
+    { id: "PARTIAL", label: "Partial", icon: "⚡", color: "var(--indigo)" },
 ];
 
 interface CartItem {
@@ -31,12 +31,12 @@ const fmtN = (n: number) =>
 // Consistent color per product category/initial
 const getProductColor = (name: string) => {
     const colors = [
-        "linear-gradient(135deg,#4f46e5,#818cf8)",
-        "linear-gradient(135deg,#10b981,#34d399)",
-        "linear-gradient(135deg,#f59e0b,#fbbf24)",
-        "linear-gradient(135deg,#ef4444,#f87171)",
-        "linear-gradient(135deg,#06b6d4,#67e8f9)",
-        "linear-gradient(135deg,#8b5cf6,#c084fc)",
+        "linear-gradient(135deg,var(--indigo),var(--indigo-l))",
+        "linear-gradient(135deg,var(--green),var(--green))",
+        "linear-gradient(135deg,var(--yellow),var(--yellow))",
+        "linear-gradient(135deg,var(--red),var(--red))",
+        "linear-gradient(135deg,var(--indigo-l),var(--indigo))",
+        "linear-gradient(135deg,var(--green),var(--indigo-l))",
     ];
     return colors[name.charCodeAt(0) % colors.length];
 };

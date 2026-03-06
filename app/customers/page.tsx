@@ -20,16 +20,16 @@ const fmtDate = (d: string) => {
 };
 
 const avatarGrad = (name: string) => {
-    const g = ["linear-gradient(135deg,#4f46e5,#818cf8)", "linear-gradient(135deg,#10b981,#34d399)",
-        "linear-gradient(135deg,#f59e0b,#fbbf24)", "linear-gradient(135deg,#ef4444,#f87171)",
+    const g = ["linear-gradient(135deg,var(--indigo),var(--indigo-l))", "linear-gradient(135deg,var(--green),var(--green))",
+        "linear-gradient(135deg,var(--yellow),var(--yellow))", "linear-gradient(135deg,var(--red),var(--red))",
         "linear-gradient(135deg,#06b6d4,#67e8f9)", "linear-gradient(135deg,#8b5cf6,#c084fc)"];
     return g[name.charCodeAt(0) % g.length];
 };
 
 const ENTRY_CFG: Record<string, { color: string; bg: string; label: string; icon: any; sign: string }> = {
-    INVOICE: { color: "#818cf8", bg: "rgba(99,102,241,0.12)", label: "Invoice", icon: Receipt, sign: "−" },
-    PAYMENT: { color: "#10b981", bg: "rgba(16,185,129,0.12)", label: "Payment", icon: CheckCircle2, sign: "+" },
-    ADVANCE: { color: "#f59e0b", bg: "rgba(245,158,11,0.12)", label: "Advance", icon: Wallet, sign: "+" },
+    INVOICE: { color: "var(--indigo-l)", bg: "rgba(99,102,241,0.12)", label: "Invoice", icon: Receipt, sign: "−" },
+    PAYMENT: { color: "var(--green)", bg: "rgba(16,185,129,0.12)", label: "Payment", icon: CheckCircle2, sign: "+" },
+    ADVANCE: { color: "var(--yellow)", bg: "rgba(245,158,11,0.12)", label: "Advance", icon: Wallet, sign: "+" },
 };
 
 export default function CustomersPage() {
@@ -134,7 +134,7 @@ export default function CustomersPage() {
                         <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 28 }}>
                             <div style={{
                                 width: 52, height: 52, borderRadius: 16, display: "flex", alignItems: "center", justifyContent: "center",
-                                background: payModal === "payment" ? "linear-gradient(135deg,#10b981,#34d399)" : "linear-gradient(135deg,#f59e0b,#fbbf24)",
+                                background: payModal === "payment" ? "linear-gradient(135deg,var(--green),var(--green))" : "linear-gradient(135deg,var(--yellow),var(--yellow))",
                                 boxShadow: payModal === "payment" ? "0 8px 24px rgba(16,185,129,0.35)" : "0 8px 24px rgba(245,158,11,0.35)",
                             }}>
                                 {payModal === "payment" ? <CheckCircle2 size={24} color="#fff" /> : <Wallet size={24} color="#fff" />}
@@ -151,7 +151,7 @@ export default function CustomersPage() {
                         {customer && payModal === "payment" && customer.outstanding > 0 && (
                             <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", borderRadius: 14, padding: "14px 18px", marginBottom: 24, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                                 <span style={{ fontSize: 13, color: "var(--muted)", fontWeight: 600 }}>Outstanding balance</span>
-                                <span style={{ fontSize: 18, fontWeight: 900, color: "#f87171", fontVariantNumeric: "tabular-nums" }}>₹{fmt(customer.outstanding)}</span>
+                                <span style={{ fontSize: 18, fontWeight: 900, color: "var(--red)", fontVariantNumeric: "tabular-nums" }}>₹{fmt(customer.outstanding)}</span>
                             </div>
                         )}
 
@@ -171,7 +171,7 @@ export default function CustomersPage() {
                             </div>
 
                             {modalErr && (
-                                <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", borderRadius: 12, padding: "12px 16px", fontSize: 13, color: "#f87171", display: "flex", alignItems: "center", gap: 8, animation: "slideDown 0.2s ease" }}>
+                                <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", borderRadius: 12, padding: "12px 16px", fontSize: 13, color: "var(--red)", display: "flex", alignItems: "center", gap: 8, animation: "slideDown 0.2s ease" }}>
                                     <AlertTriangle size={15} style={{ flexShrink: 0 }} /> {modalErr}
                                 </div>
                             )}
@@ -205,7 +205,7 @@ export default function CustomersPage() {
                         <div style={{ position: "absolute", top: -30, right: -30, width: 120, height: 120, borderRadius: "50%", background: "radial-gradient(circle, rgba(79,70,229,0.15) 0%, transparent 70%)", pointerEvents: "none" }} />
 
                         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                            <div style={{ width: 44, height: 44, borderRadius: 14, background: "linear-gradient(135deg,#4f46e5,#6366f1)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 8px 20px rgba(79,70,229,0.4)" }}>
+                            <div style={{ width: 44, height: 44, borderRadius: 14, background: "linear-gradient(135deg,var(--indigo),#6366f1)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 8px 20px rgba(79,70,229,0.4)" }}>
                                 <Users size={20} color="#fff" />
                             </div>
                             <div>
@@ -217,8 +217,8 @@ export default function CustomersPage() {
                         {/* Summary strip */}
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                             {[
-                                { label: "Total Billed", val: fmtK(totalInvoiced), color: "#818cf8", bg: "rgba(99,102,241,0.08)", border: "rgba(99,102,241,0.2)" },
-                                { label: "Outstanding", val: fmtK(totalOutstanding), color: totalOutstanding > 0 ? "#f87171" : "#10b981", bg: totalOutstanding > 0 ? "rgba(239,68,68,0.08)" : "rgba(16,185,129,0.08)", border: totalOutstanding > 0 ? "rgba(239,68,68,0.2)" : "rgba(16,185,129,0.2)" },
+                                { label: "Total Billed", val: fmtK(totalInvoiced), color: "var(--indigo-l)", bg: "rgba(99,102,241,0.08)", border: "rgba(99,102,241,0.2)" },
+                                { label: "Outstanding", val: fmtK(totalOutstanding), color: totalOutstanding > 0 ? "var(--red)" : "var(--green)", bg: totalOutstanding > 0 ? "rgba(239,68,68,0.08)" : "rgba(16,185,129,0.08)", border: totalOutstanding > 0 ? "rgba(239,68,68,0.2)" : "rgba(16,185,129,0.2)" },
                             ].map(s => (
                                 <div key={s.label} style={{ background: s.bg, border: `1px solid ${s.border}`, borderRadius: 12, padding: "12px 14px" }}>
                                     <div style={{ fontSize: 10.5, fontWeight: 700, color: "var(--muted)", marginBottom: 4 }}>{s.label}</div>
@@ -248,13 +248,13 @@ export default function CustomersPage() {
                     <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8, paddingRight: 4 }}>
                         {listLoading && (
                             <div style={{ padding: "40px 0", textAlign: "center" }}>
-                                <Loader2 size={24} color="#818cf8" style={{ animation: "spin 0.7s linear infinite" }} />
+                                <Loader2 size={24} color="var(--indigo-l)" style={{ animation: "spin 0.7s linear infinite" }} />
                             </div>
                         )}
                         {!listLoading && customers.length === 0 && (
                             <div style={{ padding: "60px 20px", textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: 16, background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 20 }}>
                                 <div style={{ width: 64, height: 64, borderRadius: 20, background: "rgba(99,102,241,0.08)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                                    <Users size={28} color="#818cf8" strokeWidth={1.5} />
+                                    <Users size={28} color="var(--indigo-l)" strokeWidth={1.5} />
                                 </div>
                                 <div>
                                     <div style={{ fontSize: 15, fontWeight: 800, color: "var(--text)", marginBottom: 6 }}>No customers yet</div>
@@ -286,15 +286,15 @@ export default function CustomersPage() {
                                         <div style={{ flex: 1, minWidth: 0 }}>
                                             <div style={{ fontSize: 14, fontWeight: 800, color: "var(--text)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.name}</div>
                                             <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4, display: "flex", alignItems: "center", gap: 6 }}>
-                                                <Phone size={10} color="#818cf8" /> <span style={{ fontFamily: "monospace", fontSize: 11.5 }}>{c.phone}</span>
+                                                <Phone size={10} color="var(--indigo-l)" /> <span style={{ fontFamily: "monospace", fontSize: 11.5 }}>{c.phone}</span>
                                             </div>
                                         </div>
                                         {/* Balance */}
                                         <div style={{ textAlign: "right", flexShrink: 0 }}>
                                             {hasDebt ? (
-                                                <div style={{ fontSize: 14.5, fontWeight: 900, color: "#f87171", fontVariantNumeric: "tabular-nums" }}>₹{fmt(c.outstanding)}</div>
+                                                <div style={{ fontSize: 14.5, fontWeight: 900, color: "var(--red)", fontVariantNumeric: "tabular-nums" }}>₹{fmt(c.outstanding)}</div>
                                             ) : (
-                                                <div style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10, fontWeight: 800, color: "#10b981", background: "rgba(16,185,129,0.12)", padding: "4px 10px", borderRadius: 20 }}>
+                                                <div style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10, fontWeight: 800, color: "var(--green)", background: "rgba(16,185,129,0.12)", padding: "4px 10px", borderRadius: 20 }}>
                                                     <CheckCircle2 size={10} /> Settled
                                                 </div>
                                             )}
@@ -304,7 +304,7 @@ export default function CustomersPage() {
                                     <div style={{ marginTop: 14, background: "var(--bg-input)", borderRadius: 6, height: 4, overflow: "hidden" }}>
                                         <div style={{
                                             height: "100%", borderRadius: 6, transition: "width 0.5s ease",
-                                            background: "linear-gradient(90deg,#10b981,#34d399)",
+                                            background: "linear-gradient(90deg,var(--green),var(--green))",
                                             width: `${paidPct}%`,
                                         }} />
                                     </div>
@@ -330,14 +330,14 @@ export default function CustomersPage() {
                             <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", width: 400, height: 400, background: "radial-gradient(circle, rgba(99,102,241,0.05) 0%, transparent 60%)", pointerEvents: "none" }} />
 
                             <div style={{ width: 88, height: 88, borderRadius: 28, background: "rgba(99,102,241,0.08)", border: "1px solid rgba(99,102,241,0.2)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 16px 40px rgba(79,70,229,0.1)", zIndex: 1 }}>
-                                <Users size={38} color="#818cf8" strokeWidth={1.5} />
+                                <Users size={38} color="var(--indigo-l)" strokeWidth={1.5} />
                             </div>
                             <div style={{ textAlign: "center", zIndex: 1 }}>
                                 <div style={{ fontSize: 22, fontWeight: 900, color: "var(--text)", marginBottom: 8, letterSpacing: "-0.5px" }}>Select a customer</div>
                                 <div style={{ fontSize: 14, color: "var(--muted)", lineHeight: 1.6 }}>View their full ledger history, record incoming payments,<br />add advances, and track outstanding balances instantly.</div>
                             </div>
                             <div style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 600, color: "var(--muted)", background: "var(--bg-input)", border: "1px solid var(--border)", borderRadius: 99, padding: "8px 20px", zIndex: 1 }}>
-                                <Sparkles size={14} color="#818cf8" /> {customers.length} total customer{customers.length !== 1 ? "s" : ""} <span style={{ color: "var(--border)" }}>|</span> {overdueCount} overdue
+                                <Sparkles size={14} color="var(--indigo-l)" /> {customers.length} total customer{customers.length !== 1 ? "s" : ""} <span style={{ color: "var(--border)" }}>|</span> {overdueCount} overdue
                             </div>
                         </div>
                     )}
@@ -345,7 +345,7 @@ export default function CustomersPage() {
                     {/* Loading */}
                     {selPhone && ledgerLoading && (
                         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", gap: 16 }}>
-                            <Loader2 size={32} color="#818cf8" style={{ animation: "spin 0.7s linear infinite" }} />
+                            <Loader2 size={32} color="var(--indigo-l)" style={{ animation: "spin 0.7s linear infinite" }} />
                             <span style={{ color: "var(--text)", fontSize: 14, fontWeight: 600 }}>Loading ledger…</span>
                         </div>
                     )}
@@ -353,7 +353,7 @@ export default function CustomersPage() {
                     {/* Error */}
                     {selPhone && !ledgerLoading && !ledger && (
                         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", gap: 12 }}>
-                            <div style={{ width: 64, height: 64, borderRadius: 20, background: "rgba(239,68,68,0.1)", display: "flex", alignItems: "center", justifyContent: "center" }}><AlertTriangle size={28} color="#f87171" /></div>
+                            <div style={{ width: 64, height: 64, borderRadius: 20, background: "rgba(239,68,68,0.1)", display: "flex", alignItems: "center", justifyContent: "center" }}><AlertTriangle size={28} color="var(--red)" /></div>
                             <span style={{ color: "var(--text)", fontSize: 15, fontWeight: 700 }}>Could not load ledger</span>
                         </div>
                     )}
@@ -384,7 +384,7 @@ export default function CustomersPage() {
                                                 <button
                                                     onClick={() => handleDeleteCustomer(customer.phone, customer.name)}
                                                     title="Delete customer"
-                                                    style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 8, padding: "6px 8px", cursor: "pointer", display: "flex", alignItems: "center", color: "#f87171", transition: "all 0.15s" }}
+                                                    style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 8, padding: "6px 8px", cursor: "pointer", display: "flex", alignItems: "center", color: "var(--red)", transition: "all 0.15s" }}
                                                     onMouseEnter={e => { e.currentTarget.style.background = "rgba(239,68,68,0.18)" }}
                                                     onMouseLeave={e => { e.currentTarget.style.background = "rgba(239,68,68,0.08)" }}
                                                 >
@@ -392,16 +392,16 @@ export default function CustomersPage() {
                                                 </button>
                                             </div>
                                             <div style={{ fontSize: 13, color: "var(--muted)", display: "flex", alignItems: "center", gap: 14 }}>
-                                                <span style={{ display: "flex", alignItems: "center", gap: 6 }}><Phone size={13} color="#818cf8" /> <span style={{ fontFamily: "monospace", fontSize: 13 }}>{customer.phone}</span></span>
-                                                {customer.gstin && <span style={{ display: "flex", alignItems: "center", gap: 6 }}><CreditCard size={13} color="#10b981" /> {customer.gstin}</span>}
-                                                <span style={{ display: "flex", alignItems: "center", gap: 6 }}><Receipt size={13} color="#f59e0b" /> {customer.invoiceCount} invoices</span>
+                                                <span style={{ display: "flex", alignItems: "center", gap: 6 }}><Phone size={13} color="var(--indigo-l)" /> <span style={{ fontFamily: "monospace", fontSize: 13 }}>{customer.phone}</span></span>
+                                                {customer.gstin && <span style={{ display: "flex", alignItems: "center", gap: 6 }}><CreditCard size={13} color="var(--green)" /> {customer.gstin}</span>}
+                                                <span style={{ display: "flex", alignItems: "center", gap: 6 }}><Receipt size={13} color="var(--yellow)" /> {customer.invoiceCount} invoices</span>
                                             </div>
                                         </div>
                                     </div>
                                     {/* Action buttons */}
                                     <div style={{ display: "flex", gap: 12 }}>
                                         <button
-                                            style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 20px", borderRadius: 12, fontSize: 14, fontWeight: 800, cursor: "pointer", transition: "all 0.15s", background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.25)", color: "#fbbf24" }}
+                                            style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 20px", borderRadius: 12, fontSize: 14, fontWeight: 800, cursor: "pointer", transition: "all 0.15s", background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.25)", color: "var(--yellow)" }}
                                             onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.background = "rgba(245,158,11,0.15)"}
                                             onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.background = "rgba(245,158,11,0.08)"}
                                             onClick={() => { setPayModal("advance"); setModalAmt(""); setModalErr(""); }}>
@@ -418,13 +418,13 @@ export default function CustomersPage() {
                                 {/* Stat cards */}
                                 <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, position: "relative", zIndex: 1 }}>
                                     {[
-                                        { label: "Total Billed", val: `₹${fmt(customer.totalInvoiced)}`, color: "var(--text)", icon: <IndianRupee size={15} color="#818cf8" />, bg: "var(--bg-card)", border: "rgba(99,102,241,0.2)" },
-                                        { label: "Total Paid", val: `₹${fmt(customer.totalPaid)}`, color: "#10b981", icon: <ArrowDownLeft size={15} color="#10b981" />, bg: "rgba(16,185,129,0.05)", border: "rgba(16,185,129,0.2)" },
-                                        { label: "Total Advance", val: `₹${fmt(customer.advance)}`, color: "#f59e0b", icon: <Wallet size={15} color="#f59e0b" />, bg: "rgba(245,158,11,0.05)", border: "rgba(245,158,11,0.2)" },
+                                        { label: "Total Billed", val: `₹${fmt(customer.totalInvoiced)}`, color: "var(--text)", icon: <IndianRupee size={15} color="var(--indigo-l)" />, bg: "var(--bg-card)", border: "rgba(99,102,241,0.2)" },
+                                        { label: "Total Paid", val: `₹${fmt(customer.totalPaid)}`, color: "var(--green)", icon: <ArrowDownLeft size={15} color="var(--green)" />, bg: "rgba(16,185,129,0.05)", border: "rgba(16,185,129,0.2)" },
+                                        { label: "Total Advance", val: `₹${fmt(customer.advance)}`, color: "var(--yellow)", icon: <Wallet size={15} color="var(--yellow)" />, bg: "rgba(245,158,11,0.05)", border: "rgba(245,158,11,0.2)" },
                                         {
-                                            label: "Outstanding Balance", color: customer.outstanding > 0 ? "#f87171" : "#10b981",
+                                            label: "Outstanding Balance", color: customer.outstanding > 0 ? "var(--red)" : "var(--green)",
                                             val: `₹${fmt(customer.outstanding)}`,
-                                            icon: customer.outstanding > 0 ? <AlertTriangle size={15} color="#f87171" /> : <CheckCircle2 size={15} color="#10b981" />,
+                                            icon: customer.outstanding > 0 ? <AlertTriangle size={15} color="var(--red)" /> : <CheckCircle2 size={15} color="var(--green)" />,
                                             bg: customer.outstanding > 0 ? "rgba(239,68,68,0.08)" : "rgba(16,185,129,0.08)", border: customer.outstanding > 0 ? "rgba(239,68,68,0.3)" : "rgba(16,185,129,0.3)",
                                         },
                                     ].map(s => (
@@ -477,10 +477,10 @@ export default function CustomersPage() {
                                                             width: 40, height: 40, borderRadius: 12, flexShrink: 0,
                                                             background: fullyPaid ? "rgba(16,185,129,0.12)" : cfg.bg,
                                                             display: "flex", alignItems: "center", justifyContent: "center",
-                                                            border: `1px solid ${fullyPaid ? "#10b98130" : cfg.color + "30"}`,
+                                                            border: `1px solid ${fullyPaid ? "var(--green)30" : cfg.color + "30"}`,
                                                         }}>
                                                             {fullyPaid
-                                                                ? <CheckCircle2 size={18} color="#10b981" />
+                                                                ? <CheckCircle2 size={18} color="var(--green)" />
                                                                 : <Icon size={18} color={cfg.color} />
                                                             }
                                                         </div>
@@ -505,12 +505,12 @@ export default function CustomersPage() {
                                                                     <Icon size={11} /> {cfg.label}
                                                                 </span>
                                                                 {fullyPaid && (
-                                                                    <span style={{ fontSize: 11, fontWeight: 800, padding: "3px 10px", borderRadius: 20, background: "rgba(16,185,129,0.12)", color: "#10b981", display: "flex", alignItems: "center", gap: 4 }}>
+                                                                    <span style={{ fontSize: 11, fontWeight: 800, padding: "3px 10px", borderRadius: 20, background: "rgba(16,185,129,0.12)", color: "var(--green)", display: "flex", alignItems: "center", gap: 4 }}>
                                                                         <CheckCircle2 size={11} /> Paid in Full
                                                                     </span>
                                                                 )}
                                                                 {isPartial && (
-                                                                    <span style={{ fontSize: 11, fontWeight: 800, padding: "3px 10px", borderRadius: 20, background: "rgba(245,158,11,0.12)", color: "#f59e0b" }}>
+                                                                    <span style={{ fontSize: 11, fontWeight: 800, padding: "3px 10px", borderRadius: 20, background: "rgba(245,158,11,0.12)", color: "var(--yellow)" }}>
                                                                         Partial — Due ₹{fmt(invoiceDue)}
                                                                     </span>
                                                                 )}
@@ -521,7 +521,7 @@ export default function CustomersPage() {
                                                                 {isInvoice && (
                                                                     <>
                                                                         <span style={{ width: 4, height: 4, borderRadius: "50%", background: "var(--border)" }} />
-                                                                        <span style={{ color: "#10b981", fontWeight: 700 }}>Paid ₹{fmt(e.amountPaid ?? e.amount)} of ₹{fmt(e.amount)}</span>
+                                                                        <span style={{ color: "var(--green)", fontWeight: 700 }}>Paid ₹{fmt(e.amountPaid ?? e.amount)} of ₹{fmt(e.amount)}</span>
                                                                     </>
                                                                 )}
                                                             </div>
@@ -529,10 +529,10 @@ export default function CustomersPage() {
 
                                                         {/* Right: amount + running balance */}
                                                         <div style={{ textAlign: "right", flexShrink: 0 }}>
-                                                            <div style={{ fontSize: 18, fontWeight: 900, color: fullyPaid ? "#10b981" : cfg.color, fontVariantNumeric: "tabular-nums", letterSpacing: "-0.5px" }}>
+                                                            <div style={{ fontSize: 18, fontWeight: 900, color: fullyPaid ? "var(--green)" : cfg.color, fontVariantNumeric: "tabular-nums", letterSpacing: "-0.5px" }}>
                                                                 {cfg.sign} ₹{fmt(e.amount)}
                                                             </div>
-                                                            <div style={{ fontSize: 12, marginTop: 4, fontWeight: 800, color: e.balanceAfter > 0 ? "#f87171" : "#10b981", fontVariantNumeric: "tabular-nums", background: "var(--bg-card)", padding: "4px 8px", borderRadius: 6, display: "inline-block", border: "1px solid var(--border)" }}>
+                                                            <div style={{ fontSize: 12, marginTop: 4, fontWeight: 800, color: e.balanceAfter > 0 ? "var(--red)" : "var(--green)", fontVariantNumeric: "tabular-nums", background: "var(--bg-card)", padding: "4px 8px", borderRadius: 6, display: "inline-block", border: "1px solid var(--border)" }}>
                                                                 Bal: ₹{fmt(e.balanceAfter)}
                                                             </div>
                                                         </div>
