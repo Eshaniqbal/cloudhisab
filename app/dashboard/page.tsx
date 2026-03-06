@@ -8,7 +8,9 @@ import {
     IndianRupee, AlertTriangle, BarChart3, RefreshCw,
     ArrowUpRight, ArrowDownRight, ShoppingBag, Zap,
     Calendar, ArrowRight, Download, Loader2, ChevronDown, X,
+    ShieldCheck,
 } from "lucide-react";
+import { useSubscription } from "@/lib/useSubscription";
 
 function fmt(n: number) {
     return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(n);
@@ -497,7 +499,6 @@ function DateRangeFilter() {
     );
 }
 
-/* ─── Main Page ─────────────────────────────────────────────────────── */
 export default function DashboardPage() {
     const today = new Date().toISOString().split("T")[0];
     const { data, loading, refetch } = useQuery(GET_DASHBOARD, {
@@ -517,6 +518,8 @@ export default function DashboardPage() {
     const daysElapsed = now.getDate();
     const monthProgress = Math.round((daysElapsed / daysInMonth) * 100);
 
+    const { status, loading: subLoading } = useSubscription();
+
     return (
         <AuthGuard>
             <div>
@@ -526,19 +529,37 @@ export default function DashboardPage() {
                     display: "flex", alignItems: "center", justifyContent: "space-between",
                     marginBottom: 32, flexWrap: "wrap", gap: 12,
                 }}>
-                    <div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
-                            <div style={{
-                                width: 32, height: 32, borderRadius: 9,
-                                background: "linear-gradient(135deg,#4f46e5,#6366f1)",
-                                display: "flex", alignItems: "center", justifyContent: "center",
-                                boxShadow: "0 4px 14px rgba(79,70,229,0.35)",
-                            }}>
-                                <Zap size={15} color="#fff" />
+                    <div style={{ flex: 1 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 4, flexWrap: "wrap" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                <div style={{
+                                    width: 32, height: 32, borderRadius: 9,
+                                    background: "linear-gradient(135deg,#4f46e5,#6366f1)",
+                                    display: "flex", alignItems: "center", justifyContent: "center",
+                                    boxShadow: "0 4px 14px rgba(79,70,229,0.35)",
+                                }}>
+                                    <Zap size={15} color="#fff" />
+                                </div>
+                                <h1 style={{ fontSize: 24, fontWeight: 900, color: "var(--text)", letterSpacing: "-0.4px" }}>
+                                    Dashboard
+                                </h1>
                             </div>
-                            <h1 style={{ fontSize: 24, fontWeight: 900, color: "var(--text)", letterSpacing: "-0.4px" }}>
-                                Dashboard
-                            </h1>
+
+                            {/* Subscription Badge */}
+                            {!subLoading && status && status.plan !== "NONE" && (
+                                <div style={{
+                                    display: "flex", alignItems: "center", gap: 6,
+                                    padding: "4px 12px", borderRadius: 99,
+                                    background: status.status === "active" ? "rgba(16,185,129,0.12)" : "rgba(79,70,229,0.1)",
+                                    border: `1px solid ${status.status === "active" ? "rgba(16,185,129,0.2)" : "rgba(99,102,241,0.2)"}`,
+                                    animation: "fadeSlideDown 0.3s ease",
+                                }}>
+                                    <ShieldCheck size={12} color={status.status === "active" ? "#10b981" : "#818cf8"} />
+                                    <span style={{ fontSize: 11, fontWeight: 800, color: status.status === "active" ? "#10b981" : "#818cf8", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                                        {status.plan} {status.status === "active" ? "Active" : "Trialing"}
+                                    </span>
+                                </div>
+                            )}
                         </div>
                         <p style={{ fontSize: 13, color: "var(--muted)" }}>{dateStr}</p>
                     </div>

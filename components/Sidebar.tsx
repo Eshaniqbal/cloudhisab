@@ -6,7 +6,7 @@ import { logout, getUser } from "@/lib/auth";
 import { useTheme } from "@/lib/useTheme";
 import {
     LayoutDashboard, Package, Receipt, Layers,
-    TrendingUp, Wallet, LogOut, Zap, FileText, Sun, Moon, Users, Settings, ChevronUp,
+    TrendingUp, Wallet, LogOut, Zap, FileText, Sun, Moon, Users, Settings, ChevronUp, CreditCard,
 } from "lucide-react";
 
 const ROLE_LEVEL: Record<string, number> = {

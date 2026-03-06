@@ -341,6 +341,10 @@ export const GET_TENANT_PROFILE = gql`
       state
       pincode
       plan
+      subStatus
+      razorpaySubId
+      trialEndsAt
+      currentPeriodEnd
       createdAt
     }
   }

@@ -8,8 +8,13 @@ import { patchUser } from "@/lib/auth";
 import {
     Building2, Phone, MapPin, FileText, Zap, Loader2,
     CheckCircle2, AlertTriangle, Save, RefreshCw, User,
-    Hash, Globe, Mail, ShieldCheck, ArrowRight, Users,
+    Hash, Globe, Mail, ShieldCheck, ArrowRight, Users, CreditCard, ExternalLink,
 } from "lucide-react";
+import { useSubscription } from "@/lib/useSubscription";
+import { useRouter } from "next/navigation";
+import Script from "next/script";
+import { PLANS } from "@/components/Subscription/plans";
+import { PlanCard } from "@/components/Subscription/PlanCard";
 
 interface Field {
     key: string; label: string; icon: any; placeholder: string;
@@ -31,10 +36,16 @@ export default function SettingsPage() {
     const { data, loading, error, refetch } = useQuery<any>(GET_TENANT_PROFILE, { fetchPolicy: "cache-and-network" });
     const [updateProfile, { loading: saving }] = useMutation<any, any>(UPDATE_TENANT_PROFILE);
 
+    const router = useRouter();
     const [form, setForm] = useState<Record<string, string>>({});
     const [dirty, setDirty] = useState(false);
     const [saved, setSaved] = useState(false);
     const [saveErr, setSaveErr] = useState("");
+    const [activeTab, setActiveTab] = useState<"profile" | "billing">("profile");
+    const [showPlans, setShowPlans] = useState(false);
+    const [message, setMessage] = useState<string | null>(null);
+
+    const { cancel, cancelling, subscribe, creating } = useSubscription();
 
     const profile = data?.getTenantProfile;
 
@@ -51,6 +62,12 @@ export default function SettingsPage() {
                 pincode: profile.pincode || "",
             });
             setDirty(false);
+
+            // Auto-switch to billing if no plan selected
+            if (profile.plan === "NONE") {
+                setActiveTab("billing");
+                setShowPlans(true);
+            }
         }
     }, [profile]);
 
@@ -106,12 +123,23 @@ export default function SettingsPage() {
 
             {/* ── Tab bar ── */}
             <div style={{ display: "flex", gap: 6, marginBottom: 28, padding: "4px", background: "var(--bg-card)", borderRadius: 12, border: "1px solid var(--border)", width: "fit-content" }}>
-                <a href="/settings" className="settings-tab active">
+                <button
+                    onClick={() => setActiveTab("profile")}
+                    className={`settings-tab ${activeTab === "profile" ? "active" : ""}`}
+                    style={{ background: "none", border: "none", cursor: "pointer" }}
+                >
                     🏢 Business Profile
-                </a>
+                </button>
                 <a href="/settings/users" className="settings-tab">
                     👥 Team Members
                 </a>
+                <button
+                    onClick={() => setActiveTab("billing")}
+                    className={`settings-tab ${activeTab === "billing" ? "active" : ""}`}
+                    style={{ background: "none", border: "none", cursor: "pointer" }}
+                >
+                    💳 Billing & Plans
+                </button>
             </div>
 
             {/* ── Top header card ── */}
@@ -244,7 +272,7 @@ export default function SettingsPage() {
             )}
 
             {/* ── Form card ── */}
-            {profile && (
+            {profile && activeTab === "profile" && (
                 <div style={{
                     background: "var(--bg-card)", border: "1px solid var(--border)",
                     borderRadius: 20, overflow: "hidden",
@@ -308,6 +336,234 @@ export default function SettingsPage() {
                     </div>
                 </div>
             )}
+
+            {/* ── Billing Section ── */}
+            {profile && activeTab === "billing" && (
+                <div style={{
+                    background: "var(--bg-card)", border: "1px solid var(--border)",
+                    borderRadius: 20, overflow: "hidden", animation: "slideDown 0.2s ease"
+                }}>
+                    <div style={{ padding: "18px 24px", borderBottom: "1px solid var(--border)", background: "var(--bg-card2)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                            <div style={{ width: 28, height: 28, borderRadius: 8, background: "rgba(16,185,129,0.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                <CreditCard size={14} color="#10b981" />
+                            </div>
+                            <div>
+                                <div style={{ fontSize: 13.5, fontWeight: 700, color: "var(--text)" }}>Subscription Details</div>
+                                <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 1 }}>Manage your billing and plan</div>
+                            </div>
+                        </div>
+                        {showPlans && (
+                            <button
+                                onClick={() => setShowPlans(false)}
+                                style={{ background: "none", border: "none", color: "#818cf8", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+                            >
+                                ← Back to Billing
+                            </button>
+                        )}
+                    </div>
+
+                    <div style={{ padding: "28px" }}>
+                        {message && (
+                            <div style={{
+                                padding: "12px 16px", borderRadius: 12, marginBottom: 20,
+                                background: message.startsWith("✅") ? "rgba(16,185,129,0.1)" : "rgba(239,68,68,0.1)",
+                                border: "1px solid", borderColor: message.startsWith("✅") ? "rgba(16,185,129,0.2)" : "rgba(239,68,68,0.2)",
+                                color: message.startsWith("✅") ? "#10b981" : "#ef4444", fontSize: 13, fontWeight: 600
+                            }}>
+                                {message}
+                            </div>
+                        )}
+
+                        {!showPlans ? (
+                            <>
+                                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 24, marginBottom: 32 }}>
+                                    {/* Current Plan */}
+                                    <div style={{ padding: "20px", borderRadius: 16, background: "var(--bg-card2)", border: "1px solid var(--border)" }}>
+                                        <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", marginBottom: 8 }}>Current Plan</div>
+                                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                            <div style={{ fontSize: 24, fontWeight: 900, color: "var(--text)" }}>{profile.plan}</div>
+                                            <div style={{ padding: "2px 8px", borderRadius: 6, background: profile.subStatus === "active" || profile.subStatus === "trialing" ? "rgba(16,185,129,0.1)" : "rgba(239,68,68,0.1)", color: profile.subStatus === "active" || profile.subStatus === "trialing" ? "#10b981" : "#ef4444", fontSize: 10, fontWeight: 800, textTransform: "uppercase" }}>
+                                                {profile.subStatus}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Billing Period */}
+                                    <div style={{ padding: "20px", borderRadius: 16, background: "var(--bg-card2)", border: "1px solid var(--border)" }}>
+                                        <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", marginBottom: 8 }}>
+                                            {profile.subStatus === "trialing" ? "Trial Ends On" : "Next Billing"}
+                                        </div>
+                                        <div style={{ fontSize: 18, fontWeight: 700, color: "var(--text)" }}>
+                                            {profile.subStatus === "trialing"
+                                                ? profile.trialEndsAt ? new Date(profile.trialEndsAt).toLocaleDateString("en-IN", { day: 'numeric', month: 'long', year: 'numeric' }) : "—"
+                                                : profile.currentPeriodEnd ? new Date(profile.currentPeriodEnd).toLocaleDateString("en-IN", { day: 'numeric', month: 'long', year: 'numeric' }) : "—"
+                                            }
+                                        </div>
+                                    </div>
+
+                                    {/* ID */}
+                                    {profile.razorpaySubId && (
+                                        <div style={{ padding: "20px", borderRadius: 16, background: "var(--bg-card2)", border: "1px solid var(--border)" }}>
+                                            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", marginBottom: 8 }}>Subscription ID</div>
+                                            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", fontFamily: "monospace" }}>{profile.razorpaySubId}</div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Actions */}
+                                <div style={{ display: "flex", gap: 12, alignItems: "center", paddingTop: 24, borderTop: "1px solid var(--border)" }}>
+                                    <button
+                                        onClick={() => setShowPlans(true)}
+                                        style={{
+                                            display: "flex", alignItems: "center", gap: 8, padding: "10px 20px",
+                                            borderRadius: 12, background: "linear-gradient(135deg,#4f46e5,#6366f1)",
+                                            color: "#fff", fontSize: 13.5, fontWeight: 700, border: "none", cursor: "pointer",
+                                            boxShadow: "0 4px 14px rgba(79,70,229,0.3)"
+                                        }}
+                                    >
+                                        <Zap size={14} /> {profile.plan === "NONE" ? "Choose a Plan" : "Upgrade / Change Plan"}
+                                    </button>
+
+                                    {(profile.subStatus === "active" || profile.subStatus === "trialing") && (
+                                        <button
+                                            onClick={async () => {
+                                                if (confirm("Are you sure you want to cancel your subscription? Your plan will remain active until the end of the current billing period.")) {
+                                                    try {
+                                                        await cancel();
+                                                        refetch();
+                                                    } catch (e: any) {
+                                                        alert(e.message);
+                                                    }
+                                                }
+                                            }}
+                                            disabled={cancelling}
+                                            style={{
+                                                display: "flex", alignItems: "center", gap: 8, padding: "10px 20px",
+                                                borderRadius: 12, background: "var(--bg-input)",
+                                                color: "#ef4444", fontSize: 13.5, fontWeight: 600,
+                                                border: "1px solid var(--border)", cursor: "pointer"
+                                            }}
+                                        >
+                                            {cancelling ? "Cancelling..." : "Cancel Subscription"}
+                                        </button>
+                                    )}
+                                </div>
+                            </>
+                        ) : (
+                            <div className="pricing-grid-settings">
+                                {PLANS.map(plan => (
+                                    <PlanCard
+                                        key={plan.key}
+                                        plan={plan}
+                                        isCurrent={profile.plan === plan.key}
+                                        hideTrial={profile.plan !== "NONE"}
+                                        loading={creating}
+                                        onSelect={async (key) => {
+                                            setMessage(null);
+                                            try {
+                                                await subscribe(key, () => {
+                                                    // On Success callback
+                                                    router.push("/dashboard");
+                                                });
+                                                setMessage("✅ Subscription started! Your 7-day free trial is active.");
+                                                refetch();
+                                                setTimeout(() => router.push("/dashboard"), 1500);
+                                            } catch (e: any) {
+                                                setMessage(`❌ ${e.message}`);
+                                            }
+                                        }}
+                                    />
+                                ))}
+                            </div>
+                        )}
+
+                        {/* Customer Support Notice */}
+                        <div style={{ marginTop: 32, padding: "16px 20px", borderRadius: 14, background: "rgba(245,158,11,0.05)", border: "1px solid rgba(245,158,11,0.15)", display: "flex", gap: 12 }}>
+                            <Zap size={16} color="#f59e0b" style={{ flexShrink: 0, marginTop: 2 }} />
+                            <div>
+                                <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text)", marginBottom: 4 }}>Need help with billing?</div>
+                                <div style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.6 }}>
+                                    If you have any questions about your invoices, payments, or need custom business plans, reach out to our billing team at <a href="mailto:support@cloudhisaab.in" style={{ color: "#818cf8", fontWeight: 600 }}>support@cloudhisaab.in</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Razorpay JS SDK */}
+            <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
+
+            <style>{`
+                .pricing-grid-settings {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+                    gap: 16px;
+                    margin-bottom: 24px;
+                }
+                .plan-card {
+                    position: relative;
+                    background: var(--bg-card);
+                    border: 1px solid var(--border);
+                    border-radius: 18px;
+                    padding: 24px 20px;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 16px;
+                    transition: all 0.2s ease;
+                    overflow: hidden;
+                }
+                .plan-card::before {
+                    content: '';
+                    position: absolute;
+                    top: 0; left: 0; right: 0;
+                    height: 3px;
+                    background: var(--plan-color);
+                }
+                .plan-card--highlighted {
+                    border-color: #10b981;
+                    box-shadow: 0 0 24px rgba(16,185,129,0.1);
+                }
+                .plan-card--active {
+                    border-color: var(--plan-color);
+                    background: var(--bg-card2);
+                }
+                .plan-badge {
+                    position: absolute;
+                    top: 12px; right: 12px;
+                    background: rgba(16,185,129,0.1);
+                    color: #10b981;
+                    padding: 2px 8px;
+                    border-radius: 99px;
+                    font-size: 10px;
+                    font-weight: 800;
+                }
+                .plan-current-badge {
+                    position: absolute;
+                    top: 12px; right: 12px;
+                    background: rgba(99,102,241,0.1);
+                    color: #818cf8;
+                    padding: 2px 8px;
+                    border-radius: 99px;
+                    font-size: 10px;
+                    font-weight: 800;
+                }
+                .plan-name { font-size: 16px; font-weight: 800; color: var(--text); }
+                .plan-price-row { display: flex; align-items: baseline; gap: 2px; }
+                .plan-currency { font-size: 16px; font-weight: 700; color: var(--plan-color); }
+                .plan-price { font-size: 32px; font-weight: 900; color: var(--text); }
+                .plan-period { font-size: 12px; color: var(--muted); }
+                .plan-billed-as { font-size: 11px; color: var(--muted); }
+                .plan-saving { font-size: 10px; color: #10b981; font-weight: 700; background: rgba(16,185,129,0.1); padding: 1px 6px; border-radius: 4px; }
+                .plan-features { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+                .plan-feature { display: flex; gap: 8px; font-size: 12px; color: var(--text); line-height: 1.4; }
+                .plan-check { color: var(--plan-color); font-weight: 900; }
+                .plan-btn { width: 100%; padding: 10px; border-radius: 10px; font-size: 13px; font-weight: 700; cursor: pointer; border: none; transition: all 0.2s ease; }
+                .plan-btn--primary { background: linear-gradient(135deg, #10b981, #059669); color: #fff; }
+                .plan-btn--secondary { background: var(--bg-input); color: var(--text); border: 1px solid var(--border); }
+                .plan-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+            `}</style>
         </AuthGuard>
     );
 }

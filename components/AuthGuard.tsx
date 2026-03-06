@@ -1,8 +1,10 @@
 "use client";
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { isLoggedIn, getUser } from "@/lib/auth";
 import { Sidebar } from "./Sidebar";
+import { useSubscription } from "@/lib/useSubscription";
+import { Zap, Lock, CreditCard, Loader2 } from "lucide-react";
 
 const ROLE_HIERARCHY: Record<string, number> = {
     ACCOUNTANT: 1,
@@ -22,6 +24,8 @@ export function AuthGuard({ children, requiredRole }: Props) {
     const [mounted, setMounted] = useState(false);
     const [loggedIn, setLoggedIn] = useState(false);
     const [allowed, setAllowed] = useState(true);
+
+    const { status, loading: subLoading } = useSubscription();
 
     useEffect(() => {
         const ok = isLoggedIn();
@@ -46,6 +50,73 @@ export function AuthGuard({ children, requiredRole }: Props) {
     // SSR: render nothing (prevents hydration mismatch)
     if (!mounted) return null;
     if (!loggedIn) return null;
+
+    // Show loading while checking subscription (only on first mount)
+    if (subLoading && !status) {
+        return (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "var(--bg-app)" }}>
+                <Loader2 className="animate-spin" color="#4f46e5" size={32} />
+            </div>
+        );
+    }
+
+    // Subscription Gate Rule:
+    const isSettings = typeof window !== "undefined" && window.location.pathname === "/settings";
+    const isPricing = typeof window !== "undefined" && window.location.pathname === "/pricing";
+    const isGated = status && !status.isActive && !isSettings && !isPricing;
+
+    if (isGated) {
+        return (
+            <div className="app-layout">
+                <Sidebar />
+                <main className="main-content">
+                    <div style={{
+                        display: "flex", flexDirection: "column", alignItems: "center",
+                        justifyContent: "center", height: "70vh", padding: 24, textAlign: "center",
+                    }}>
+                        <div style={{
+                            width: 80, height: 80, borderRadius: 24,
+                            background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)",
+                            display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 24
+                        }}>
+                            <CreditCard size={32} color="#ef4444" />
+                        </div>
+                        <h2 style={{ fontSize: 24, fontWeight: 900, color: "var(--text)", marginBottom: 8 }}>
+                            Subscription Required
+                        </h2>
+                        <p style={{ color: "var(--muted)", fontSize: 14, maxWidth: 400, lineHeight: 1.6, marginBottom: 32 }}>
+                            Your {status.plan !== "NONE" ? `${status.plan} plan` : "trial"} is not active.
+                            Please choose a plan in Settings to continue using CloudHisaab and access your business data.
+                        </p>
+
+                        <div style={{ display: "flex", gap: 12 }}>
+                            <button
+                                onClick={() => router.push("/settings")}
+                                style={{
+                                    display: "flex", alignItems: "center", gap: 8, padding: "12px 24px",
+                                    borderRadius: 12, background: "linear-gradient(135deg,#4f46e5,#6366f1)",
+                                    color: "#fff", fontSize: 14, fontWeight: 700, border: "none", cursor: "pointer",
+                                    boxShadow: "0 4px 14px rgba(79,70,229,0.4)"
+                                }}
+                            >
+                                <Zap size={16} /> Go to Settings & Plans
+                            </button>
+                            <button
+                                onClick={() => router.push("/login")}
+                                style={{
+                                    padding: "12px 24px", borderRadius: 12, background: "var(--bg-input)",
+                                    color: "var(--text)", fontSize: 14, fontWeight: 600,
+                                    border: "1px solid var(--border)", cursor: "pointer"
+                                }}
+                            >
+                                Sign Out
+                            </button>
+                        </div>
+                    </div>
+                </main>
+            </div>
+        );
+    }
 
     if (!allowed) {
         return (

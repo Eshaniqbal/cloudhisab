@@ -1,0 +1,66 @@
+/**
+ * components/Subscription/plans.ts
+ */
+
+export const PLANS = [
+    {
+        key: "MONTHLY",
+        name: "Monthly",
+        price: 299,
+        period: "/ month",
+        billedAs: "₹299 billed monthly",
+        badge: null,
+        highlight: false,
+        saving: null,
+        features: [
+            "Unlimited invoices",
+            "Inventory management",
+            "GST reports (GSTR-1)",
+            "Customer ledger",
+            "Team access (up to 3 users)",
+            "7-day free trial",
+        ],
+        color: "#6366f1",
+        glow: "rgba(99,102,241,0.25)",
+    },
+    {
+        key: "BIANNUAL",
+        name: "6-Month",
+        price: 279,
+        period: "/ month",
+        billedAs: "₹1,674 billed every 6 months",
+        badge: "Save ₹120",
+        highlight: false,
+        saving: "Save 7%",
+        features: [
+            "Everything in Monthly",
+            "Priority email support",
+            "Bulk product import (Excel/CSV)",
+            "Invoice PDF export",
+            "Team access (up to 5 users)",
+            "7-day free trial",
+        ],
+        color: "#f59e0b",
+        glow: "rgba(245,158,11,0.22)",
+    },
+    {
+        key: "YEARLY",
+        name: "Yearly",
+        price: 250,
+        period: "/ month",
+        billedAs: "₹3,000 billed yearly",
+        badge: "🟢 Best Value",
+        highlight: true,
+        saving: "Save ₹588",
+        features: [
+            "Everything in 6-Month",
+            "Dedicated account manager",
+            "Advanced profit & expense reports",
+            "Multi-branch support (coming soon)",
+            "Unlimited team members",
+            "7-day free trial",
+        ],
+        color: "#10b981",
+        glow: "rgba(16,185,129,0.22)",
+    },
+];
