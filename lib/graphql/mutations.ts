@@ -314,3 +314,34 @@ export const NOTIFY_IMPORT_UPLOADED = gql`
     notifyImportUploaded(importJobId: $importJobId)
   }
 `;
+
+// ─── Returns / Credit Notes ───
+export const CREATE_RETURN = gql`
+  mutation CreateReturn($input: CreateReturnInput!) {
+    createReturn(input: $input) {
+      returnId
+      creditNoteNumber
+      originalInvoiceId
+      originalInvoiceNumber
+      customerName
+      customerPhone
+      items {
+        productName
+        quantity
+        sellingPrice
+        gstRate
+        gstAmount
+        lineTotal
+        lineTotalWithGst
+      }
+      subtotal
+      totalGst
+      totalAmount
+      reason
+      refundType
+      restock
+      notes
+      createdAt
+    }
+  }
+`;

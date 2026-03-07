@@ -8,7 +8,8 @@ import { RECORD_CUSTOMER_PAYMENT, RECORD_ADVANCE, DELETE_CUSTOMER } from "@/lib/
 import {
     Users, Search, X, Phone, CreditCard, Wallet, CheckCircle2,
     Loader2, Receipt, AlertTriangle, Clock, IndianRupee,
-    ArrowDownLeft, Sparkles, Trash2, ChevronRight
+    ArrowDownLeft, Sparkles, Trash2, ChevronRight, Download,
+    RotateCcw, ExternalLink, ClipboardList
 } from "lucide-react";
 
 const fmt = (n: number) => new Intl.NumberFormat("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
@@ -30,6 +31,7 @@ const ENTRY_CFG: Record<string, { color: string; bg: string; label: string; icon
     INVOICE: { color: "var(--indigo-l)", bg: "rgba(99,102,241,0.12)", label: "Invoice", icon: Receipt, sign: "−" },
     PAYMENT: { color: "var(--green)", bg: "rgba(16,185,129,0.12)", label: "Payment", icon: CheckCircle2, sign: "+" },
     ADVANCE: { color: "var(--yellow)", bg: "rgba(245,158,11,0.12)", label: "Advance", icon: Wallet, sign: "+" },
+    RETURN: { color: "#f87171", bg: "rgba(239,68,68,0.12)", label: "Return", icon: RotateCcw, sign: "+" },
 };
 
 export default function CustomersPage() {
@@ -41,6 +43,7 @@ export default function CustomersPage() {
     const [modalErr, setModalErr] = useState("");
     const [deleteTarget, setDeleteTarget] = useState<{ phone: string; name: string } | null>(null);
     const [deleteLoading, setDeleteLoading] = useState(false);
+    const [statementEntry, setStatementEntry] = useState<any>(null);
 
     const { data: listData, loading: listLoading, refetch: refetchList } =
         useQuery(LIST_CUSTOMERS, { variables: { search: search || null }, fetchPolicy: "cache-and-network" } as any);
@@ -75,9 +78,102 @@ export default function CustomersPage() {
     };
 
     // aggregate stats across all customers
-    const totalOutstanding = customers.reduce((s: number, c: any) => s + (c.outstanding || 0), 0);
+    const totalOutstanding = customers.reduce((s: number, c: any) => s + Math.max(0, c.outstanding || 0), 0);
     const totalInvoiced = customers.reduce((s: number, c: any) => s + (c.totalInvoiced || 0), 0);
     const overdueCount = customers.filter((c: any) => c.outstanding > 0).length;
+
+    // Statement modal — shows original invoice + all returns against it
+    const StatementModal = ({ entry }: { entry: any }) => {
+        const returns = (entries as any[]).filter(
+            (e: any) => e.entryType === "RETURN" && e.saleId === entry.saleId
+        );
+        const totalReturned = returns.reduce((s: number, r: any) => s + r.amount, 0);
+        const netBilled = entry.amount - totalReturned;
+        const paid = entry.amountPaid ?? entry.amount;
+        const netOutstanding = Math.max(0, netBilled - paid);
+
+        return (
+            <div onClick={() => setStatementEntry(null)} style={{ position: "fixed", inset: 0, zIndex: 1100, background: "rgba(0,0,0,0.65)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+                <div onClick={e => e.stopPropagation()} style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 22, padding: "28px", width: "100%", maxWidth: 520, boxShadow: "0 32px 80px rgba(0,0,0,0.6)" }}>
+                    {/* Header */}
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+                        <div>
+                            <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--muted)", marginBottom: 4 }}>Bill Statement</div>
+                            <div style={{ fontSize: 18, fontWeight: 900, letterSpacing: "-0.2px" }}>{entry.description}</div>
+                            <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 3 }}>{fmtDate(entry.date)} · {customer?.name}</div>
+                        </div>
+                        <button onClick={() => setStatementEntry(null)} style={{ width: 30, height: 30, borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg-input)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--muted)" }}>
+                            <X size={14} />
+                        </button>
+                    </div>
+
+                    {/* Original invoice row */}
+                    <div style={{ background: "var(--bg-card2)", borderRadius: 14, overflow: "hidden", border: "1px solid var(--border)", marginBottom: 14 }}>
+                        <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                <Receipt size={13} color="var(--indigo-l)" />
+                                <span style={{ fontSize: 12, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Original Invoice</span>
+                            </div>
+                            {entry.saleId && <a href={`/billing/${entry.saleId}`} style={{ fontSize: 11, color: "var(--indigo-l)", textDecoration: "none", display: "flex", alignItems: "center", gap: 4 }} onClick={e => e.stopPropagation()}><ExternalLink size={10} /> View</a>}
+                        </div>
+                        <div style={{ padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <div>
+                                <div style={{ fontSize: 14, fontWeight: 700 }}>{entry.description}</div>
+                                <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 3 }}>Paid at billing: ₹{fmt(entry.amountPaid ?? entry.amount)}</div>
+                            </div>
+                            <div style={{ fontSize: 18, fontWeight: 900, color: "var(--text)" }}>₹{fmt(entry.amount)}</div>
+                        </div>
+                    </div>
+
+                    {/* Returns */}
+                    {returns.length > 0 && (
+                        <div style={{ background: "rgba(239,68,68,0.04)", borderRadius: 14, border: "1px solid rgba(239,68,68,0.15)", overflow: "hidden", marginBottom: 14 }}>
+                            <div style={{ padding: "10px 16px", borderBottom: "1px solid rgba(239,68,68,0.12)", display: "flex", alignItems: "center", gap: 8 }}>
+                                <RotateCcw size={12} color="#f87171" />
+                                <span style={{ fontSize: 12, fontWeight: 700, color: "#f87171", textTransform: "uppercase", letterSpacing: "0.06em" }}>Returns / Credit Notes</span>
+                            </div>
+                            {returns.map((r: any, i: number) => (
+                                <div key={r.entryId} style={{ padding: "12px 16px", borderBottom: i < returns.length - 1 ? "1px solid rgba(239,68,68,0.1)" : "none", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                    <div>
+                                        <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text)" }}>{r.creditNote || "Credit Note"}</div>
+                                        <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                                            <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 20, background: "rgba(239,68,68,0.1)", color: "#f87171" }}>
+                                                {r.refundType === "CASH_REFUND" ? "Cash Refund" : "Credit Note"}
+                                            </span>
+                                            <span style={{ fontSize: 11, color: "var(--muted)" }}>{fmtDate(r.date)}</span>
+                                        </div>
+                                    </div>
+                                    <div style={{ fontSize: 16, fontWeight: 900, color: "#10b981" }}>+ ₹{fmt(r.amount)}</div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Summary */}
+                    <div style={{ background: "var(--bg-card2)", borderRadius: 14, border: "1px solid var(--border)", overflow: "hidden" }}>
+                        {[
+                            { label: "Original Billed", value: `₹${fmt(entry.amount)}`, color: "var(--text)", bold: false },
+                            { label: "Total Returned", value: `− ₹${fmt(totalReturned)}`, color: returns.length > 0 ? "#10b981" : "var(--muted)", bold: false },
+                            { label: "Net Billed", value: `₹${fmt(netBilled)}`, color: "var(--text)", bold: true },
+                            { label: "Amount Paid", value: `₹${fmt(paid)}`, color: "var(--green)", bold: false },
+                        ].map((row, i) => (
+                            <div key={row.label} style={{ padding: "12px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: i < 3 ? "1px solid var(--border)" : "none" }}>
+                                <span style={{ fontSize: 13, color: "var(--muted)", fontWeight: row.bold ? 700 : 500 }}>{row.label}</span>
+                                <span style={{ fontSize: row.bold ? 16 : 14, fontWeight: row.bold ? 900 : 600, color: row.color }}>{row.value}</span>
+                            </div>
+                        ))}
+                        {/* Outstanding after returns */}
+                        <div style={{ padding: "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", background: netOutstanding > 0 ? "rgba(239,68,68,0.05)" : "rgba(16,185,129,0.05)", borderTop: "2px solid var(--border)" }}>
+                            <span style={{ fontSize: 14, fontWeight: 800 }}>Net Outstanding</span>
+                            <span style={{ fontSize: 20, fontWeight: 900, color: netOutstanding > 0 ? "#ef4444" : "#10b981" }}>₹{fmt(netOutstanding)}</span>
+                        </div>
+                    </div>
+
+                    <button className="btn btn-ghost" style={{ width: "100%", marginTop: 16 }} onClick={() => setStatementEntry(null)}>Close</button>
+                </div>
+            </div>
+        );
+    };
 
     const submitModal = async () => {
         setModalErr("");
@@ -96,6 +192,8 @@ export default function CustomersPage() {
 
     return (
         <AuthGuard>
+            {/* Statement modal */}
+            {statementEntry && <StatementModal entry={statementEntry} />}
             <style>{`
                 @keyframes spin { to { transform: rotate(360deg); } }
                 @keyframes slideDown { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
@@ -415,25 +513,34 @@ export default function CustomersPage() {
                                     </div>
                                 </div>
 
-                                {/* Stat cards */}
-                                <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, position: "relative", zIndex: 1 }}>
-                                    {[
-                                        { label: "Total Billed", val: `₹${fmt(customer.totalInvoiced)}`, color: "var(--text)", icon: <IndianRupee size={15} color="var(--indigo-l)" />, bg: "var(--bg-card)", border: "rgba(99,102,241,0.2)" },
-                                        { label: "Total Paid", val: `₹${fmt(customer.totalPaid)}`, color: "var(--green)", icon: <ArrowDownLeft size={15} color="var(--green)" />, bg: "rgba(16,185,129,0.05)", border: "rgba(16,185,129,0.2)" },
-                                        { label: "Total Advance", val: `₹${fmt(customer.advance)}`, color: "var(--yellow)", icon: <Wallet size={15} color="var(--yellow)" />, bg: "rgba(245,158,11,0.05)", border: "rgba(245,158,11,0.2)" },
-                                        {
-                                            label: "Outstanding Balance", color: customer.outstanding > 0 ? "var(--red)" : "var(--green)",
-                                            val: `₹${fmt(customer.outstanding)}`,
-                                            icon: customer.outstanding > 0 ? <AlertTriangle size={15} color="var(--red)" /> : <CheckCircle2 size={15} color="var(--green)" />,
-                                            bg: customer.outstanding > 0 ? "rgba(239,68,68,0.08)" : "rgba(16,185,129,0.08)", border: customer.outstanding > 0 ? "rgba(239,68,68,0.3)" : "rgba(16,185,129,0.3)",
-                                        },
-                                    ].map(s => (
-                                        <div key={s.label} style={{ background: s.bg, border: `1px solid ${s.border}`, borderRadius: 16, padding: "16px 20px" }}>
-                                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-                                                <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 700 }}>{s.label}</span>
-                                                <div style={{ width: 30, height: 30, borderRadius: 10, background: "var(--bg-input)", border: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "center" }}>{s.icon}</div>
+                                {/* Stat cards — 5 cards: Billed, Returned, Paid, Advance, Outstanding */}
+                                <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 12, position: "relative", zIndex: 1 }}>
+                                    {(() => {
+                                        const returned = customer.totalReturned || 0;
+                                        const outstanding = customer.outstanding; // signed
+                                        const isCredit = outstanding < 0;
+                                        const displayOutstanding = Math.abs(outstanding);
+                                        return [
+                                            { label: "Total Billed", val: `₹${fmt(customer.totalInvoiced)}`, color: "var(--text)", icon: <IndianRupee size={14} color="var(--indigo-l)" />, bg: "var(--bg-card)", border: "rgba(99,102,241,0.2)" },
+                                            { label: "Total Returned", val: `₹${fmt(returned)}`, color: returned > 0 ? "#f87171" : "var(--muted)", icon: <RotateCcw size={14} color={returned > 0 ? "#f87171" : "var(--muted)"} />, bg: returned > 0 ? "rgba(239,68,68,0.06)" : "var(--bg-card)", border: returned > 0 ? "rgba(239,68,68,0.25)" : "rgba(99,102,241,0.2)" },
+                                            { label: "Net Billed", val: `₹${fmt(customer.totalInvoiced - returned)}`, color: "var(--text)", icon: <Receipt size={14} color="var(--indigo-l)" />, bg: "var(--bg-card)", border: "rgba(99,102,241,0.2)" },
+                                            { label: "Total Paid", val: `₹${fmt(customer.totalPaid)}`, color: "var(--green)", icon: <ArrowDownLeft size={14} color="var(--green)" />, bg: "rgba(16,185,129,0.05)", border: "rgba(16,185,129,0.2)" },
+                                            {
+                                                label: isCredit ? "Credit Balance" : "Outstanding",
+                                                val: `₹${fmt(displayOutstanding)}`,
+                                                color: isCredit ? "#10b981" : outstanding > 0 ? "var(--red)" : "var(--green)",
+                                                icon: isCredit ? <CheckCircle2 size={14} color="#10b981" /> : outstanding > 0 ? <AlertTriangle size={14} color="var(--red)" /> : <CheckCircle2 size={14} color="var(--green)" />,
+                                                bg: isCredit ? "rgba(16,185,129,0.08)" : outstanding > 0 ? "rgba(239,68,68,0.08)" : "rgba(16,185,129,0.08)",
+                                                border: isCredit ? "rgba(16,185,129,0.3)" : outstanding > 0 ? "rgba(239,68,68,0.3)" : "rgba(16,185,129,0.3)",
+                                            },
+                                        ];
+                                    })().map(s => (
+                                        <div key={s.label} style={{ background: s.bg, border: `1px solid ${s.border}`, borderRadius: 16, padding: "14px 16px" }}>
+                                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                                                <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 700 }}>{s.label}</span>
+                                                <div style={{ width: 28, height: 28, borderRadius: 9, background: "var(--bg-input)", border: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "center" }}>{s.icon}</div>
                                             </div>
-                                            <div style={{ fontSize: 20, fontWeight: 900, color: s.color, fontVariantNumeric: "tabular-nums", letterSpacing: "-0.5px" }}>{s.val}</div>
+                                            <div style={{ fontSize: 17, fontWeight: 900, color: s.color, fontVariantNumeric: "tabular-nums", letterSpacing: "-0.5px" }}>{s.val}</div>
                                         </div>
                                     ))}
                                 </div>
@@ -441,12 +548,29 @@ export default function CustomersPage() {
 
                             {/* ── Ledger entries ─────────────── */}
                             <div style={{ flex: 1, overflowY: "auto", padding: 32, paddingRight: 16 }}>
-                                {/* Section title */}
+                                {/* Ledger header with CSV download */}
                                 <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
                                     <Clock size={14} color="var(--muted)" />
                                     <span style={{ fontSize: 13, fontWeight: 800, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Transaction History</span>
                                     <div style={{ flex: 1, height: 1.5, background: "var(--border)", borderRadius: 2 }} />
                                     <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text)", background: "var(--bg-input)", padding: "4px 12px", borderRadius: 20 }}>{entries.length} entries</span>
+                                    <button
+                                        onClick={() => {
+                                            const rows = [["Date", "Type", "Description", "Amount", "Balance After"]];
+                                            entries.forEach((e: any) => rows.push([e.date, e.entryType, e.description, e.amount.toFixed(2), e.balanceAfter.toFixed(2)]));
+                                            const csv = rows.map(r => r.map(v => `"${v}"`).join(",")).join("\n");
+                                            const blob = new Blob([csv], { type: "text/csv" });
+                                            const url = URL.createObjectURL(blob);
+                                            const a = document.createElement("a");
+                                            a.href = url; a.download = `${customer?.name?.replace(/ /g, "_")}_ledger.csv`; a.click();
+                                            URL.revokeObjectURL(url);
+                                        }}
+                                        style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 8, background: "var(--bg-input)", border: "1px solid var(--border)", fontSize: 12, fontWeight: 600, cursor: "pointer", color: "var(--muted)", transition: "all 0.15s", whiteSpace: "nowrap" }}
+                                        onMouseEnter={e => { (e.currentTarget as any).style.color = "var(--text)"; (e.currentTarget as any).style.borderColor = "rgba(99,102,241,0.3)"; }}
+                                        onMouseLeave={e => { (e.currentTarget as any).style.color = "var(--muted)"; (e.currentTarget as any).style.borderColor = "var(--border)"; }}
+                                    >
+                                        <Download size={12} /> Export CSV
+                                    </button>
                                 </div>
 
                                 {entries.length === 0 ? (
@@ -498,7 +622,7 @@ export default function CustomersPage() {
                                                         onMouseLeave={el => { (el.currentTarget as HTMLDivElement).style.transform = "translateX(0)"; (el.currentTarget as HTMLDivElement).style.borderColor = fullyPaid ? "rgba(16,185,129,0.15)" : "var(--border)"; }}
                                                     >
                                                         <div style={{ flex: 1, minWidth: 0 }}>
-                                                            {/* Row 1: description + type badge + paid badge */}
+                                                            {/* Row 1 */}
                                                             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>
                                                                 <span style={{ fontSize: 14, fontWeight: 800, color: "var(--text)" }}>{e.description}</span>
                                                                 <span style={{ fontSize: 11, fontWeight: 800, padding: "3px 10px", borderRadius: 20, background: cfg.bg, color: cfg.color, display: "flex", alignItems: "center", gap: 4 }}>
@@ -514,8 +638,49 @@ export default function CustomersPage() {
                                                                         Partial — Due ₹{fmt(invoiceDue)}
                                                                     </span>
                                                                 )}
+                                                                {/* Invoice link + download button */}
+                                                                {isInvoice && (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={ev => { ev.stopPropagation(); setStatementEntry(e); }}
+                                                                        style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: "rgba(245,158,11,0.08)", color: "var(--yellow)", border: "1px solid rgba(245,158,11,0.25)", cursor: "pointer", transition: "all 0.15s" }}
+                                                                        onMouseEnter={el => (el.currentTarget as any).style.background = "rgba(245,158,11,0.16)"}
+                                                                        onMouseLeave={el => (el.currentTarget as any).style.background = "rgba(245,158,11,0.08)"}
+                                                                    >
+                                                                        <ClipboardList size={10} /> Statement
+                                                                    </button>
+                                                                )}
+                                                                {isInvoice && e.saleId && (
+                                                                    <a href={`/billing/${e.saleId}`}
+                                                                        style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: "rgba(99,102,241,0.08)", color: "var(--indigo-l)", border: "1px solid rgba(99,102,241,0.2)", textDecoration: "none", transition: "all 0.15s" }}
+                                                                        onMouseEnter={el => (el.currentTarget as any).style.background = "rgba(99,102,241,0.16)"}
+                                                                        onMouseLeave={el => (el.currentTarget as any).style.background = "rgba(99,102,241,0.08)"}
+                                                                        onClick={ev => ev.stopPropagation()}
+                                                                    >
+                                                                        <ExternalLink size={10} /> View Invoice
+                                                                    </a>
+                                                                )}
+                                                                 {e.entryType === "RETURN" && e.returnId && (
+                                                                     <a href={`/returns/${e.returnId}`}
+                                                                         target="_blank" rel="noreferrer"
+                                                                         style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: "rgba(239,68,68,0.08)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.2)", textDecoration: "none", transition: "all 0.15s" }}
+                                                                         onMouseEnter={el => (el.currentTarget as any).style.background = "rgba(239,68,68,0.16)"}
+                                                                         onMouseLeave={el => (el.currentTarget as any).style.background = "rgba(239,68,68,0.08)"}
+                                                                         onClick={ev => ev.stopPropagation()}
+                                                                     >
+                                                                         <ExternalLink size={10} /> View Credit Note
+                                                                     </a>
+                                                                 )}
+                                                                {isInvoice && e.pdfUrl && (
+                                                                    <a href={e.pdfUrl} download target="_blank" rel="noreferrer"
+                                                                        style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: "rgba(16,185,129,0.08)", color: "var(--green)", border: "1px solid rgba(16,185,129,0.2)", textDecoration: "none" }}
+                                                                        onClick={ev => ev.stopPropagation()}
+                                                                    >
+                                                                        <Download size={10} /> PDF
+                                                                    </a>
+                                                                )}
                                                             </div>
-                                                            {/* Row 2: date + paid amount for invoices */}
+                                                            {/* Row 2 */}
                                                             <div style={{ fontSize: 12, fontWeight: 500, color: "var(--muted)", display: "flex", gap: 14, alignItems: "center" }}>
                                                                 <span style={{ display: "flex", alignItems: "center", gap: 5 }}><Clock size={11} /> {fmtDate(e.date)}</span>
                                                                 {isInvoice && (

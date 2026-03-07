@@ -2,11 +2,12 @@
 import { useState } from "react";
 import { useQuery } from "@apollo/client";
 import { AuthGuard } from "@/components/AuthGuard";
-import { LIST_INVOICES } from "@/lib/graphql/queries";
+import { LIST_INVOICES, LIST_RETURNS } from "@/lib/graphql/queries";
 import {
     FileText, Search, Printer, Eye, Loader2,
     IndianRupee, Receipt, Calendar,
     ChevronLeft, ChevronRight, Clock, CheckCircle2,
+    RotateCcw, ArrowDownCircle,
 } from "lucide-react";
 
 const fmt = (n: number) =>
@@ -31,21 +32,28 @@ function monthStartStr() {
 }
 
 export default function InvoicesPage() {
+    const [activeTab, setActiveTab] = useState<"invoices" | "returns">("invoices");
     const [search, setSearch] = useState("");
     const [dateFrom, setDateFrom] = useState(monthStartStr());
     const [page, setPage] = useState(0);
-    const PAGE_SIZE = 20;
+    const [retPage, setRetPage] = useState(0);
+    const PAGE_SIZE = 10;
 
     const { data, loading, error, refetch } = useQuery<any, any>(LIST_INVOICES, {
         variables: { dateFrom, limit: 200 },
         fetchPolicy: "cache-and-network",
     } as any);
 
-    const allInvoices: any[] = data?.listInvoices?.items || [];
-    const total = data?.listInvoices?.total || 0;
+    const { data: retData, loading: retLoading } = useQuery<any, any>(LIST_RETURNS, {
+        variables: { limit: 200 },
+        fetchPolicy: "cache-and-network",
+    } as any);
 
-    // Filter by search
-    const filtered = allInvoices.filter((inv: any) => {
+    const allInvoices: any[] = data?.listInvoices?.items || [];
+    const allReturns: any[] = retData?.listReturns?.items || [];
+
+    // Filter logic
+    const filteredInvoices = allInvoices.filter((inv: any) => {
         if (!search) return true;
         const q = search.toLowerCase();
         return (
@@ -56,33 +64,75 @@ export default function InvoicesPage() {
         );
     });
 
-    // Pagination
-    const pages = Math.ceil(filtered.length / PAGE_SIZE);
-    const pageSlice = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+    const filteredReturns = allReturns.filter((r: any) => {
+        if (!search) return true;
+        const q = search.toLowerCase();
+        return (
+            r.creditNoteNumber?.toLowerCase().includes(q) ||
+            r.customerName?.toLowerCase().includes(q) ||
+            r.customerPhone?.includes(q) ||
+            r.reason?.toLowerCase().includes(q) ||
+            r.originalInvoiceNumber?.toLowerCase().includes(q)
+        );
+    });
+
+    const invPages = Math.ceil(filteredInvoices.length / PAGE_SIZE);
+    const invSlice = filteredInvoices.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+
+    const retPages = Math.ceil(filteredReturns.length / PAGE_SIZE);
+    const retSlice = filteredReturns.slice(retPage * PAGE_SIZE, (retPage + 1) * PAGE_SIZE);
 
     // Summary stats
     const totalRevenue = allInvoices.reduce((s: number, i: any) => s + (i.totalAmount || 0), 0);
-    const totalGst = allInvoices.reduce((s: number, i: any) => s + (i.totalGst || 0), 0);
+    const totalRefunded = allReturns.reduce((s: number, r: any) => s + (r.totalAmount || 0), 0);
+    const netRevenue = totalRevenue - totalRefunded;
 
     return (
         <AuthGuard>
             {/* ── Page header ─────────────────────────── */}
             <div className="page-header">
                 <div>
-                    <h1 className="page-title">Invoices</h1>
-                    <p className="page-subtitle">Browse, search and print all your invoices</p>
+                    <h1 className="page-title">{activeTab === "invoices" ? "Sales Invoices" : "Credit Notes (Returns)"}</h1>
+                    <p className="page-subtitle">Track your {activeTab === "invoices" ? "billing history" : "returns and refunds"}</p>
                 </div>
-                <a href="/billing" className="btn btn-primary" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <Receipt size={14} /> New Invoice
-                </a>
+
+                <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                    {/* Tab Switcher */}
+                    <div style={{ display: "flex", background: "var(--bg-input)", padding: 4, borderRadius: 12, border: "1px solid var(--border)" }}>
+                        {[
+                            { id: "invoices", label: "Invoices", icon: Receipt, color: "var(--indigo-l)" },
+                            { id: "returns", label: "Returns", icon: RotateCcw, color: "var(--red)" }
+                        ].map(t => (
+                            <button
+                                key={t.id}
+                                onClick={() => { setActiveTab(t.id as any); setPage(0); setRetPage(0); }}
+                                style={{
+                                    display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 10, fontSize: 12, fontWeight: 700,
+                                    background: activeTab === t.id ? "var(--bg-card)" : "transparent",
+                                    color: activeTab === t.id ? t.color : "var(--muted)",
+                                    boxShadow: activeTab === t.id ? "0 4px 12px rgba(0,0,0,0.1)" : "none",
+                                    border: "none", cursor: "pointer", transition: "all 0.2s"
+                                }}
+                            >
+                                <t.icon size={13} /> {t.label}
+                            </button>
+                        ))}
+                    </div>
+
+                    {activeTab === "invoices" && (
+                        <a href="/billing" className="btn btn-primary" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            <Receipt size={14} /> New Invoice
+                        </a>
+                    )}
+                </div>
             </div>
 
             {/* ── Summary cards ───────────────────────── */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginBottom: 20 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginBottom: 24 }}>
                 {[
-                    { label: "Total Invoices", val: String(total), icon: FileText, color: "#818cf8" },
-                    { label: "Revenue", val: `₹${fmtShort(totalRevenue)}`, icon: IndianRupee, color: "#34d399" },
-                    { label: "GST Collected", val: `₹${fmtShort(totalGst)}`, icon: Receipt, color: "#818cf8" },
+                    { label: activeTab === "invoices" ? "Total Invoices" : "Total Returns", val: String(activeTab === "invoices" ? allInvoices.length : allReturns.length), icon: FileText, color: activeTab === "invoices" ? "#818cf8" : "var(--red)" },
+                    { label: "Revenue (Net)", val: `₹${fmtShort(netRevenue)}`, icon: IndianRupee, color: "#34d399" },
+                    { label: "Total Refunded", val: `₹${fmtShort(totalRefunded)}`, icon: ArrowDownCircle, color: "#f87171" },
                 ].map(card => (
                     <div key={card.label} className="stat-card" style={{ display: "flex", alignItems: "center", gap: 14 }}>
                         <div style={{
@@ -99,181 +149,143 @@ export default function InvoicesPage() {
                 ))}
             </div>
 
-            {/* ── Filters row ─────────────────────────── */}
-            <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
-                {/* Search */}
+            {/* ── Search & Filter Row ─────────────────── */}
+            <div style={{ display: "flex", gap: 10, marginBottom: 20, flexWrap: "wrap" }}>
                 <div style={{ position: "relative", flex: 1, minWidth: 220 }}>
                     <Search size={14} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: "var(--muted)", pointerEvents: "none" }} />
                     <input
                         className="input"
                         style={{ paddingLeft: 34 }}
-                        placeholder="Search invoice #, customer name or phone…"
+                        placeholder={`Search ${activeTab === 'invoices' ? 'sales invoices' : 'credit notes'}…`}
                         value={search}
-                        onChange={e => { setSearch(e.target.value); setPage(0); }}
+                        onChange={e => { setSearch(e.target.value); setPage(0); setRetPage(0); }}
                     />
                 </div>
-
-                {/* Date from */}
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <Calendar size={14} style={{ color: "var(--muted)", flexShrink: 0 }} />
-                    <span style={{ fontSize: 12, color: "var(--muted)", whiteSpace: "nowrap" }}>From</span>
-                    <input
-                        type="date" className="input" style={{ width: 148 }}
-                        value={dateFrom}
-                        max={todayStr()}
-                        onChange={e => { setDateFrom(e.target.value); setPage(0); refetch({ dateFrom: e.target.value }); }}
-                    />
-                </div>
-
-                {/* Quick filters */}
-                {[
-                    { label: "Today", val: todayStr() },
-                    { label: "This Month", val: monthStartStr() },
-                ].map(f => (
-                    <button key={f.label}
-                        onClick={() => { setDateFrom(f.val); setPage(0); refetch({ dateFrom: f.val }); }}
-                        className="btn btn-ghost"
-                        style={{ fontSize: 12, padding: "6px 12px", background: dateFrom === f.val ? "var(--bg-input)" : undefined, color: dateFrom === f.val ? "var(--indigo-l)" : undefined }}>
-                        {f.label}
-                    </button>
-                ))}
+                {activeTab === "invoices" && (
+                    <div style={{ display: "flex", gap: 10 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <Calendar size={14} style={{ color: "var(--muted)", flexShrink: 0 }} />
+                            <span style={{ fontSize: 12, color: "var(--muted)", whiteSpace: "nowrap" }}>From</span>
+                            <input
+                                type="date" className="input" style={{ width: 148 }}
+                                value={dateFrom}
+                                max={todayStr()}
+                                onChange={e => { setDateFrom(e.target.value); setPage(0); refetch({ dateFrom: e.target.value }); }}
+                            />
+                        </div>
+                    </div>
+                )}
             </div>
 
-            {/* ── Table ───────────────────────────────── */}
-            {loading && allInvoices.length === 0 ? (
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "60px 0", gap: 10, color: "var(--muted)" }}>
-                    <Loader2 size={18} style={{ animation: "spin 0.8s linear infinite" }} />
-                    <span>Loading invoices…</span>
-                </div>
-            ) : error ? (
-                <div style={{ textAlign: "center", padding: "60px 0", color: "var(--red)" }}>Failed to load invoices. {error.message}</div>
-            ) : filtered.length === 0 ? (
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "60px 0", gap: 12, color: "var(--muted)" }}>
-                    <FileText size={44} strokeWidth={1} />
-                    <p style={{ fontSize: 14 }}>{search ? `No invoices match "${search}"` : "No invoices found for this period"}</p>
-                    {!search && <a href="/billing" className="btn btn-primary" style={{ display: "flex", alignItems: "center", gap: 6 }}><Receipt size={13} /> Create First Invoice</a>}
+            {/* ── CONTENT AREA ────────────────────────── */}
+            {activeTab === "invoices" ? (
+                /* ── SALES INVOICES ── */
+                <div style={{ marginBottom: 32 }}>
+                    {loading && allInvoices.length === 0 ? (
+                        <div style={{ padding: "40px 0", textAlign: "center", color: "var(--muted)" }}><Loader2 size={18} className="spin" /> Loading invoices…</div>
+                    ) : filteredInvoices.length === 0 ? (
+                        <div className="glass" style={{ padding: "30px", textAlign: "center", color: "var(--muted)", borderRadius: 16 }}>No sales invoices match your search</div>
+                    ) : (
+                        <>
+                            <div className="table-wrapper">
+                                <table className="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Invoice #</th>
+                                            <th>Customer</th>
+                                            <th>Date</th>
+                                            <th>Items</th>
+                                            <th>Payment</th>
+                                            <th>Amount</th>
+                                            <th>PDF</th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {invSlice.map((inv: any) => {
+                                            const pm = PM_COLOR[inv.paymentMethod] || { bg: "var(--bg-input)", color: "var(--muted)" };
+                                            const d = new Date(inv.createdAt);
+                                            return (
+                                                <tr key={inv.saleId} onClick={() => window.location.href = `/billing/${inv.saleId}`} style={{ cursor: "pointer" }}>
+                                                    <td><span style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 700, color: "var(--indigo-l)" }}>{inv.invoiceNumber}</span></td>
+                                                    <td><div style={{ fontWeight: 600, fontSize: 13 }}>{inv.customerName}</div>{inv.customerPhone && <div style={{ fontSize: 11, color: "var(--muted)" }}>{inv.customerPhone}</div>}</td>
+                                                    <td><div style={{ fontSize: 13 }}>{d.toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}</div><div style={{ fontSize: 11, color: "var(--muted)" }}>{d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</div></td>
+                                                    <td className="num">{inv.items?.length ?? "—"}</td>
+                                                    <td><span style={{ display: "inline-block", padding: "3px 10px", borderRadius: 20, fontSize: 10, fontWeight: 700, background: pm.bg, color: pm.color }}>{inv.paymentMethod}</span></td>
+                                                    <td className="num" style={{ fontWeight: 700 }}>₹{fmt(inv.totalAmount)}</td>
+                                                    <td>{inv.pdfUrl ? <span style={{ color: "var(--green)", display: "flex", gap: 4, fontSize: 11 }}><CheckCircle2 size={12} /> Ready</span> : <span style={{ color: "var(--yellow)", display: "flex", gap: 4, fontSize: 11 }}><Clock size={12} /> Pending</span>}</td>
+                                                    <td onClick={e => e.stopPropagation()}><div style={{ display: "flex", gap: 6 }}><a href={`/billing/${inv.saleId}`} className="btn btn-ghost" style={{ padding: 5 }}><Eye size={13} /></a></div></td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {invPages > 1 && (
+                                <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 10, gap: 6 }}>
+                                    <button disabled={page === 0} onClick={() => setPage(p => p - 1)} className="btn btn-ghost" style={{ fontSize: 11, padding: "4px 10px" }}>Prev</button>
+                                    <span style={{ fontSize: 11, padding: "4px 10px", color: "var(--muted)" }}>Page {page + 1} of {invPages}</span>
+                                    <button disabled={page >= invPages - 1} onClick={() => setPage(p => p + 1)} className="btn btn-ghost" style={{ fontSize: 11, padding: "4px 10px" }}>Next</button>
+                                </div>
+                            )}
+                        </>
+                    )}
                 </div>
             ) : (
-                <>
-                    <div className="table-wrapper">
-                        <table className="data-table">
-                            <thead>
-                                <tr>
-                                    <th>Invoice #</th>
-                                    <th>Customer</th>
-                                    <th>Date</th>
-                                    <th>Items</th>
-                                    <th>Payment</th>
-                                    <th>Amount</th>
-                                    <th>PDF</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {pageSlice.map((inv: any) => {
-                                    const pm = PM_COLOR[inv.paymentMethod] || { bg: "var(--bg-input)", color: "var(--muted)" };
-                                    const d = new Date(inv.createdAt);
-                                    const dateStr = d.toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
-                                    const timeStr = d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
-                                    return (
-                                        <tr key={inv.saleId}
-                                            style={{ cursor: "pointer" }}
-                                            onClick={() => window.location.href = `/billing/${inv.saleId}`}>
-                                            <td>
-                                                <span style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 700, color: "var(--indigo-l)" }}>
-                                                    {inv.invoiceNumber}
-                                                </span>
-                                            </td>
-                                            <td>
-                                                <div style={{ fontWeight: 600, fontSize: 13 }}>{inv.customerName}</div>
-                                                {inv.customerPhone && <div style={{ fontSize: 11, color: "var(--muted)" }}>{inv.customerPhone}</div>}
-                                            </td>
-                                            <td>
-                                                <div style={{ fontSize: 13 }}>{dateStr}</div>
-                                                <div style={{ fontSize: 11, color: "var(--muted)" }}>{timeStr}</div>
-                                            </td>
-                                            <td className="num" style={{ color: "var(--muted)", fontSize: 13 }}>
-                                                {inv.items?.length ?? "—"}
-                                            </td>
-                                            <td>
-                                                <span style={{
-                                                    display: "inline-block", padding: "3px 10px", borderRadius: 20,
-                                                    fontSize: 10, fontWeight: 700,
-                                                    background: pm.bg, color: pm.color,
-                                                }}>
-                                                    {inv.paymentMethod}
-                                                </span>
-                                            </td>
-                                            <td className="num" style={{ fontWeight: 700, fontSize: 14 }}>
-                                                ₹{fmt(inv.totalAmount)}
-                                            </td>
-                                            <td>
-                                                {inv.pdfUrl ? (
-                                                    <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "var(--green)" }}>
-                                                        <CheckCircle2 size={12} /> Ready
-                                                    </span>
-                                                ) : (
-                                                    <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "var(--yellow)" }}>
-                                                        <Clock size={12} /> Pending
-                                                    </span>
-                                                )}
-                                            </td>
-                                            <td onClick={e => e.stopPropagation()}>
-                                                <div style={{ display: "flex", gap: 6 }}>
-                                                    <a href={`/billing/${inv.saleId}`}
-                                                        title="View invoice"
-                                                        style={{ display: "flex", alignItems: "center", padding: 5, borderRadius: 6, background: "rgba(255,255,255,0.05)", color: "var(--muted)", textDecoration: "none" }}
-                                                        onMouseEnter={e => (e.currentTarget.style.color = "#818cf8")}
-                                                        onMouseLeave={e => (e.currentTarget.style.color = "var(--muted)")}>
-                                                        <Eye size={13} />
-                                                    </a>
-                                                    <a href={`/billing/${inv.saleId}`}
-                                                        title="Print invoice"
-                                                        onClick={e => { e.preventDefault(); window.open(`/billing/${inv.saleId}`, "_blank"); }}
-                                                        style={{ display: "flex", alignItems: "center", padding: 5, borderRadius: 6, background: "var(--bg-input)", color: "var(--muted)", textDecoration: "none" }}
-                                                        onMouseEnter={e => (e.currentTarget.style.color = "var(--green)")}
-                                                        onMouseLeave={e => (e.currentTarget.style.color = "var(--muted)")}>
-                                                        <Printer size={13} />
-                                                    </a>
-                                                </div>
-                                            </td>
+                /* ── RETURN INVOICES ── */
+                <div style={{ marginBottom: 40 }}>
+                    {retLoading && allReturns.length === 0 ? (
+                        <div style={{ padding: "40px 0", textAlign: "center", color: "var(--muted)" }}><Loader2 size={18} className="spin" /> Loading returns…</div>
+                    ) : filteredReturns.length === 0 ? (
+                        <div className="glass" style={{ padding: "30px", textAlign: "center", color: "var(--muted)", borderRadius: 16 }}>No return invoices found</div>
+                    ) : (
+                        <>
+                            <div className="table-wrapper">
+                                <table className="data-table" style={{ borderColor: "rgba(239,68,68,0.1)" }}>
+                                    <thead>
+                                        <tr>
+                                            <th>Credit Note #</th>
+                                            <th>Customer</th>
+                                            <th>Original Invoice</th>
+                                            <th>Date</th>
+                                            <th>Reason</th>
+                                            <th>Refund Amount</th>
+                                            <th>PDF</th>
+                                            <th></th>
                                         </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
-
-                    {/* ── Pagination ───────────────────────── */}
-                    {pages > 1 && (
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 14, fontSize: 12, color: "var(--muted)" }}>
-                            <span>Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, filtered.length)} of {filtered.length}</span>
-                            <div style={{ display: "flex", gap: 6 }}>
-                                <button
-                                    disabled={page === 0}
-                                    onClick={() => setPage(p => p - 1)}
-                                    className="btn btn-ghost"
-                                    style={{ padding: "5px 10px", display: "flex", alignItems: "center", gap: 4, opacity: page === 0 ? 0.3 : 1 }}>
-                                    <ChevronLeft size={13} /> Prev
-                                </button>
-                                <span style={{ padding: "5px 12px", background: "rgba(79,70,229,0.15)", borderRadius: 8, color: "#818cf8", fontWeight: 600 }}>
-                                    {page + 1} / {pages}
-                                </span>
-                                <button
-                                    disabled={page >= pages - 1}
-                                    onClick={() => setPage(p => p + 1)}
-                                    className="btn btn-ghost"
-                                    style={{ padding: "5px 10px", display: "flex", alignItems: "center", gap: 4, opacity: page >= pages - 1 ? 0.3 : 1 }}>
-                                    Next <ChevronRight size={13} />
-                                </button>
+                                    </thead>
+                                    <tbody>
+                                        {retSlice.map((r: any) => {
+                                            const d = new Date(r.createdAt);
+                                            return (
+                                                <tr key={r.returnId} onClick={() => window.location.href = `/returns/${r.returnId}`} style={{ cursor: "pointer" }}>
+                                                    <td><span style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 700, color: "var(--red)" }}>{r.creditNoteNumber}</span></td>
+                                                    <td><div style={{ fontWeight: 600, fontSize: 13 }}>{r.customerName}</div>{r.customerPhone && <div style={{ fontSize: 11, color: "var(--muted)" }}>{r.customerPhone}</div>}</td>
+                                                    <td><div style={{ fontSize: 12, fontWeight: 700 }}>{r.originalInvoiceNumber}</div><div style={{ fontSize: 10, color: "var(--muted)" }}>ID: {r.originalInvoiceId}</div></td>
+                                                    <td><div style={{ fontSize: 13 }}>{d.toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}</div><div style={{ fontSize: 11, color: "var(--muted)" }}>{d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</div></td>
+                                                    <td><span style={{ fontSize: 11, fontWeight: 700, color: "var(--red)", background: "rgba(239,68,68,0.08)", padding: "2px 8px", borderRadius: 10 }}>{r.reason}</span></td>
+                                                    <td className="num" style={{ fontWeight: 900, color: "var(--red)" }}>- ₹{fmt(r.totalAmount)}</td>
+                                                    <td>{r.pdfStatus === "READY" ? <span style={{ color: "var(--green)", display: "flex", gap: 4, fontSize: 11 }}><CheckCircle2 size={12} /> Ready</span> : <span style={{ color: "var(--yellow)", display: "flex", gap: 4, fontSize: 11 }}><Clock size={12} /> Pending</span>}</td>
+                                                    <td onClick={e => e.stopPropagation()}><div style={{ display: "flex", gap: 6 }}><a href={`/returns/${r.returnId}`} className="btn btn-ghost" style={{ padding: 5, color: "var(--red)" }}><Eye size={13} /></a></div></td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
                             </div>
-                        </div>
+                            {retPages > 1 && (
+                                <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 10, gap: 6 }}>
+                                    <button disabled={retPage === 0} onClick={() => setRetPage(p => p - 1)} className="btn btn-ghost" style={{ fontSize: 11, padding: "4px 10px" }}>Prev</button>
+                                    <span style={{ fontSize: 11, padding: "4px 10px", color: "var(--muted)" }}>Page {retPage + 1} of {retPages}</span>
+                                    <button disabled={retPage >= retPages - 1} onClick={() => setRetPage(p => p + 1)} className="btn btn-ghost" style={{ fontSize: 11, padding: "4px 10px" }}>Next</button>
+                                </div>
+                            )}
+                        </>
                     )}
-                </>
-            )
-            }
+                </div>
+            )}
 
-            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-        </AuthGuard >
+            <style>{`.spin { animation: spin 1s linear infinite; } @keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        </AuthGuard>
     );
 }

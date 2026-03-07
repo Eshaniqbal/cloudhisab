@@ -154,6 +154,13 @@ export const GET_INVOICE = gql`
       businessPhone
       businessCity
       businessState
+      returns {
+        returnId
+        creditNoteNumber
+        totalAmount
+        createdAt
+        reason
+      }
     }
   }
 `;
@@ -161,6 +168,21 @@ export const GET_INVOICE = gql`
 export const GET_INVOICE_DOWNLOAD_URL = gql`
   query GetInvoiceDownloadUrl($saleId: String!) {
     getInvoiceDownloadUrl(saleId: $saleId)
+  }
+`;
+
+export const SEARCH_INVOICES = gql`
+  query SearchInvoices($query: String!, $limit: Int) {
+    searchInvoices(query: $query, limit: $limit) {
+      items {
+        saleId
+        invoiceNumber
+        customerName
+        customerPhone
+        totalAmount
+        createdAt
+      }
+    }
   }
 `;
 
@@ -273,6 +295,7 @@ export const LIST_CUSTOMERS = gql`
         totalInvoiced
         totalPaid
         advance
+        totalReturned
         outstanding
         invoiceCount
         lastInvoiceDate
@@ -293,6 +316,7 @@ export const GET_CUSTOMER_LEDGER = gql`
         totalInvoiced
         totalPaid
         advance
+        totalReturned
         outstanding
         invoiceCount
         lastInvoiceDate
@@ -306,6 +330,11 @@ export const GET_CUSTOMER_LEDGER = gql`
         description
         date
         createdAt
+        saleId
+        pdfUrl
+        creditNote
+        refundType
+        returnId
       }
     }
   }
@@ -381,5 +410,88 @@ export const GET_IMPORT_JOB_STATUS = gql`
       startedAt
       completedAt
     }
+  }
+`;
+
+// ─── Returns / Credit Notes ───
+export const LIST_RETURNS = gql`
+  query ListReturns($limit: Int) {
+    listReturns(limit: $limit) {
+      items {
+        returnId
+        creditNoteNumber
+        originalInvoiceId
+        originalInvoiceNumber
+        customerName
+        customerPhone
+        items {
+          productId
+          productName
+          quantity
+          sellingPrice
+          gstRate
+          gstAmount
+          lineTotal
+          lineTotalWithGst
+        }
+        subtotal
+        totalGst
+        totalAmount
+        reason
+        refundType
+        restock
+        notes
+        createdAt
+        pdfStatus
+        businessName
+        businessGstin
+        businessAddress
+        businessPhone
+      }
+      total
+    }
+  }
+`;
+
+export const GET_RETURN = gql`
+  query GetReturn($returnId: String!) {
+    getReturn(returnId: $returnId) {
+      returnId
+      creditNoteNumber
+      originalInvoiceId
+      originalInvoiceNumber
+      customerName
+      customerPhone
+      items {
+        productId
+        productName
+        sku
+        quantity
+        sellingPrice
+        gstRate
+        gstAmount
+        lineTotal
+        lineTotalWithGst
+      }
+      subtotal
+      totalGst
+      totalAmount
+      reason
+      refundType
+      restock
+      notes
+      createdAt
+      businessName
+      businessGstin
+      businessAddress
+      businessPhone
+      pdfStatus
+    }
+  }
+`;
+
+export const GET_RETURN_DOWNLOAD_URL = gql`
+  query GetReturnDownloadUrl($returnId: String!) {
+    getReturnDownloadUrl(returnId: $returnId)
   }
 `;

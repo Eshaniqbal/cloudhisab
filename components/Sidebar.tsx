@@ -6,7 +6,7 @@ import { logout, getUser } from "@/lib/auth";
 import { useTheme } from "@/lib/useTheme";
 import {
     LayoutDashboard, Package, Receipt, Layers,
-    TrendingUp, Wallet, LogOut, FileText, Sun, Moon, Users, Settings, ChevronUp, CreditCard,
+    TrendingUp, Wallet, LogOut, FileText, Sun, Moon, Users, Settings, ChevronUp, CreditCard, RotateCcw,
 } from "lucide-react";
 
 const ROLE_LEVEL: Record<string, number> = {
@@ -26,6 +26,7 @@ const NAV_ITEMS = [
     { href: "/invoices", icon: FileText, label: "Invoices", minRole: "ACCOUNTANT" },
     { href: "/products", icon: Package, label: "Products", minRole: "MANAGER" },
     { href: "/stock", icon: Layers, label: "Stock", minRole: "MANAGER" },
+    { href: "/returns", icon: RotateCcw, label: "Returns", minRole: "MANAGER" },
     { href: "/expenses", icon: Wallet, label: "Expenses", minRole: "ACCOUNTANT" },
     { href: "/customers", icon: Users, label: "Customers", minRole: "CASHIER" },
     { href: "/reports", icon: TrendingUp, label: "Reports", minRole: "ACCOUNTANT" },

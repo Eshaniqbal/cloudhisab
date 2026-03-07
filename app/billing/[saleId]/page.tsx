@@ -2,7 +2,7 @@
 import { useQuery, useLazyQuery } from "@apollo/client";
 import { AuthGuard } from "@/components/AuthGuard";
 import { GET_INVOICE, GET_INVOICE_DOWNLOAD_URL } from "@/lib/graphql/queries";
-import { Download, ArrowLeft, CheckCircle2, Clock, Loader2, RefreshCw } from "lucide-react";
+import { Download, ArrowLeft, CheckCircle2, Clock, Loader2, RefreshCw, RotateCcw } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -346,6 +346,43 @@ export default function InvoiceDetailPage() {
                 </div>
             </div>
             {/* ════════════════ END INVOICE PAPER ════════════════ */}
+
+            {/* ── RETURNS SECTION (if any) ── */}
+            {inv.returns && inv.returns.length > 0 && (
+                <div className="no-print" style={{ maxWidth: 860, margin: "24px auto 0", animation: "fadeIn 0.5s ease" }}>
+                    <h3 style={{ fontSize: 13, fontWeight: 800, color: "var(--red)", marginBottom: 14, display: "flex", alignItems: "center", gap: 8, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                        <RotateCcw size={15} /> Associated Returns (Credit Notes)
+                    </h3>
+                    <div style={{ display: "grid", gap: 12 }}>
+                        {inv.returns.map((ret: any) => (
+                            <div key={ret.returnId} className="glass" style={{
+                                padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center",
+                                borderRadius: 16, border: "1px solid rgba(239,68,68,0.15)",
+                                background: "rgba(239,68,68,0.03)", backdropFilter: "blur(10px)"
+                            }}>
+                                <div>
+                                    <div style={{ fontSize: 13, fontWeight: 800, color: "var(--text)" }}>{ret.creditNoteNumber}</div>
+                                    <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>
+                                        {new Date(ret.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })} — <span style={{ color: "var(--red)", fontWeight: 600 }}>{ret.reason}</span>
+                                    </div>
+                                </div>
+                                <div style={{ textAlign: "right", display: "flex", alignItems: "center", gap: 20 }}>
+                                    <div>
+                                        <div style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.03em" }}>Refund Amount</div>
+                                        <div style={{ fontSize: 18, fontWeight: 900, color: "var(--red)", letterSpacing: "-0.5px" }}>- ₹{f2(ret.totalAmount)}</div>
+                                    </div>
+                                    <a href={`/returns/${ret.returnId}`} target="_blank" rel="noreferrer"
+                                        className="btn btn-ghost" style={{ fontSize: 11, fontWeight: 800, padding: "8px 16px", background: "rgba(239,68,68,0.08)", color: "var(--red)", borderRadius: 10, textDecoration: "none", transition: "all 0.15s" }}
+                                        onMouseEnter={e => e.currentTarget.style.background = "rgba(239,68,68,0.14)"}
+                                        onMouseLeave={e => e.currentTarget.style.background = "rgba(239,68,68,0.08)"}>
+                                        View Bill →
+                                    </a>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {/* PDF Status bar */}
             <div className="no-print" style={{ maxWidth: 860, margin: "16px auto 0" }}>
