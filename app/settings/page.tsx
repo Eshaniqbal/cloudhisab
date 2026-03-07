@@ -383,7 +383,7 @@ export default function SettingsPage() {
                                         <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", marginBottom: 8 }}>Current Plan</div>
                                         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                             <div style={{ fontSize: 24, fontWeight: 900, color: "var(--text)" }}>{profile.plan}</div>
-                                            <div style={{ padding: "2px 8px", borderRadius: 6, background: profile.subStatus === "active" || profile.subStatus === "trialing" ? "rgba(16,185,129,0.1)" : "rgba(239,68,68,0.1)", color: profile.subStatus === "active" || profile.subStatus === "trialing" ? "#10b981" : "#ef4444", fontSize: 10, fontWeight: 800, textTransform: "uppercase" }}>
+                                            <div style={{ padding: "2px 8px", borderRadius: 6, background: ["active", "trialing", "authenticated"].includes(profile.subStatus) ? "rgba(16,185,129,0.1)" : "rgba(239,68,68,0.1)", color: ["active", "trialing", "authenticated"].includes(profile.subStatus) ? "#10b981" : "#ef4444", fontSize: 10, fontWeight: 800, textTransform: "uppercase" }}>
                                                 {profile.subStatus}
                                             </div>
                                         </div>
@@ -425,7 +425,7 @@ export default function SettingsPage() {
                                         <Zap size={14} /> {profile.plan === "NONE" ? "Choose a Plan" : "Upgrade / Change Plan"}
                                     </button>
 
-                                    {(profile.subStatus === "active" || profile.subStatus === "trialing") && (
+                                    {["active", "trialing", "authenticated"].includes(profile.subStatus) && (
                                         <button
                                             onClick={async () => {
                                                 if (confirm("Are you sure you want to cancel your subscription? Your plan will remain active until the end of the current billing period.")) {
