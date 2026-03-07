@@ -12,6 +12,10 @@ import {
 } from "lucide-react";
 import { useTheme } from "@/lib/useTheme";
 import { useSubscription } from "@/lib/useSubscription";
+import {
+    AreaChart, Area, BarChart, Bar,
+    XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Cell
+} from 'recharts';
 
 function fmt(n: number) {
     return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(n);
@@ -35,6 +39,24 @@ function downloadCSV(rows: string[][], filename: string) {
     a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
+}
+
+/* ─── Recharts Tooltip ─────────────────────────────────────────────── */
+const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+        return (
+            <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", padding: "10px 14px", borderRadius: 12, boxShadow: "0 10px 30px rgba(0,0,0,0.15)" }}>
+                <div style={{ fontSize: 13, fontWeight: 800, color: "var(--text)", marginBottom: 8, paddingBottom: 6, borderBottom: "1px solid var(--border)" }}>{label}</div>
+                {payload.map((entry: any, index: number) => (
+                    <div key={index} style={{ color: entry.color, fontSize: 12, fontWeight: 700, display: "flex", justifyContent: "space-between", gap: 12, marginBottom: 4 }}>
+                        <span style={{ color: "var(--muted)", fontWeight: 600 }}>{entry.name}</span>
+                        <span>{entry.name.includes("Count") || entry.name.includes("Qty") ? entry.value : `₹${new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 }).format(entry.value)}`}</span>
+                    </div>
+                ))}
+            </div>
+        );
+    }
+    return null;
 }
 
 /* ─── Animated Metric Card ─────────────────────────────────────────── */
@@ -522,6 +544,34 @@ export default function DashboardPage() {
     const { status, loading: subLoading } = useSubscription();
     const { theme } = useTheme();
 
+    const [runReport, { data: reportData, loading: reportLoading }] = useLazyQuery(GET_PROFIT_REPORT, {
+        fetchPolicy: "cache-and-network",
+    } as any);
+
+    useEffect(() => {
+        const pad = (n: number) => String(n).padStart(2, "0");
+        const d2 = new Date();
+        const todayStr = `${d2.getFullYear()}-${pad(d2.getMonth() + 1)}-${pad(d2.getDate())}`;
+        d2.setDate(d2.getDate() - 6);
+        const last7Str = `${d2.getFullYear()}-${pad(d2.getMonth() + 1)}-${pad(d2.getDate())}`;
+        runReport({ variables: { dateFrom: last7Str, dateTo: todayStr } } as any);
+    }, [runReport]);
+
+    const chartData = reportData?.getProfitReport?.dailyBreakdown?.map((day: any) => {
+        const dObj = new Date(day.date);
+        return {
+            ...day,
+            displayDate: dObj.toLocaleDateString("en-US", { day: "numeric", month: "short" })
+        };
+    }) || [];
+    const chartDataReversed = [...chartData].reverse();
+
+    const topProductsChartData = d?.topProducts?.slice(0, 5).map((p: any) => ({
+        name: p.productName.length > 15 ? p.productName.substring(0, 15) + "..." : p.productName,
+        revenue: p.totalRevenue,
+        qty: p.totalQuantitySold
+    })) || [];
+
     return (
         <AuthGuard>
             <div>
@@ -692,6 +742,64 @@ export default function DashboardPage() {
                         <span style={{ fontSize: 12, color: "var(--text)", fontWeight: 700, whiteSpace: "nowrap" }}>
                             Day {daysElapsed} / {daysInMonth} · {monthProgress}%
                         </span>
+                    </div>
+                )}
+
+                {/* ── CHARTS SECTION ───────────────────────────── */}
+                {!reportLoading && chartDataReversed.length > 0 && (
+                    <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 18, marginBottom: 28, flexWrap: "wrap" }}>
+                        {/* 7-Day Revenue Trend */}
+                        <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 18, padding: "20px" }}>
+                            <SectionHeader icon={TrendingUp} title="7-Day Revenue & Profit Trend" color="var(--indigo)" />
+                            <div style={{ height: 280, marginTop: 16, marginLeft: -16 }}>
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <AreaChart data={chartDataReversed} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                                        <defs>
+                                            <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor="#818cf8" stopOpacity={0.3} />
+                                                <stop offset="95%" stopColor="#818cf8" stopOpacity={0} />
+                                            </linearGradient>
+                                            <linearGradient id="colorProfit" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor="#34d399" stopOpacity={0.3} />
+                                                <stop offset="95%" stopColor="#34d399" stopOpacity={0} />
+                                            </linearGradient>
+                                        </defs>
+                                        <XAxis dataKey="displayDate" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "var(--muted)" }} dy={10} />
+                                        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "var(--muted)" }} tickFormatter={v => `₹${v / 1000}k`} />
+                                        <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="var(--border)" opacity={0.5} />
+                                        <RechartsTooltip content={<CustomTooltip />} cursor={{ stroke: "var(--border)", strokeWidth: 1, strokeDasharray: "4 4" }} />
+                                        <Area type="monotone" dataKey="totalSales" name="Revenue" stroke="#818cf8" strokeWidth={3} fillOpacity={1} fill="url(#colorRevenue)" activeDot={{ r: 6, stroke: "#fff", strokeWidth: 2 }} />
+                                        <Area type="monotone" dataKey="totalProfit" name="Gross Profit" stroke="#34d399" strokeWidth={3} fillOpacity={1} fill="url(#colorProfit)" activeDot={{ r: 6, stroke: "#fff", strokeWidth: 2 }} />
+                                    </AreaChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+
+                        {/* Top Products Bar Chart */}
+                        <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 18, padding: "20px" }}>
+                            <SectionHeader icon={Package} title="Top Products (Today By Revenue)" color="var(--yellow)" />
+                            {topProductsChartData.length > 0 ? (
+                                <div style={{ height: 280, marginTop: 16, marginLeft: -24 }}>
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart data={topProductsChartData} layout="vertical" margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                                            <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: "var(--muted)" }} tickFormatter={v => `₹${v / 1000}k`} />
+                                            <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "var(--muted)" }} width={90} />
+                                            <CartesianGrid horizontal={false} strokeDasharray="3 3" stroke="var(--border)" opacity={0.5} />
+                                            <RechartsTooltip content={<CustomTooltip />} cursor={{ fill: "var(--bg-input)", opacity: 0.5 }} />
+                                            <Bar dataKey="revenue" name="Revenue" radius={[0, 4, 4, 0]} barSize={24}>
+                                                {topProductsChartData.map((e: any, index: number) => (
+                                                    <Cell key={`cell-${index}`} fill={['#6366f1', '#8b5cf6', '#a855f7', '#d946ef', '#f43f5e'][index % 5]} />
+                                                ))}
+                                            </Bar>
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            ) : (
+                                <div style={{ height: 280, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--muted)", fontSize: 13 }}>
+                                    No sales yet today
+                                </div>
+                            )}
+                        </div>
                     </div>
                 )}
 
