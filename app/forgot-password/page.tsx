@@ -3,11 +3,13 @@ import { useState } from "react";
 import Link from "next/link";
 import { useMutation } from "@apollo/client";
 import { FORGOT_PASSWORD, CONFIRM_FORGOT_PASSWORD } from "@/lib/graphql/mutations";
-import { Zap, Mail, Key, Eye, EyeOff, CheckCircle2, AlertTriangle, Loader2, ArrowLeft, Lock } from "lucide-react";
+import { useTheme } from "@/lib/useTheme";
+import { Mail, Key, Eye, EyeOff, CheckCircle2, AlertTriangle, Loader2, ArrowLeft, Lock } from "lucide-react";
 
 type Step = "email" | "code" | "done";
 
 export default function ForgotPasswordPage() {
+    const { theme } = useTheme();
     const [step, setStep] = useState<Step>("email");
     const [email, setEmail] = useState("");
     const [code, setCode] = useState("");
@@ -52,14 +54,11 @@ export default function ForgotPasswordPage() {
 
                 {/* Logo */}
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 32 }}>
-                    <div style={{
-                        width: 52, height: 52, borderRadius: 16,
-                        background: "linear-gradient(135deg,#4f46e5,#6366f1)",
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        marginBottom: 14, boxShadow: "0 8px 24px rgba(79,70,229,0.4)",
-                    }}>
-                        <Lock size={24} color="#fff" />
-                    </div>
+                    <img
+                        src={theme === "dark" ? "/logo.png" : "/logo1.png"}
+                        alt="Logo"
+                        style={{ height: 60, width: "auto", marginBottom: 14, objectFit: "contain" }}
+                    />
                     <h1 style={{ fontSize: 22, fontWeight: 800, color: "#f1f5f9", letterSpacing: "-0.3px" }}>
                         {step === "done" ? "Password Reset!" : "Forgot Password"}
                     </h1>
@@ -163,7 +162,11 @@ export default function ForgotPasswordPage() {
                             {msg || "Your password has been reset successfully."}
                         </div>
                         <Link href="/login" className="btn btn-primary" style={{ display: "flex", alignItems: "center", gap: 6, width: "100%", justifyContent: "center", padding: "11px 20px", fontSize: 14 }}>
-                            <Zap size={15} /> Sign In Now
+                            <img
+                                src={theme === "dark" ? "/logo.png" : "/logo1.png"}
+                                alt="Logo"
+                                style={{ width: 16, height: 16, objectFit: "contain" }}
+                            /> Sign In Now
                         </Link>
                     </div>
                 )}

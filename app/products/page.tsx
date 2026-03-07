@@ -642,7 +642,15 @@ export default function ProductsPage() {
                             </tr>
                         </thead>
                         <tbody>
-                            {loading && (<tr><td colSpan={10} className="text-center py-12 text-slate-500"><Loader2 size={20} className="animate-spin inline" /></td></tr>)}
+                            {loading && (
+                                <tr>
+                                    <td colSpan={11}>
+                                        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", minHeight: "200px" }}>
+                                            <Loader2 size={32} color="#4f46e5" style={{ animation: "spin 0.7s linear infinite" }} />
+                                        </div>
+                                    </td>
+                                </tr>
+                            )}
                             {!loading && products.length === 0 && (
                                 <tr>
                                     <td colSpan={10} className="text-center py-16">

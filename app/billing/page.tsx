@@ -293,8 +293,8 @@ export default function BillingPage() {
                     {/* ── Product list (flex:1 — fills remaining space, single column) ── */}
                     <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 5 }}>
                         {prodLoading && (
-                            <div style={{ padding: "40px 0", textAlign: "center" }}>
-                                <Loader2 size={20} color="#4f46e5" style={{ animation: "spin 0.7s linear infinite" }} />
+                            <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", minHeight: "200px" }}>
+                                <Loader2 size={32} color="#4f46e5" style={{ animation: "spin 0.7s linear infinite" }} />
                             </div>
                         )}
                         {filtered.map((p: any) => {

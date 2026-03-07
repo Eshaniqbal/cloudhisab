@@ -6,10 +6,11 @@ import { GET_DASHBOARD, GET_PROFIT_REPORT } from "@/lib/graphql/queries";
 import {
     TrendingUp, TrendingDown, Receipt, Package,
     IndianRupee, AlertTriangle, BarChart3, RefreshCw,
-    ArrowUpRight, ArrowDownRight, ShoppingBag, Zap,
+    ArrowUpRight, ArrowDownRight, ShoppingBag,
     Calendar, ArrowRight, Download, Loader2, ChevronDown, X,
     ShieldCheck,
 } from "lucide-react";
+import { useTheme } from "@/lib/useTheme";
 import { useSubscription } from "@/lib/useSubscription";
 
 function fmt(n: number) {
@@ -519,6 +520,7 @@ export default function DashboardPage() {
     const monthProgress = Math.round((daysElapsed / daysInMonth) * 100);
 
     const { status, loading: subLoading } = useSubscription();
+    const { theme } = useTheme();
 
     return (
         <AuthGuard>
@@ -531,19 +533,9 @@ export default function DashboardPage() {
                 }}>
                     <div style={{ flex: 1 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 4, flexWrap: "wrap" }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                                <div style={{
-                                    width: 32, height: 32, borderRadius: 9,
-                                    background: "linear-gradient(135deg,var(--indigo),#6366f1)",
-                                    display: "flex", alignItems: "center", justifyContent: "center",
-                                    boxShadow: "0 4px 14px rgba(79,70,229,0.35)",
-                                }}>
-                                    <Zap size={15} color="#fff" />
-                                </div>
-                                <h1 style={{ fontSize: 24, fontWeight: 900, color: "var(--text)", letterSpacing: "-0.4px" }}>
-                                    Dashboard
-                                </h1>
-                            </div>
+                            <h1 style={{ fontSize: 24, fontWeight: 900, color: "var(--text)", letterSpacing: "-0.4px" }}>
+                                Dashboard
+                            </h1>
 
                             {/* Subscription Badge */}
                             {!subLoading && status && status.plan !== "NONE" && (

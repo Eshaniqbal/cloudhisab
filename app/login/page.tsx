@@ -5,11 +5,13 @@ import Link from "next/link";
 import { useMutation } from "@apollo/client";
 import { LOGIN, RESPOND_TO_NEW_PASSWORD_CHALLENGE } from "@/lib/graphql/mutations";
 import { saveAuth } from "@/lib/auth";
-import { Zap, Eye, EyeOff, Loader2, ShieldCheck, KeyRound, Lock } from "lucide-react";
+import { useTheme } from "@/lib/useTheme";
+import { Eye, EyeOff, Loader2, ShieldCheck, KeyRound, Lock } from "lucide-react";
 
 function LoginForm() {
     const router = useRouter();
     const searchParams = useSearchParams();
+    const { theme } = useTheme();
 
     const verifiedEmail = searchParams.get("email") || "";
     const justVerified = searchParams.get("verified") === "1";
@@ -75,22 +77,28 @@ function LoginForm() {
 
                 {/* Logo */}
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 32 }}>
-                    <div style={{
-                        width: 52, height: 52, borderRadius: 16,
-                        background: challenge
-                            ? "linear-gradient(135deg,#10b981,#059669)"
-                            : "linear-gradient(135deg,#4f46e5,#6366f1)",
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        marginBottom: 14, boxShadow: challenge
-                            ? "0 8px 24px rgba(16,185,129,0.4)"
-                            : "0 8px 24px rgba(79,70,229,0.4)",
-                        transition: "all 0.4s ease",
-                    }}>
-                        {challenge ? <KeyRound size={24} color="#fff" /> : <Zap size={24} color="#fff" />}
-                    </div>
-                    <h1 style={{ fontSize: 22, fontWeight: 800, color: "#f1f5f9", letterSpacing: "-0.3px" }}>
-                        {challenge ? "Set Your Password" : "CloudHisaab"}
-                    </h1>
+                    {challenge ? (
+                        <div style={{
+                            width: 52, height: 52, borderRadius: 16,
+                            background: "linear-gradient(135deg,#10b981,#059669)",
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                            marginBottom: 14, boxShadow: "0 8px 24px rgba(16,185,129,0.4)",
+                            transition: "all 0.4s ease",
+                        }}>
+                            <KeyRound size={24} color="#fff" />
+                        </div>
+                    ) : (
+                        <img
+                            src={theme === "dark" ? "/logo.png" : "/logo1.png"}
+                            alt="Logo"
+                            style={{ height: 64, width: "auto", marginBottom: 14, objectFit: "contain" }}
+                        />
+                    )}
+                    {challenge && (
+                        <h1 style={{ fontSize: 22, fontWeight: 800, color: "#f1f5f9", letterSpacing: "-0.3px" }}>
+                            Set Your Password
+                        </h1>
+                    )}
                     <p style={{ fontSize: 13, color: "#64748b", marginTop: 4 }}>
                         {challenge
                             ? "Your account is ready — choose a permanent password"

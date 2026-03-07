@@ -6,7 +6,7 @@ import { logout, getUser } from "@/lib/auth";
 import { useTheme } from "@/lib/useTheme";
 import {
     LayoutDashboard, Package, Receipt, Layers,
-    TrendingUp, Wallet, LogOut, Zap, FileText, Sun, Moon, Users, Settings, ChevronUp, CreditCard,
+    TrendingUp, Wallet, LogOut, FileText, Sun, Moon, Users, Settings, ChevronUp, CreditCard,
 } from "lucide-react";
 
 const ROLE_LEVEL: Record<string, number> = {
@@ -130,21 +130,12 @@ export function Sidebar() {
 
             <aside className="sidebar no-print">
                 {/* ── Logo ── */}
-                <div style={{ padding: "4px 4px 20px" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 4px" }}>
-                        <div style={{
-                            width: 34, height: 34, borderRadius: 10,
-                            background: "linear-gradient(135deg,#4f46e5,#6366f1)",
-                            display: "flex", alignItems: "center", justifyContent: "center",
-                            boxShadow: "0 4px 14px rgba(79,70,229,0.4)", flexShrink: 0,
-                        }}>
-                            <Zap size={16} color="#fff" />
-                        </div>
-                        <div>
-                            <div style={{ fontSize: 14, fontWeight: 800, color: "var(--text)", letterSpacing: "-0.2px" }}>CloudHisaab</div>
-                            <div style={{ fontSize: 10, color: "var(--muted)", marginTop: 1 }}>Billing SaaS</div>
-                        </div>
-                    </div>
+                <div style={{ padding: "8px 12px 16px", display: "flex", justifyContent: "center" }}>
+                    <img
+                        src={theme === "dark" ? "/logo.png" : "/logo1.png"}
+                        alt="CloudHisaab Logo"
+                        style={{ width: "90%", height: "auto", maxHeight: 60, objectFit: "contain" }}
+                    />
                 </div>
 
                 {/* ── Nav links ── */}

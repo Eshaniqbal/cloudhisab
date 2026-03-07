@@ -4,7 +4,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useMutation } from "@apollo/client";
 import { REGISTER_TENANT, VERIFY_OTP, RESEND_OTP } from "@/lib/graphql/mutations";
-import { Zap, Loader2, Mail, CheckCircle, RefreshCw, ShieldCheck } from "lucide-react";
+import { useTheme } from "@/lib/useTheme";
+import { Loader2, Mail, CheckCircle, RefreshCw, ShieldCheck } from "lucide-react";
 
 const GST_STATES = [
     "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Delhi",
@@ -30,6 +31,7 @@ const selectStyle: React.CSSProperties = {
 
 export default function RegisterPage() {
     const router = useRouter();
+    const { theme } = useTheme();
     const [step, setStep] = useState(1); // 1: info, 2: business, 3: otp
     const [pending, setPending] = useState<{ email: string; tenantId: string; userId: string } | null>(null);
     const [otp, setOtp] = useState("");
@@ -103,9 +105,11 @@ export default function RegisterPage() {
 
                 {/* Logo */}
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 24 }}>
-                    <div style={{ width: 46, height: 46, borderRadius: 14, background: "linear-gradient(135deg,#4f46e5,#6366f1)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12, boxShadow: "0 8px 24px rgba(79,70,229,0.4)" }}>
-                        <Zap size={20} color="#fff" />
-                    </div>
+                    <img
+                        src={theme === "dark" ? "/logo.png" : "/logo1.png"}
+                        alt="Logo"
+                        style={{ height: 54, width: "auto", marginBottom: 12, objectFit: "contain" }}
+                    />
                     <h1 style={{ fontSize: 20, fontWeight: 800, color: "#f1f5f9" }}>
                         {step === 3 ? "Verify Your Email" : "Register Your Business"}
                     </h1>
