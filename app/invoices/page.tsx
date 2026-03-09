@@ -7,7 +7,7 @@ import {
     FileText, Search, Printer, Eye, Loader2,
     IndianRupee, Receipt, Calendar,
     ChevronLeft, ChevronRight, Clock, CheckCircle2,
-    RotateCcw, ArrowDownCircle,
+    RotateCcw, ArrowDownCircle, Mail, X
 } from "lucide-react";
 
 const fmt = (n: number) =>
@@ -38,6 +38,17 @@ export default function InvoicesPage() {
     const [page, setPage] = useState(0);
     const [retPage, setRetPage] = useState(0);
     const PAGE_SIZE = 10;
+
+    // Email Modal State
+    const [emailInvoice, setEmailInvoice] = useState<any>(null);
+    const [emailInput, setEmailInput] = useState("");
+    const [isSendingEmail, setIsSendingEmail] = useState(false);
+    const [notification, setNotification] = useState<{ msg: string, type: "success" | "error" } | null>(null);
+
+    const showNotification = (msg: string, type: "success" | "error") => {
+        setNotification({ msg, type });
+        setTimeout(() => setNotification(null), 3000);
+    };
 
     const { data, loading, error, refetch } = useQuery<any, any>(LIST_INVOICES, {
         variables: { dateFrom, limit: 200 },
@@ -86,6 +97,45 @@ export default function InvoicesPage() {
     const totalRevenue = allInvoices.reduce((s: number, i: any) => s + (i.totalAmount || 0), 0);
     const totalRefunded = allReturns.reduce((s: number, r: any) => s + (r.totalAmount || 0), 0);
     const netRevenue = totalRevenue - totalRefunded;
+
+    const openEmailModal = (inv: any) => {
+        setEmailInvoice(inv);
+        // Default to the customer's phone as an email placeholder if available, or just empty
+        setEmailInput("");
+    };
+
+    const confirmSendEmail = async () => {
+        if (!emailInput || !emailInput.includes("@")) {
+            showNotification("Please enter a valid email address.", "error");
+            return;
+        }
+
+        setIsSendingEmail(true);
+        try {
+            const res = await fetch("/api/send-invoice-email", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    toEmail: emailInput.trim(),
+                    invoiceNumber: emailInvoice.invoiceNumber,
+                    customerName: emailInvoice.customerName,
+                    totalAmount: emailInvoice.totalAmount,
+                    pdfUrl: emailInvoice.pdfUrl
+                })
+            });
+            const data = await res.json();
+            if (data.success) {
+                showNotification(`Invoice sent successfully to ${emailInput}`, "success");
+                setEmailInvoice(null);
+            } else {
+                showNotification("Failed to send email: " + data.error, "error");
+            }
+        } catch (e: any) {
+            showNotification("Error sending email: " + e.message, "error");
+        } finally {
+            setIsSendingEmail(false);
+        }
+    };
 
     return (
         <AuthGuard>
@@ -214,7 +264,12 @@ export default function InvoicesPage() {
                                                     <td><span style={{ display: "inline-block", padding: "3px 10px", borderRadius: 20, fontSize: 10, fontWeight: 700, background: pm.bg, color: pm.color }}>{inv.paymentMethod}</span></td>
                                                     <td className="num" style={{ fontWeight: 700 }}>₹{fmt(inv.totalAmount)}</td>
                                                     <td>{inv.pdfUrl ? <span style={{ color: "var(--green)", display: "flex", gap: 4, fontSize: 11 }}><CheckCircle2 size={12} /> Ready</span> : <span style={{ color: "var(--yellow)", display: "flex", gap: 4, fontSize: 11 }}><Clock size={12} /> Pending</span>}</td>
-                                                    <td onClick={e => e.stopPropagation()}><div style={{ display: "flex", gap: 6 }}><a href={`/billing/${inv.saleId}`} className="btn btn-ghost" style={{ padding: 5 }}><Eye size={13} /></a></div></td>
+                                                    <td onClick={e => e.stopPropagation()}><div style={{ display: "flex", gap: 6 }}>
+                                                        <button onClick={() => openEmailModal(inv)} className="btn btn-ghost" style={{ padding: 5, color: 'var(--indigo-l)' }} title="Send via Email">
+                                                            <Mail size={13} />
+                                                        </button>
+                                                        <a href={`/billing/${inv.saleId}`} className="btn btn-ghost" style={{ padding: 5 }}><Eye size={13} /></a>
+                                                    </div></td>
                                                 </tr>
                                             );
                                         })}
@@ -285,7 +340,78 @@ export default function InvoicesPage() {
                 </div>
             )}
 
-            <style>{`.spin { animation: spin 1s linear infinite; } @keyframes spin { to { transform: rotate(360deg); } }`}</style>
+            {/* ── EMAIL MODAL ─────────────────────────── */}
+            {emailInvoice && (
+                <div style={{
+                    position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+                    background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)",
+                    display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100,
+                    padding: 20
+                }}>
+                    <div className="glass" style={{
+                        width: "100%", maxWidth: 400, background: "var(--bg-card)",
+                        padding: 30, borderRadius: 20, boxShadow: "0 20px 40px rgba(0,0,0,0.2)",
+                        position: "relative", animation: "slideUp 0.3s ease"
+                    }}>
+                        <button onClick={() => setEmailInvoice(null)} style={{
+                            position: "absolute", top: 15, right: 15, background: "transparent", border: "none",
+                            color: "var(--muted)", cursor: "pointer", padding: 5
+                        }}>
+                            <X size={18} />
+                        </button>
+                        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+                            <div style={{ width: 44, height: 44, borderRadius: 12, background: "rgba(99, 102, 241, 0.1)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--indigo-l)" }}>
+                                <Mail size={22} />
+                            </div>
+                            <div>
+                                <h3 style={{ margin: 0, fontSize: 18, color: "var(--text)", fontWeight: 700 }}>Send Invoice via Email</h3>
+                                <p style={{ margin: 0, fontSize: 13, color: "var(--muted)" }}>Invoice #{emailInvoice.invoiceNumber} for {emailInvoice.customerName}</p>
+                            </div>
+                        </div>
+
+                        <div style={{ marginBottom: 20 }}>
+                            <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--text)", marginBottom: 8 }}>Customer Email Address</label>
+                            <input
+                                type="email"
+                                className="input"
+                                style={{ width: "100%", fontSize: 14 }}
+                                placeholder="customer@example.com"
+                                value={emailInput}
+                                onChange={e => setEmailInput(e.target.value)}
+                                autoFocus
+                            />
+                        </div>
+
+                        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                            <button onClick={() => setEmailInvoice(null)} className="btn btn-ghost" style={{ padding: "10px 16px" }} disabled={isSendingEmail}>Cancel</button>
+                            <button onClick={confirmSendEmail} disabled={isSendingEmail || !emailInput} className="btn" style={{
+                                padding: "10px 16px", background: "var(--indigo-l)", color: "white", display: "flex", alignItems: "center", gap: 8,
+                                opacity: isSendingEmail ? 0.7 : 1
+                            }}>
+                                {isSendingEmail ? <Loader2 size={16} className="spin" /> : <Mail size={16} />}
+                                {isSendingEmail ? "Sending..." : "Send Email"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── NOTIFICATION TOAST ─────────────────────────── */}
+            {notification && (
+                <div style={{
+                    position: "fixed", bottom: 30, left: "50%", transform: "translateX(-50%)",
+                    background: notification.type === "success" ? "#10b981" : "#ef4444",
+                    color: "white", padding: "12px 24px", borderRadius: 30,
+                    fontSize: 14, fontWeight: 600, boxShadow: "0 10px 25px rgba(0,0,0,0.2)",
+                    display: "flex", alignItems: "center", gap: 10, zIndex: 999,
+                    animation: "slideUpFade 0.3s cubic-bezier(0.16, 1, 0.3, 1)"
+                }}>
+                    {notification.type === "success" ? <CheckCircle2 size={16} /> : <X size={16} />}
+                    {notification.msg}
+                </div>
+            )}
+
+            <style>{`.spin { animation: spin 1s linear infinite; } @keyframes spin { to { transform: rotate(360deg); } } @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } } @keyframes slideUpFade { from { opacity: 0; transform: translate(-50%, 20px); } to { opacity: 1; transform: translate(-50%, 0); } }`}</style>
         </AuthGuard>
     );
 }
