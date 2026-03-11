@@ -155,8 +155,9 @@ export async function getValidToken(): Promise<string | null> {
     if (isTokenExpired()) {
         const fresh = await refreshAccessToken();
         if (!fresh) {
-            // Refresh failed — log out silently
-            logout();
+            // Refresh failed — just return null so the request fails with 401
+            // or the link can handle it. DO NOT call logout() here as it
+            // can break the login flow itself.
             return null;
         }
         return fresh;

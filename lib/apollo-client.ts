@@ -20,8 +20,15 @@ const httpLink = createHttpLink({
 const authLink = setContext(async (_, { headers }) => {
     let token: string | null = null;
     if (typeof window !== "undefined") {
-        // If near-expiry, proactively refresh before the request fires
-        token = isTokenExpired() ? await getValidToken() : getToken();
+        const hasToken = !!getToken();
+        const hasRT = !!localStorage.getItem("refresh_token");
+        // If expired AND we have a way to refresh, do it.
+        // Otherwise just try with whatever we have (or nothing).
+        if (hasToken && isTokenExpired() && hasRT) {
+            token = await getValidToken();
+        } else {
+            token = getToken();
+        }
     }
     return {
         headers: {
@@ -35,31 +42,52 @@ const authLink = setContext(async (_, { headers }) => {
 const errorLink = onError(({ graphQLErrors, operation, forward }) => {
     if (!graphQLErrors) return;
 
+    // Do NOT intercept auth mutations (login/register/etc) as they handle 
+    // their own errors and shouldn't trigger redirects or silent retires.
+    const publicOps = ["Login", "RegisterTenant", "VerifyOtp", "RespondToNewPasswordChallenge", "ForgotPassword"];
+    if (publicOps.includes(operation.operationName || "")) return;
+
     const hasAuthError = graphQLErrors.some(
         e => e.extensions?.code === "UNAUTHORIZED" ||
             e.message?.toLowerCase().includes("not authenticated") ||
-            e.message?.toLowerCase().includes("unauthorized"),
+            e.message?.toLowerCase().includes("unauthorized")
     );
 
     if (!hasAuthError) return;
+    
+    // Prevent infinite loops: if this operation has already been retried once,
+    // and still fails with auth error, just log out.
+    const context = operation.getContext();
+    if (context.hasRetried) {
+        logout();
+        return;
+    }
 
     // Return an Observable that refreshes then retries
     return new Observable<FetchResult>(observer => {
         getValidToken().then(newToken => {
-            if (!newToken) {
+            const currentToken = getToken();
+            if (!newToken || newToken === currentToken) {
+                // If no new token or it didn't actually change, we can't recover
                 logout();
                 observer.error(new Error("Session expired. Please sign in again."));
                 return;
             }
-            // Patch the auth header with the fresh token
-            const headers = operation.getContext().headers || {};
+            // Patch the auth header with the fresh token and mark as retried
             operation.setContext({
-                headers: { ...headers, authorization: `Bearer ${newToken}` },
+                headers: { 
+                    ...context.headers, 
+                    authorization: `Bearer ${newToken}` 
+                },
+                hasRetried: true
             });
             // Retry the operation
             const sub = forward(operation).subscribe(observer);
             return () => sub.unsubscribe();
-        }).catch(e => observer.error(e));
+        }).catch(e => {
+            logout();
+            observer.error(e);
+        });
     });
 });
 

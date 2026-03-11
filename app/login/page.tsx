@@ -36,7 +36,7 @@ function LoginForm() {
             p.refreshToken,
             p.expiresIn,
         );
-        router.push("/dashboard");
+        window.location.href = "/dashboard";
     };
 
     // ── Step 1: normal login ─────────────────────────────────

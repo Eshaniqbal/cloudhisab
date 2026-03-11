@@ -653,9 +653,25 @@ export default function ProductsPage() {
                             )}
                             {!loading && products.length === 0 && (
                                 <tr>
-                                    <td colSpan={10} className="text-center py-16">
-                                        <Package size={32} style={{ margin: "0 auto 8px", color: "var(--muted)" }} />
-                                        <p style={{ color: "var(--muted)" }}>No products yet. Add your first product or import from Excel!</p>
+                                    <td colSpan={11}>
+                                        <div style={{
+                                            textAlign: "center", padding: "80px 40px",
+                                            background: "var(--bg-card)", border: "1px solid var(--border)",
+                                            borderRadius: 24, margin: "20px auto", display: "flex", flexDirection: "column", alignItems: "center", maxWidth: 500
+                                        }}>
+                                            <div style={{
+                                                width: 80, height: 80, borderRadius: 28, background: "linear-gradient(135deg, var(--indigo), #818cf8)",
+                                                display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 24, boxShadow: "0 20px 40px rgba(99,102,241,0.2)"
+                                            }}>
+                                                <Package size={32} color="#fff" />
+                                            </div>
+                                            <h3 style={{ fontSize: 18, fontWeight: 800, color: "var(--text)", marginBottom: 10 }}>Catalogue is empty</h3>
+                                            <p style={{ fontSize: 14, color: "var(--muted)", maxWidth: 320, margin: "0 auto 28px" }}>Start by adding your first product or import your existing inventory from an Excel file.</p>
+                                            <div style={{ display: "flex", gap: 12 }}>
+                                                <button onClick={() => setModal("import")} className="btn btn-ghost" style={{ fontSize: 13, color: "var(--green)" }}>Import Excel</button>
+                                                <button onClick={() => { setEditing(null); setModal("add"); }} className="btn btn-primary" style={{ padding: "10px 24px", borderRadius: 12 }}>Add Product</button>
+                                            </div>
+                                        </div>
                                     </td>
                                 </tr>
                             )}

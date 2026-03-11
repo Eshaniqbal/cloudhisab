@@ -178,7 +178,7 @@ export default function InvoicesPage() {
             </div>
 
             {/* ── Summary cards ───────────────────────── */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginBottom: 24 }}>
+            <div className="grid-3" style={{ marginBottom: 24 }}>
                 {[
                     { label: activeTab === "invoices" ? "Total Invoices" : "Total Returns", val: String(activeTab === "invoices" ? allInvoices.length : allReturns.length), icon: FileText, color: activeTab === "invoices" ? "#818cf8" : "var(--red)" },
                     { label: "Revenue (Net)", val: `₹${fmtShort(netRevenue)}`, icon: IndianRupee, color: "#34d399" },
@@ -200,7 +200,7 @@ export default function InvoicesPage() {
             </div>
 
             {/* ── Search & Filter Row ─────────────────── */}
-            <div style={{ display: "flex", gap: 10, marginBottom: 20, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: 10, marginBottom: 20, flexWrap: "wrap", flexDirection: typeof window !== "undefined" && window.innerWidth < 640 ? "column" : "row" }}>
                 <div style={{ position: "relative", flex: 1, minWidth: 220 }}>
                     <Search size={14} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: "var(--muted)", pointerEvents: "none" }} />
                     <input
@@ -234,7 +234,23 @@ export default function InvoicesPage() {
                     {loading && allInvoices.length === 0 ? (
                         <div style={{ padding: "40px 0", textAlign: "center", color: "var(--muted)" }}><Loader2 size={18} className="spin" /> Loading invoices…</div>
                     ) : filteredInvoices.length === 0 ? (
-                        <div className="glass" style={{ padding: "30px", textAlign: "center", color: "var(--muted)", borderRadius: 16 }}>No sales invoices match your search</div>
+                        <div style={{
+                            textAlign: "center", padding: "80px 40px",
+                            background: "var(--bg-card)", border: "1px solid var(--border)",
+                            borderRadius: 24, marginTop: 12, display: "flex", flexDirection: "column", alignItems: "center"
+                        }}>
+                            <div style={{
+                                width: 80, height: 80, borderRadius: 28, background: "linear-gradient(135deg, var(--indigo), var(--indigo-l))",
+                                display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 24, boxShadow: "0 20px 40px rgba(99,102,241,0.2)"
+                            }}>
+                                <Receipt size={32} color="#fff" />
+                            </div>
+                            <h3 style={{ fontSize: 18, fontWeight: 800, color: "var(--text)", marginBottom: 10 }}>No sales invoices found</h3>
+                            <p style={{ fontSize: 14, color: "var(--muted)", maxWidth: 320, margin: "0 auto 28px" }}>Items will appear here once you create your first invoice.</p>
+                            <a href="/billing" className="btn btn-primary" style={{ padding: "12px 24px", borderRadius: 12, fontWeight: 700 }}>
+                                Create New Invoice
+                            </a>
+                        </div>
                     ) : (
                         <>
                             <div className="table-wrapper">
@@ -292,7 +308,20 @@ export default function InvoicesPage() {
                     {retLoading && allReturns.length === 0 ? (
                         <div style={{ padding: "40px 0", textAlign: "center", color: "var(--muted)" }}><Loader2 size={18} className="spin" /> Loading returns…</div>
                     ) : filteredReturns.length === 0 ? (
-                        <div className="glass" style={{ padding: "30px", textAlign: "center", color: "var(--muted)", borderRadius: 16 }}>No return invoices found</div>
+                        <div style={{
+                            textAlign: "center", padding: "80px 40px",
+                            background: "var(--bg-card)", border: "1px solid var(--border)",
+                            borderRadius: 24, marginTop: 12, display: "flex", flexDirection: "column", alignItems: "center"
+                        }}>
+                            <div style={{
+                                width: 80, height: 80, borderRadius: 28, background: "linear-gradient(135deg, var(--red), #f87171)",
+                                display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 24, boxShadow: "0 20px 40px rgba(239,68,68,0.2)"
+                            }}>
+                                <RotateCcw size={32} color="#fff" />
+                            </div>
+                            <h3 style={{ fontSize: 18, fontWeight: 800, color: "var(--text)", marginBottom: 10 }}>No returns found</h3>
+                            <p style={{ fontSize: 14, color: "var(--muted)", maxWidth: 320, margin: "0 auto 24px" }}>Manage your returned products and credit notes from the invoice details.</p>
+                        </div>
                     ) : (
                         <>
                             <div className="table-wrapper">

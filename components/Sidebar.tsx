@@ -6,7 +6,7 @@ import { logout, getUser } from "@/lib/auth";
 import { useTheme } from "@/lib/useTheme";
 import {
     LayoutDashboard, Package, Receipt, Layers,
-    TrendingUp, Wallet, LogOut, FileText, Sun, Moon, Users, Settings, ChevronUp, CreditCard, RotateCcw,
+    TrendingUp, Wallet, LogOut, FileText, Sun, Moon, Users, Settings, ChevronUp, CreditCard, RotateCcw, X,
 } from "lucide-react";
 
 const ROLE_LEVEL: Record<string, number> = {
@@ -104,7 +104,7 @@ function SignOutConfirmModal({ onConfirm, onCancel }: { onConfirm: () => void; o
     );
 }
 
-export function Sidebar() {
+export function Sidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: () => void }) {
     const path = usePathname();
     const [user, setUser] = useState<any>(null);
     const { theme, toggle } = useTheme();
@@ -129,14 +129,39 @@ export function Sidebar() {
                 />
             )}
 
-            <aside className="sidebar no-print">
-                {/* ── Logo ── */}
-                <div style={{ padding: "8px 12px 16px", display: "flex", justifyContent: "center" }}>
-                    <img
-                        src={theme === "dark" ? "/logo.png" : "/logo1.png"}
-                        alt="CloudHisaab Logo"
-                        style={{ width: "90%", height: "auto", maxHeight: 60, objectFit: "contain" }}
-                    />
+            {/* Mobile Overlay */}
+            {isOpen && (
+                <div 
+                    onClick={onClose}
+                    style={{
+                        position: "fixed", inset: 0, zIndex: 90,
+                        background: "rgba(0,0,0,0.4)", backdropFilter: "blur(4px)",
+                    }}
+                />
+            )}
+
+            <aside className={`sidebar no-print ${isOpen ? "open" : ""}`}>
+                {/* ── Logo + Close Button ── */}
+                <div style={{ padding: "8px 12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <div style={{ flex: 1, display: "flex", justifyContent: "center" }}>
+                        <img
+                            src={theme === "dark" ? "/logo.png" : "/logo1.png"}
+                            alt="CloudHisaab Logo"
+                            style={{ width: "90%", height: "auto", maxHeight: 60, objectFit: "contain" }}
+                        />
+                    </div>
+                    {onClose && (
+                        <button 
+                            onClick={onClose}
+                            className="mobile-only"
+                            style={{ 
+                                background: "none", border: "none", color: "var(--muted)", 
+                                padding: 8, cursor: "pointer", display: "none" 
+                            }}
+                        >
+                            <X size={20} />
+                        </button>
+                    )}
                 </div>
 
                 {/* ── Nav links ── */}

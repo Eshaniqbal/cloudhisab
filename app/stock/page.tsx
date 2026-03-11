@@ -518,10 +518,22 @@ export default function StockPage() {
                             )}
                             {!loading && levels.length === 0 && (
                                 <tr>
-                                    <td colSpan={8} style={{ textAlign: "center", padding: "64px 0" }}>
-                                        <ShoppingCart size={36} style={{ margin: "0 auto 12px", color: "var(--muted)", opacity: 0.4 }} />
-                                        <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text)", marginBottom: 4 }}>No stock records yet</div>
-                                        <div style={{ fontSize: 12, color: "var(--muted)" }}>Add products and record a purchase to get started</div>
+                                    <td colSpan={8}>
+                                        <div style={{
+                                            textAlign: "center", padding: "80px 40px",
+                                            background: "var(--bg-card)", border: "1px solid var(--border)",
+                                            borderRadius: 24, margin: "20px auto", display: "flex", flexDirection: "column", alignItems: "center", maxWidth: 500
+                                        }}>
+                                            <div style={{
+                                                width: 80, height: 80, borderRadius: 28, background: "linear-gradient(135deg, var(--indigo), var(--indigo-l))",
+                                                display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 24, boxShadow: "0 20px 40px rgba(99,102,241,0.2)"
+                                            }}>
+                                                <Archive size={32} color="#fff" />
+                                            </div>
+                                            <h3 style={{ fontSize: 18, fontWeight: 800, color: "var(--text)", marginBottom: 10 }}>No stock records found</h3>
+                                            <p style={{ fontSize: 14, color: "var(--muted)", maxWidth: 320, margin: "0 auto 28px" }}>Your inventory movements will appear here. Record a purchase to add opening stock.</p>
+                                            <button onClick={() => setModal(true)} className="btn btn-primary" style={{ padding: "10px 24px", borderRadius: 12 }}>Record First Purchase</button>
+                                        </div>
                                     </td>
                                 </tr>
                             )}

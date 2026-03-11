@@ -184,6 +184,56 @@ function SkeletonCard({ height = 130 }: { height?: number }) {
     return <div className="skeleton" style={{ height, borderRadius: 18 }} />;
 }
 
+/* ─── Modern Empty State ────────────────────────────────────────────── */
+function ModernEmptyState({ title, sub, icon: Icon, actionLabel, onAction }: {
+    title: string; sub: string; icon: any; actionLabel?: string; onAction?: () => void;
+}) {
+    return (
+        <div style={{
+            textAlign: "center", padding: "80px 40px",
+            background: "var(--bg-card)", border: "1px solid var(--border)",
+            borderRadius: 24, marginTop: 12,
+            display: "flex", flexDirection: "column", alignItems: "center",
+            boxShadow: "0 4px 20px var(--shadow)",
+        }}>
+            <div style={{
+                width: 80, height: 80, borderRadius: 28,
+                background: "linear-gradient(135deg, var(--indigo), var(--indigo-l))",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                marginBottom: 24,
+                boxShadow: "0 20px 40px rgba(99,102,241,0.25)",
+                position: "relative",
+            }}>
+                <div style={{
+                    position: "absolute", inset: -1, borderRadius: "inherit",
+                    background: "inherit", filter: "blur(15px)", opacity: 0.4, zIndex: -1
+                }} />
+                <Icon size={32} color="#fff" strokeWidth={1.5} />
+            </div>
+            <h3 style={{ fontSize: 20, fontWeight: 800, color: "var(--text)", marginBottom: 10 }}>
+                {title}
+            </h3>
+            <p style={{ fontSize: 14, color: "var(--muted)", maxWidth: 300, margin: "0 auto 28px", lineHeight: 1.6 }}>
+                {sub}
+            </p>
+            {actionLabel && onAction && (
+                <button
+                    onClick={onAction}
+                    className="btn btn-primary"
+                    style={{
+                        padding: "12px 28px", borderRadius: 14, fontSize: 14, fontWeight: 700,
+                        display: "flex", alignItems: "center", gap: 8,
+                        boxShadow: "0 10px 25px rgba(99,102,241,0.3)"
+                    }}
+                >
+                    <Icon size={16} />
+                    {actionLabel}
+                </button>
+            )}
+        </div>
+    );
+}
+
 /* ─── Date Range Filter Dropdown ────────────────────────────────────── */
 function DateRangeFilter() {
     const now = new Date();
@@ -619,7 +669,7 @@ export default function DashboardPage() {
 
                 {/* ── TODAY SECTION ────────────────────────────────── */}
                 <SectionHeader icon={BarChart3} title="Today's Overview" color="var(--indigo)" />
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 14 }}>
+                <div className="grid-4" style={{ marginBottom: 14 }}>
                     {loading ? [1, 2, 3, 4].map(i => <SkeletonCard key={i} />) : (<>
                         <MetricCard
                             label="Total Sales"
@@ -659,7 +709,7 @@ export default function DashboardPage() {
 
                 {/* Quick counts row */}
                 {!loading && (
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14, marginBottom: 28 }}>
+                    <div className="grid-3" style={{ marginBottom: 28 }}>
                         <CountCard
                             value={t?.invoiceCount || 0}
                             label="Invoices Today"
@@ -686,7 +736,7 @@ export default function DashboardPage() {
 
                 {/* ── THIS MONTH SECTION ───────────────────────────── */}
                 <SectionHeader icon={ShoppingBag} title="This Month" color="var(--green)" />
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 14 }}>
+                <div className="grid-4" style={{ marginBottom: 14 }}>
                     {loading ? [1, 2, 3, 4].map(i => <SkeletonCard key={i} />) : (<>
                         <MetricCard
                             label="Monthly Sales"
@@ -747,7 +797,7 @@ export default function DashboardPage() {
 
                 {/* ── CHARTS SECTION ───────────────────────────── */}
                 {!reportLoading && chartDataReversed.length > 0 && (
-                    <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 18, marginBottom: 28, flexWrap: "wrap" }}>
+                    <div className="grid-2-1" style={{ marginBottom: 28 }}>
                         {/* 7-Day Revenue Trend */}
                         <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 18, padding: "20px" }}>
                             <SectionHeader icon={TrendingUp} title="7-Day Revenue & Profit Trend" color="var(--indigo)" />
@@ -795,8 +845,11 @@ export default function DashboardPage() {
                                     </ResponsiveContainer>
                                 </div>
                             ) : (
-                                <div style={{ height: 280, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--muted)", fontSize: 13 }}>
-                                    No sales yet today
+                                <div style={{ height: 280, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: "var(--muted)", gap: 12 }}>
+                                    <div style={{ width: 44, height: 44, borderRadius: 12, background: "var(--bg-card2)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                        <BarChart3 size={18} opacity={0.5} />
+                                    </div>
+                                    <span style={{ fontSize: 13, fontWeight: 600, opacity: 0.6 }}>No data today</span>
                                 </div>
                             )}
                         </div>
@@ -867,15 +920,13 @@ export default function DashboardPage() {
 
                 {/* Empty state */}
                 {!loading && !d?.topProducts?.length && (
-                    <div style={{
-                        textAlign: "center", padding: "60px 20px",
-                        background: "var(--bg-card)", border: "1px solid var(--border)",
-                        borderRadius: 18, marginTop: 8,
-                    }}>
-                        <div style={{ fontSize: 48, marginBottom: 12 }}>📊</div>
-                        <div style={{ fontSize: 16, fontWeight: 700, color: "var(--text)", marginBottom: 6 }}>No sales yet today</div>
-                        <div style={{ fontSize: 13, color: "var(--muted)" }}>Create your first invoice to see stats here</div>
-                    </div>
+                    <ModernEmptyState 
+                        title="No sales yet today"
+                        sub="Create your first invoice to see real-time stats, revenue trends, and top-selling products here."
+                        icon={ShoppingBag}
+                        actionLabel="Create Invoice"
+                        onAction={() => window.location.href = "/billing"}
+                    />
                 )}
             </div>
         </AuthGuard>

@@ -122,7 +122,7 @@ export default function SettingsPage() {
             `}</style>
 
             {/* ── Tab bar ── */}
-            <div style={{ display: "flex", gap: 6, marginBottom: 28, padding: "4px", background: "var(--bg-card)", borderRadius: 12, border: "1px solid var(--border)", width: "fit-content" }}>
+            <div style={{ display: "flex", gap: 6, marginBottom: 28, padding: "4px", background: "var(--bg-card)", borderRadius: 12, border: "1px solid var(--border)", width: "fit-content", maxWidth: "100%", overflowX: "auto" }}>
                 <button
                     onClick={() => setActiveTab("profile")}
                     className={`settings-tab ${activeTab === "profile" ? "active" : ""}`}
@@ -145,7 +145,7 @@ export default function SettingsPage() {
             {/* ── Top header card ── */}
             <div style={{
                 background: "var(--bg-card)", border: "1px solid var(--border)",
-                borderRadius: 20, padding: "24px 28px", marginBottom: 24,
+                borderRadius: 20, padding: "20px", marginBottom: 24,
                 display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16,
                 position: "relative", overflow: "hidden",
             }}>
@@ -226,6 +226,7 @@ export default function SettingsPage() {
                     display: "flex", alignItems: "center", gap: 20, marginBottom: 24,
                     padding: "12px 20px", borderRadius: 12,
                     background: "var(--bg-card2)", border: "1px solid var(--border)",
+                    flexWrap: "wrap"
                 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12.5, color: "var(--muted)" }}>
                         <Mail size={13} color="#818cf8" />
@@ -257,7 +258,7 @@ export default function SettingsPage() {
 
             {/* ── Loading skeleton ── */}
             {loading && !profile && (
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                <div className="grid-2-1" style={{ gap: 16 }}>
                     {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
                         <div key={i} className="skeleton" style={{ height: 68, borderRadius: 14 }} />
                     ))}
@@ -289,7 +290,7 @@ export default function SettingsPage() {
                     </div>
 
                     {/* Fields grid */}
-                    <div style={{ padding: "24px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px 24px" }}>
+                    <div style={{ padding: "24px", display: "grid", gridTemplateColumns: typeof window !== "undefined" && window.innerWidth < 1024 ? "1fr" : "1fr 1fr", gap: "20px 24px" }}>
                         {FIELDS.map(f => {
                             const Icon = f.icon;
                             return (

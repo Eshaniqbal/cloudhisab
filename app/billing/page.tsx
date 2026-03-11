@@ -252,12 +252,12 @@ export default function BillingPage() {
                     <AlertTriangle size={14} /> {stockAlert}
                 </div>
             )}
-            <div style={{ display: "flex", gap: 14, height: "calc(100vh - 64px)", overflow: "hidden" }}>
+            <div className="pos-container">
 
                 {/* ══════════════════════════════════════════════
                     LEFT — Products (top) + Cart slides in at bottom
                 ══════════════════════════════════════════════ */}
-                <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0, gap: 10 }}>
+                <div className="pos-main-panel" style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0, gap: 10 }}>
 
                     {/* ── Products section header ── */}
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
@@ -391,8 +391,12 @@ export default function BillingPage() {
                             );
                         })}
                         {!prodLoading && filtered.length === 0 && (
-                            <div style={{ padding: "40px 0", textAlign: "center", fontSize: 12, color: "var(--muted)" }}>
-                                No results for "{search}"
+                            <div style={{ padding: "48px 0", textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+                                <div style={{ width: 44, height: 44, borderRadius: 12, background: "var(--bg-input)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                    <Package size={18} color="var(--muted)" opacity={0.5} />
+                                </div>
+                                <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text)" }}>No products found</div>
+                                <div style={{ fontSize: 11, color: "var(--muted)" }}>No matches for "{search}"</div>
                             </div>
                         )}
                     </div>
@@ -498,7 +502,7 @@ export default function BillingPage() {
                 {/* ═══════════════════════════════════════
                     COL 3 — Invoice panel (330px)
                 ═══════════════════════════════════════ */}
-                <div style={{ width: 330, flexShrink: 0, display: "flex", flexDirection: "column", gap: 10, overflowY: "auto" }}>
+                <div className="pos-sidebar-panel" style={{ width: 330, flexShrink: 0, display: "flex", flexDirection: "column", gap: 10, overflowY: "auto" }}>
 
                     {/* Panel header */}
                     <div style={{

@@ -151,7 +151,7 @@ export default function RegisterPage() {
                             <label>Email Address</label>
                             <input type="email" style={inputStyle} className="input" placeholder="owner@business.com" value={form.email} onChange={e => set("email", e.target.value)} required />
                         </div>
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                        <div style={{ display: "grid", gridTemplateColumns: typeof window !== "undefined" && (window.innerWidth < 640) ? "1fr" : "1fr 1fr", gap: 10 }}>
                             <div className="form-group">
                                 <label>Phone</label>
                                 <input type="tel" style={inputStyle} className="input" placeholder="9876543210" value={form.phone} onChange={e => set("phone", e.target.value)} required />
@@ -184,7 +184,7 @@ export default function RegisterPage() {
                             <label>Business Address</label>
                             <input style={inputStyle} className="input" placeholder="Shop No. 12, Market Road" value={form.address} onChange={e => set("address", e.target.value)} />
                         </div>
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                        <div style={{ display: "grid", gridTemplateColumns: typeof window !== "undefined" && (window.innerWidth < 640) ? "1fr" : "1fr 1fr", gap: 10 }}>
                             <div className="form-group">
                                 <label>City</label>
                                 <input style={inputStyle} className="input" placeholder="Mumbai" value={form.city} onChange={e => set("city", e.target.value)} />

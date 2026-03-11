@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { isLoggedIn, getUser } from "@/lib/auth";
 import { Sidebar } from "./Sidebar";
 import { useSubscription } from "@/lib/useSubscription";
-import { Zap, Lock, CreditCard, Loader2 } from "lucide-react";
+import { Zap, Lock, CreditCard, Loader2, Menu } from "lucide-react";
 
 const ROLE_HIERARCHY: Record<string, number> = {
     ACCOUNTANT: 1,
@@ -24,6 +24,7 @@ export function AuthGuard({ children, requiredRole }: Props) {
     const [mounted, setMounted] = useState(false);
     const [loggedIn, setLoggedIn] = useState(false);
     const [allowed, setAllowed] = useState(true);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
     const { status, loading: subLoading } = useSubscription();
 
@@ -47,6 +48,11 @@ export function AuthGuard({ children, requiredRole }: Props) {
         }
     }, [router, requiredRole]);
 
+    // Close sidebar on route change
+    useEffect(() => {
+        setIsSidebarOpen(false);
+    }, [router]);
+
     // SSR: render nothing (prevents hydration mismatch)
     if (!mounted) return null;
     if (!loggedIn) return null;
@@ -60,6 +66,22 @@ export function AuthGuard({ children, requiredRole }: Props) {
         );
     }
 
+    const FloatingToggle = () => (
+        <button 
+            className="mobile-only toggle-btn"
+            onClick={() => setIsSidebarOpen(true)}
+            style={{
+                position: "fixed", top: 12, left: 12, width: 40, height: 40,
+                borderRadius: 10, background: "var(--glass-bg)", 
+                backdropFilter: "blur(12px)", border: "1px solid var(--border)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                zIndex: 80, color: "var(--text)", boxShadow: "0 4px 12px rgba(0,0,0,0.2)"
+            }}
+        >
+            <Menu size={20} />
+        </button>
+    );
+
     // Subscription Gate Rule:
     const isSettings = typeof window !== "undefined" && window.location.pathname === "/settings";
     const isPricing = typeof window !== "undefined" && window.location.pathname === "/pricing";
@@ -68,7 +90,8 @@ export function AuthGuard({ children, requiredRole }: Props) {
     if (isGated) {
         return (
             <div className="app-layout">
-                <Sidebar />
+                <FloatingToggle />
+                <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
                 <main className="main-content">
                     <div style={{
                         display: "flex", flexDirection: "column", alignItems: "center",
@@ -121,7 +144,8 @@ export function AuthGuard({ children, requiredRole }: Props) {
     if (!allowed) {
         return (
             <div className="app-layout">
-                <Sidebar />
+                <FloatingToggle />
+                <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
                 <main className="main-content">
                     <div style={{
                         display: "flex", flexDirection: "column", alignItems: "center",
@@ -143,7 +167,8 @@ export function AuthGuard({ children, requiredRole }: Props) {
 
     return (
         <div className="app-layout">
-            <Sidebar />
+            <FloatingToggle />
+            <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
             <main className="main-content">{children}</main>
         </div>
     );
