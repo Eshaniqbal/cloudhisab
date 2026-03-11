@@ -120,6 +120,9 @@ export default function InvoicesPage() {
                     invoiceNumber: emailInvoice.invoiceNumber,
                     customerName: emailInvoice.customerName,
                     totalAmount: emailInvoice.totalAmount,
+                    amountPaid: emailInvoice.amountPaid ?? emailInvoice.totalAmount,
+                    balanceDue: emailInvoice.balanceDue ?? 0,
+                    paymentMethod: emailInvoice.paymentMethod,
                     pdfUrl: emailInvoice.pdfUrl
                 })
             });

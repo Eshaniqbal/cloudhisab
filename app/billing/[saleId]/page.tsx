@@ -67,6 +67,8 @@ export default function InvoiceDetailPage() {
     const totalGst = inv.totalGst ?? 0;
     const totalAmount = inv.totalAmount ?? 0;
     const discountAmount = inv.discountAmount ?? 0;
+    const amountPaid = inv.amountPaid ?? totalAmount;
+    const balanceDue = inv.balanceDue ?? 0;
     const subtotal = totalAmount - totalGst;
     const grossTotal = subtotal + discountAmount;
     const paymentMethod = (inv.paymentMethod || "CASH").toUpperCase();
@@ -298,22 +300,30 @@ export default function InvoiceDetailPage() {
                     <div style={{ display: "table-cell", width: "35%", padding: 0, verticalAlign: "top" }}>
                         <table style={{ width: "100%", borderCollapse: "collapse" }}>
                             <tbody>
-                                {[
-                                    ["GROSS TOTAL", f2(grossTotal)],
-                                    ["Item Discount", f2(discountAmount)],
-                                    ["Tax (GST)", f2(totalGst)],
-                                    ["Freight / Other", "0.00"],
-                                    ["Roundoff", "0.00"],
-                                ].map(([label, val]) => (
-                                    <tr key={label}>
+                                 {[
+                                    ["GROSS TOTAL", f2(grossTotal), false, false],
+                                    ["Item Discount", f2(discountAmount), false, false],
+                                    ["Tax (GST)", f2(totalGst), false, false],
+                                    ["Freight / Other", "0.00", false, false],
+                                    ["Roundoff", "0.00", false, false],
+                                 ].map(([label, val]) => (
+                                    <tr key={label as string}>
                                         <td style={{ padding: "4px 8px", fontWeight: "bold", borderBottom: "1px solid #000" }}>{label}</td>
                                         <td style={{ padding: "4px 8px", textAlign: "right", borderBottom: "1px solid #000", width: 100 }}>{val}</td>
                                     </tr>
-                                ))}
-                                <tr style={{ background: "#f0f0f0" }}>
+                                 ))}
+                                 <tr style={{ background: "#f0f0f0" }}>
                                     <td style={{ padding: "4px 8px", fontWeight: "bold", fontSize: 14 }}>GRAND TOTAL</td>
                                     <td style={{ padding: "4px 8px", textAlign: "right", fontWeight: "bold", fontSize: 14, width: 100 }}>₹{f2(totalAmount)}</td>
-                                </tr>
+                                 </tr>
+                                 <tr>
+                                    <td style={{ padding: "4px 8px", fontWeight: "bold", color: "#006600", borderTop: "1px solid #000" }}>Amt. Paid</td>
+                                    <td style={{ padding: "4px 8px", textAlign: "right", fontWeight: "bold", color: "#006600", borderTop: "1px solid #000", width: 100 }}>{f2(amountPaid)}</td>
+                                 </tr>
+                                 <tr style={{ background: balanceDue > 0 ? "#fff0f0" : "#f0fff0" }}>
+                                    <td style={{ padding: "4px 8px", fontWeight: "bold", color: balanceDue > 0 ? "#cc0000" : "#006600", borderTop: "1px solid #000" }}>Balance / Pending</td>
+                                    <td style={{ padding: "4px 8px", textAlign: "right", fontWeight: "bold", color: balanceDue > 0 ? "#cc0000" : "#006600", borderTop: "1px solid #000", width: 100 }}>{f2(balanceDue)}</td>
+                                 </tr>
                             </tbody>
                         </table>
                     </div>

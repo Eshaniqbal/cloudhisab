@@ -4,7 +4,7 @@ import nodemailer from "nodemailer";
 export async function POST(req: Request) {
     try {
         const body = await req.json();
-        const { toEmail, invoiceNumber, customerName, totalAmount, pdfUrl } = body;
+        const { toEmail, invoiceNumber, customerName, totalAmount, pdfUrl, amountPaid, balanceDue, paymentMethod } = body;
 
         if (!toEmail) {
             return NextResponse.json({ success: false, error: "Recipient email is required" }, { status: 400 });
@@ -52,13 +52,43 @@ export async function POST(req: Request) {
                                         </td>
                                     </tr>
                                     <tr>
-                                        <td style="padding-top: 12px; border-top: 1px solid #e2e8f0;">
-                                            <span style="color: #64748b; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Total Amount</span>
+                                        <td style="padding-top: 12px; padding-bottom: 12px; border-top: 1px solid #e2e8f0;">
+                                            <span style="color: #64748b; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Grand Total</span>
                                         </td>
-                                        <td align="right" style="padding-top: 12px; border-top: 1px solid #e2e8f0;">
-                                            <span style="color: #4f46e5; font-size: 18px; font-weight: 800;">₹${totalAmount || '0'}</span>
+                                        <td align="right" style="padding-top: 12px; padding-bottom: 12px; border-top: 1px solid #e2e8f0;">
+                                            <span style="color: #0f172a; font-size: 18px; font-weight: 800;">&#8377;${totalAmount || '0'}</span>
                                         </td>
                                     </tr>
+                                    ${amountPaid !== undefined ? `
+                                    <tr>
+                                        <td style="padding-top: 12px; padding-bottom: 12px; border-top: 1px solid #e2e8f0;">
+                                            <span style="color: #64748b; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Amount Paid</span>
+                                        </td>
+                                        <td align="right" style="padding-top: 12px; padding-bottom: 12px; border-top: 1px solid #e2e8f0;">
+                                            <span style="color: #16a34a; font-size: 15px; font-weight: 700;">&#8377;${amountPaid}</span>
+                                        </td>
+                                    </tr>
+                                    ` : ''}
+                                    ${balanceDue !== undefined ? `
+                                    <tr style="background-color: ${Number(balanceDue) > 0 ? '#fef2f2' : '#f0fdf4'}; border-radius: 8px;">
+                                        <td style="padding-top: 12px; padding-bottom: 12px; border-top: 1px solid #e2e8f0;">
+                                            <span style="color: ${Number(balanceDue) > 0 ? '#dc2626' : '#16a34a'}; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 700;">Balance Due</span>
+                                        </td>
+                                        <td align="right" style="padding-top: 12px; padding-bottom: 12px; border-top: 1px solid #e2e8f0;">
+                                            <span style="color: ${Number(balanceDue) > 0 ? '#dc2626' : '#16a34a'}; font-size: 16px; font-weight: 800;">&#8377;${balanceDue}</span>
+                                        </td>
+                                    </tr>
+                                    ` : ''}
+                                    ${paymentMethod ? `
+                                    <tr>
+                                        <td style="padding-top: 12px; border-top: 1px solid #e2e8f0;">
+                                            <span style="color: #64748b; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Payment Mode</span>
+                                        </td>
+                                        <td align="right" style="padding-top: 12px; border-top: 1px solid #e2e8f0;">
+                                            <span style="background-color: #ede9fe; color: #4f46e5; font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 20px;">${paymentMethod}</span>
+                                        </td>
+                                    </tr>
+                                    ` : ''}
                                 </table>
                             </div>
 
