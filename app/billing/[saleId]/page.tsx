@@ -2,9 +2,9 @@
 import { useQuery, useLazyQuery } from "@apollo/client";
 import { AuthGuard } from "@/components/AuthGuard";
 import { GET_INVOICE, GET_INVOICE_DOWNLOAD_URL } from "@/lib/graphql/queries";
-import { Download, ArrowLeft, CheckCircle2, Clock, Loader2, RefreshCw, RotateCcw } from "lucide-react";
+import { Download, ArrowLeft, CheckCircle2, Loader2, RefreshCw, RotateCcw } from "lucide-react";
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const f2 = (n: number) =>
     new Intl.NumberFormat("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n ?? 0);
@@ -13,6 +13,7 @@ export default function InvoiceDetailPage() {
     const params = useParams();
     const saleId = params.saleId as string;
     const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
+    const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     const { data, loading, error, refetch } = useQuery<any, any>(GET_INVOICE, {
         variables: { saleId },
@@ -26,16 +27,45 @@ export default function InvoiceDetailPage() {
             variables: { saleId },
             fetchPolicy: "no-cache",
             onCompleted: (d: any) => {
-                if (d?.getInvoiceDownloadUrl) setDownloadUrl(d.getInvoiceDownloadUrl);
+                if (d?.getInvoiceDownloadUrl) {
+                    setDownloadUrl(d.getInvoiceDownloadUrl);
+                    // PDF is ready — stop polling
+                    if (pollRef.current) {
+                        clearInterval(pollRef.current);
+                        pollRef.current = null;
+                    }
+                }
             },
         } as any
     );
 
     const inv = data?.getInvoice;
 
+    // Auto-poll every 5s until we get the download URL
     useEffect(() => {
-        if (inv?.pdfUrl !== undefined) fetchDownloadUrl();
+        if (!inv) return;
+
+        // Kick off immediately
+        fetchDownloadUrl();
+
+        // Start polling interval
+        pollRef.current = setInterval(() => {
+            if (!downloadUrl) fetchDownloadUrl();
+        }, 5000);
+
+        return () => {
+            if (pollRef.current) clearInterval(pollRef.current);
+        };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [inv?.saleId]);
+
+    // Stop polling once URL is found
+    useEffect(() => {
+        if (downloadUrl && pollRef.current) {
+            clearInterval(pollRef.current);
+            pollRef.current = null;
+        }
+    }, [downloadUrl]);
 
     if (loading) return (
         <AuthGuard>
@@ -111,15 +141,16 @@ export default function InvoiceDetailPage() {
                             className="btn btn-ghost" style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
                             <Download size={14} /> Download PDF
                         </a>
-                    ) : urlLoading ? (
-                        <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: "var(--muted)" }}>
-                            <Loader2 size={12} style={{ animation: "spin 0.8s linear infinite" }} /> Fetching PDF…
-                        </span>
                     ) : (
-                        <button onClick={() => fetchDownloadUrl()}
-                            className="btn btn-ghost" style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--yellow)" }}>
-                            <Clock size={13} /> PDF pending — refresh
-                        </button>
+                        <span style={{
+                            display: "flex", alignItems: "center", gap: 7,
+                            fontSize: 12, color: "var(--muted)",
+                            background: "var(--bg-card)", border: "1px solid var(--border)",
+                            borderRadius: 10, padding: "7px 14px",
+                        }}>
+                            <Loader2 size={13} style={{ animation: "spin 0.8s linear infinite", color: "#818cf8" }} />
+                            Generating PDF…
+                        </span>
                     )}
                 </div>
             </div>
@@ -398,10 +429,12 @@ export default function InvoiceDetailPage() {
             <div className="no-print" style={{ maxWidth: 860, margin: "16px auto 0" }}>
                 <div className="glass" style={{ padding: "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <span style={{ fontSize: 12, color: "var(--muted)" }}>PDF Status</span>
-                    <span style={{ fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 5, color: downloadUrl ? "var(--green)" : "var(--yellow)" }}>
-                        {downloadUrl
-                            ? <><CheckCircle2 size={14} /> Ready — <a href={downloadUrl} target="_blank" rel="noreferrer" style={{ color: "var(--indigo-l)", textDecoration: "underline" }}>Download</a></>
-                            : <><Clock size={14} /> Generating…</>}
+                    <span style={{ fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 7, color: downloadUrl ? "var(--green)" : "#818cf8" }}>
+                        {downloadUrl ? (
+                            <><CheckCircle2 size={14} /> Ready — <a href={downloadUrl} target="_blank" rel="noreferrer" style={{ color: "var(--indigo-l)", textDecoration: "underline" }}>Download</a></>
+                        ) : (
+                            <><Loader2 size={14} style={{ animation: "spin 0.8s linear infinite" }} /> Generating… auto-refreshing every 5s</>
+                        )}
                     </span>
                 </div>
             </div>
