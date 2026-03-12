@@ -302,8 +302,8 @@ function CreateReturnModal({ onClose, refetch }: { onClose: () => void; refetch:
                                 const selected = qty > 0;
                                 return (
                                     <div key={it.productId} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", borderRadius: 13, background: selected ? "rgba(239,68,68,0.04)" : "var(--bg-card2)", border: `1.5px solid ${selected ? "rgba(239,68,68,0.25)" : "var(--border)"}`, transition: "all 0.18s" }}>
-                                        {/* Select all toggle */}
-                                        <button type="button" onClick={() => setSelectedItems(p => ({ ...p, [it.productId]: qty === it.quantity ? 0 : it.quantity }))}
+                                        {/* Select toggle — sets to 1 if unchecked, 0 if checked */}
+                                        <button type="button" onClick={() => setSelectedItems(p => ({ ...p, [it.productId]: qty > 0 ? 0 : 1 }))}
                                             style={{ width: 20, height: 20, borderRadius: 6, border: `2px solid ${selected ? "var(--red)" : "var(--border)"}`, background: selected ? "var(--red)" : "transparent", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "all 0.15s" }}>
                                             {selected && <CheckCircle2 size={11} color="#fff" />}
                                         </button>
@@ -311,16 +311,37 @@ function CreateReturnModal({ onClose, refetch }: { onClose: () => void; refetch:
                                             <div style={{ fontSize: 13.5, fontWeight: 700, marginBottom: 2 }}>{it.productName}</div>
                                             <div style={{ fontSize: 11, color: "var(--muted)" }}>{it.sku} · {fmt(it.sellingPrice)}/unit · sold: {it.quantity}</div>
                                         </div>
-                                        {/* Qty stepper */}
-                                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                        {/* Qty stepper with direct input */}
+                                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                                             <button type="button" onClick={() => setSelectedItems(p => ({ ...p, [it.productId]: Math.max(0, (p[it.productId] || 0) - 1) }))}
-                                                style={{ width: 30, height: 30, borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg-input)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 16, color: "var(--muted)", transition: "all 0.1s" }}
-                                                onMouseEnter={e => (e.currentTarget as any).style.borderColor = "var(--border)"}
+                                                style={{ width: 28, height: 28, borderRadius: 7, border: "1px solid var(--border)", background: "var(--bg-input)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 15, color: "var(--muted)", flexShrink: 0 }}
                                             >−</button>
-                                            <span style={{ minWidth: 24, textAlign: "center", fontSize: 15, fontWeight: 900, color: selected ? "#ef4444" : "var(--muted)" }}>{qty}</span>
+                                            <input
+                                                type="number"
+                                                min={0}
+                                                max={it.quantity}
+                                                value={qty === 0 ? "" : qty}
+                                                placeholder="0"
+                                                onChange={e => {
+                                                    const v = parseInt(e.target.value, 10);
+                                                    if (isNaN(v) || e.target.value === "") {
+                                                        setSelectedItems(p => ({ ...p, [it.productId]: 0 }));
+                                                    } else {
+                                                        setSelectedItems(p => ({ ...p, [it.productId]: Math.min(it.quantity, Math.max(0, v)) }));
+                                                    }
+                                                }}
+                                                style={{
+                                                    width: 52, height: 28, textAlign: "center", borderRadius: 7,
+                                                    border: `1.5px solid ${selected ? "rgba(239,68,68,0.4)" : "var(--border)"}`,
+                                                    background: "var(--bg-input)", color: selected ? "#ef4444" : "var(--text)",
+                                                    fontSize: 14, fontWeight: 800, outline: "none",
+                                                    MozAppearance: "textfield",
+                                                }}
+                                            />
                                             <button type="button" onClick={() => setSelectedItems(p => ({ ...p, [it.productId]: Math.min(it.quantity, (p[it.productId] || 0) + 1) }))}
-                                                style={{ width: 30, height: 30, borderRadius: 8, border: "1px solid rgba(99,102,241,0.3)", background: "rgba(79,70,229,0.08)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 16, color: "var(--indigo-l)", transition: "all 0.1s" }}
+                                                style={{ width: 28, height: 28, borderRadius: 7, border: "1px solid rgba(99,102,241,0.3)", background: "rgba(79,70,229,0.08)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 15, color: "var(--indigo-l)", flexShrink: 0 }}
                                             >+</button>
+                                            <span style={{ fontSize: 10, color: "var(--muted)", whiteSpace: "nowrap" }}>/ {it.quantity}</span>
                                         </div>
                                     </div>
                                 );
