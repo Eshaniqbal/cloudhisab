@@ -430,6 +430,7 @@ export const LIST_RETURNS = gql`
           productId
           productName
           quantity
+          unit
           sellingPrice
           gstRate
           gstAmount
@@ -470,6 +471,7 @@ export const GET_RETURN = gql`
         productName
         sku
         quantity
+        unit
         sellingPrice
         gstRate
         gstAmount

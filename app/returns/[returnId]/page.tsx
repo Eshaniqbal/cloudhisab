@@ -282,7 +282,7 @@ export default function ReturnBillPage() {
                             <tr key={item.productId || idx} style={{ borderBottom: "0.5px dotted #ccc" }}>
                                 <td style={{ ...td, ...C }}>{idx + 1}</td>
                                 <td style={{ ...td }}><b>{item.productName}</b></td>
-                                <td style={{ ...td, ...R }}>{Number(item.quantity)}</td>
+                                <td style={{ ...td, ...R }}>{Number(item.quantity)} {item.unit}</td>
                                 <td style={{ ...td, ...R }}>{f2(item.sellingPrice)}</td>
                                 <td style={{ ...td, ...R }}>{item.gstRate}%</td>
                                 <td style={{ ...td, ...R, ...noRightBorder }}>
