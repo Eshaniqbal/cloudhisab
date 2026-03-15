@@ -9,6 +9,42 @@ import { useEffect, useRef, useState } from "react";
 const f2 = (n: number) =>
     new Intl.NumberFormat("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n ?? 0);
 
+function num2wordsIndian(n: number): string {
+    const nInt = Math.floor(n);
+    if (nInt === 0) return "Zero";
+    const ones = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
+    const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
+
+    function convertLessThan100(val: number): string {
+        if (val < 20) return ones[val];
+        return tens[Math.floor(val / 10)] + (val % 10 !== 0 ? " " + ones[val % 10] : "");
+    }
+
+    function convertLessThan1000(val: number): string {
+        if (val < 100) return convertLessThan100(val);
+        return ones[Math.floor(val / 100)] + " Hundred" + (val % 100 !== 0 ? " and " + convertLessThan100(val % 100) : "");
+    }
+
+    let res = "";
+    let num = nInt;
+    if (num >= 10000000) {
+        res += convertLessThan100(Math.floor(num / 10000000)) + " Crore ";
+        num %= 10000000;
+    }
+    if (num >= 100000) {
+        res += convertLessThan100(Math.floor(num / 100000)) + " Lakh ";
+        num %= 100000;
+    }
+    if (num >= 1000) {
+        res += convertLessThan100(Math.floor(num / 1000)) + " Thousand ";
+        num %= 1000;
+    }
+    if (num > 0) {
+        res += convertLessThan1000(num);
+    }
+    return res.trim();
+}
+
 export default function InvoiceDetailPage() {
     const params = useParams();
     const saleId = params.saleId as string;
@@ -258,13 +294,7 @@ export default function InvoiceDetailPage() {
                         <tr>
                             <th style={{ ...th, ...C, width: 28 }}>#</th>
                             <th style={{ ...th }}>Product</th>
-                            <th style={{ ...th, width: 58 }}>Packing</th>
-                            <th style={{ ...th, width: 48 }}>Mfr.</th>
-                            <th style={{ ...th, width: 58 }}>Batch</th>
-                            <th style={{ ...th, width: 38 }}>Exp.</th>
                             <th style={{ ...th, ...R, width: 38 }}>Qty.</th>
-                            <th style={{ ...th, ...R, width: 28 }}>Free</th>
-                            <th style={{ ...th, ...R, width: 48 }}>M.R.P.</th>
                             <th style={{ ...th, ...R, width: 48 }}>Rate</th>
                             <th style={{ ...th, ...R, width: 38 }}>Tax%</th>
                             <th style={{ ...th, ...R, ...noRightBorder, width: 68 }}>Amount</th>
@@ -275,13 +305,7 @@ export default function InvoiceDetailPage() {
                             <tr key={item.productId || idx} style={{ borderBottom: "0.5px dotted #ccc" }}>
                                 <td style={{ ...td, ...C }}>{idx + 1}</td>
                                 <td style={{ ...td }}><b>{item.productName}</b></td>
-                                <td style={{ ...td }}>{item.unit || "---"}</td>
-                                <td style={{ ...td }}>{item.mfr || "---"}</td>
-                                <td style={{ ...td }}>{item.batch || "---"}</td>
-                                <td style={{ ...td }}>{item.expDate || "---"}</td>
                                 <td style={{ ...td, ...R }}>{Number(item.quantity)}</td>
-                                <td style={{ ...td, ...R }}>0</td>
-                                <td style={{ ...td, ...R }}>{f2(item.sellingPrice)}</td>
                                 <td style={{ ...td, ...R }}>{f2(item.sellingPrice)}</td>
                                 <td style={{ ...td, ...R }}>{item.gstRate}%</td>
                                 <td style={{ ...td, ...R, ...noRightBorder }}>
@@ -292,8 +316,8 @@ export default function InvoiceDetailPage() {
                         {/* Spacer rows */}
                         {Array.from({ length: SPACER_ROWS }).map((_, i) => (
                             <tr key={`sp${i}`} style={{ borderBottom: "0.5px dotted #ccc", height: 25 }}>
-                                {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(j => (
-                                    <td key={j} style={{ ...td, ...(j === 11 ? noRightBorder : {}) }}>&nbsp;</td>
+                                {[0, 1, 2, 3, 4, 5].map(j => (
+                                    <td key={j} style={{ ...td, ...(j === 5 ? noRightBorder : {}) }}>&nbsp;</td>
                                 ))}
                             </tr>
                         ))}
@@ -322,8 +346,8 @@ export default function InvoiceDetailPage() {
                                 {discountAmount > 0 && <tr><td>Discount:</td><td>₹{f2(discountAmount)}</td></tr>}
                             </tbody>
                         </table>
-                        <div style={{ marginTop: 15, fontWeight: "bold", fontStyle: "italic", position: "relative", zIndex: 1 }}>
-                            Rs. {f2(totalAmount)} Only
+                        <div style={{ marginTop: 15, fontWeight: "bold", fontStyle: "italic", fontSize: 11, position: "relative", zIndex: 1 }}>
+                            Rupees {num2wordsIndian(totalAmount)} Only
                         </div>
                     </div>
 

@@ -9,6 +9,42 @@ import { ArrowLeft, Loader2, Printer, RotateCcw, Download, Clock, CheckCircle2, 
 const f2 = (n: number) =>
     new Intl.NumberFormat("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n ?? 0);
 
+function num2wordsIndian(n: number): string {
+    const nInt = Math.floor(n);
+    if (nInt === 0) return "Zero";
+    const ones = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
+    const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
+
+    function convertLessThan100(val: number): string {
+        if (val < 20) return ones[val];
+        return tens[Math.floor(val / 10)] + (val % 10 !== 0 ? " " + ones[val % 10] : "");
+    }
+
+    function convertLessThan1000(val: number): string {
+        if (val < 100) return convertLessThan100(val);
+        return ones[Math.floor(val / 100)] + " Hundred" + (val % 100 !== 0 ? " and " + convertLessThan100(val % 100) : "");
+    }
+
+    let res = "";
+    let num = nInt;
+    if (num >= 10000000) {
+        res += convertLessThan100(Math.floor(num / 10000000)) + " Crore ";
+        num %= 10000000;
+    }
+    if (num >= 100000) {
+        res += convertLessThan100(Math.floor(num / 100000)) + " Lakh ";
+        num %= 100000;
+    }
+    if (num >= 1000) {
+        res += convertLessThan100(Math.floor(num / 1000)) + " Thousand ";
+        num %= 1000;
+    }
+    if (num > 0) {
+        res += convertLessThan1000(num);
+    }
+    return res.trim();
+}
+
 const REASON_LABELS: Record<string, string> = {
     DAMAGED: "Damaged Goods",
     WRONG_ITEM: "Wrong Item",
@@ -200,6 +236,7 @@ export default function ReturnBillPage() {
                     <div style={{ display: "table-cell", width: "50%", padding: 8, borderRight: "1px solid #000", verticalAlign: "top" }}>
                         <div style={{ fontSize: 8, fontWeight: "bold", color: "#cc0000", textTransform: "uppercase", marginBottom: 3 }}>Return To</div>
                         <div style={{ fontWeight: "bold", marginBottom: 2 }}>M/s {ret.customerName}</div>
+                        {ret.customerAddress && <div>{ret.customerAddress}</div>}
                         {ret.customerPhone && <div>Phone: {ret.customerPhone}</div>}
                         <div style={{ marginTop: 6, padding: "5px 8px", background: "#fff0f0", border: "1px solid #ffcccc", borderRadius: 3, fontSize: 8 }}>
                             <strong>Reason:</strong> {REASON_LABELS[ret.reason] || ret.reason}
@@ -234,11 +271,9 @@ export default function ReturnBillPage() {
                         <tr>
                             <th style={{ ...th, ...C, width: 28 }}>#</th>
                             <th style={{ ...th }}>Product / Description</th>
-                            <th style={{ ...th, width: 60 }}>SKU</th>
                             <th style={{ ...th, ...R, width: 40 }}>Qty.</th>
                             <th style={{ ...th, ...R, width: 60 }}>Rate</th>
                             <th style={{ ...th, ...R, width: 40 }}>Tax%</th>
-                            <th style={{ ...th, ...R, width: 70 }}>Tax Amt</th>
                             <th style={{ ...th, ...R, ...noRightBorder, width: 80 }}>Amount</th>
                         </tr>
                     </thead>
@@ -247,11 +282,9 @@ export default function ReturnBillPage() {
                             <tr key={item.productId || idx} style={{ borderBottom: "0.5px dotted #ccc" }}>
                                 <td style={{ ...td, ...C }}>{idx + 1}</td>
                                 <td style={{ ...td }}><b>{item.productName}</b></td>
-                                <td style={{ ...td }}>{item.sku || "—"}</td>
                                 <td style={{ ...td, ...R }}>{Number(item.quantity)}</td>
                                 <td style={{ ...td, ...R }}>{f2(item.sellingPrice)}</td>
                                 <td style={{ ...td, ...R }}>{item.gstRate}%</td>
-                                <td style={{ ...td, ...R }}>{f2(item.gstAmount)}</td>
                                 <td style={{ ...td, ...R, ...noRightBorder }}>
                                     <b>{f2(item.lineTotalWithGst)}</b>
                                 </td>
@@ -260,8 +293,8 @@ export default function ReturnBillPage() {
                         {/* Spacer rows */}
                         {Array.from({ length: SPACER_ROWS }).map((_, i) => (
                             <tr key={`sp${i}`} style={{ borderBottom: "0.5px dotted #ccc", height: 25 }}>
-                                {[0, 1, 2, 3, 4, 5, 6, 7].map(j => (
-                                    <td key={j} style={{ ...td, ...(j === 7 ? noRightBorder : {}) }}>&nbsp;</td>
+                                {[0, 1, 2, 3, 4, 5].map(j => (
+                                    <td key={j} style={{ ...td, ...(j === 5 ? noRightBorder : {}) }}>&nbsp;</td>
                                 ))}
                             </tr>
                         ))}
@@ -292,8 +325,8 @@ export default function ReturnBillPage() {
                                 <tr><td>Against Invoice:</td><td>{ret.originalInvoiceNumber}</td></tr>
                             </tbody>
                         </table>
-                        <div style={{ marginTop: 15, fontWeight: "bold", fontStyle: "italic", position: "relative", zIndex: 1 }}>
-                            Refund Amount: Rs. {f2(ret.totalAmount)} Only
+                        <div style={{ marginTop: 15, fontWeight: "bold", fontStyle: "italic", fontSize: 11, position: "relative", zIndex: 1 }}>
+                            Refund Amount: Rupees {num2wordsIndian(ret.totalAmount)} Only
                         </div>
                     </div>
 

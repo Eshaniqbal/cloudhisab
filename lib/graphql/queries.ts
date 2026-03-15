@@ -122,6 +122,7 @@ export const GET_INVOICE = gql`
       customerName
       customerPhone
       customerGstin
+      customerAddress
       items {
         productId
         productName
@@ -347,6 +348,7 @@ export const GET_CUSTOMER_BY_PHONE = gql`
       name
       phone
       gstin
+      address
       outstanding
       totalInvoiced
       totalPaid
@@ -462,6 +464,7 @@ export const GET_RETURN = gql`
       originalInvoiceNumber
       customerName
       customerPhone
+      customerAddress
       items {
         productId
         productName

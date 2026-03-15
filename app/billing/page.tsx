@@ -49,10 +49,11 @@ export default function BillingPage() {
     const [createInvoice, { loading: invoiceLoading }] = useMutation<any, any>(CREATE_INVOICE);
 
     const [cart, setCart] = useState<CartItem[]>([]);
-    const [customer, setCustomer] = useState({ name: "", phone: "", gstin: "" });
+    const [customer, setCustomer] = useState({ name: "", phone: "", gstin: "", address: "" });
     const [discount, setDiscount] = useState(0);
     const [paymentMethod, setPaymentMethod] = useState("CASH");
     const [amountPaid, setAmountPaid] = useState<string>("");
+    const [gstExempt, setGstExempt] = useState(false);
     const [notes, setNotes] = useState("");
     const [search, setSearch] = useState("");
     const [success, setSuccess] = useState<any>(null);
@@ -103,6 +104,7 @@ export default function BillingPage() {
                             phone: c.phone,
                             name: c.name.trim() ? c.name : found.name,
                             gstin: c.gstin.trim() ? c.gstin : (found.gstin || ""),
+                            address: c.address.trim() ? c.address : (found.address || ""),
                         }));
                     }
                 } catch { /* silent */ }
@@ -128,13 +130,19 @@ export default function BillingPage() {
         });
     };
 
-    const updateQty = (id: string, delta: number) =>
+    const updateQty = (id: string, delta: number) => {
         setCart(c => c.map(i => {
             if (i.productId !== id) return i;
             const next = Math.max(1, +(i.quantity + delta).toFixed(0));
             if (delta > 0 && next > i.stock) { showStockAlert(`Only ${i.stock} unit(s) of "${i.name}" available`); return i; }
             return { ...i, quantity: next };
         }).filter(i => i.quantity > 0));
+        setQtyDraft(d => {
+            const next = { ...d };
+            delete next[id];
+            return next;
+        });
+    };
 
     const commitQty = (id: string, raw: string) => {
         const val = parseInt(raw, 10);
@@ -144,14 +152,26 @@ export default function BillingPage() {
             if (val > i.stock) { showStockAlert(`Only ${i.stock} unit(s) of "${i.name}" available`); return { ...i, quantity: i.stock }; }
             return { ...i, quantity: val };
         }));
-        setQtyDraft(d => ({ ...d, [id]: "" }));
+        setQtyDraft(d => {
+            const next = { ...d };
+            delete next[id];
+            return next;
+        });
     };
 
     const removeItem = (id: string) => setCart(c => c.filter(i => i.productId !== id));
-    const clearCart = () => { setCart([]); setCustomer({ name: "", phone: "", gstin: "" }); setDiscount(0); setNotes(""); setAmountPaid(""); };
+    const clearCart = () => {
+        setCart([]);
+        setCustomer({ name: "", phone: "", gstin: "", address: "" });
+        setDiscount(0);
+        setNotes("");
+        setAmountPaid("");
+        setGstExempt(false);
+        setQtyDraft({});
+    };
 
     const subtotal = cart.reduce((s, i) => s + i.sellingPrice * i.quantity, 0);
-    const totalGst = cart.reduce((s, i) => s + i.sellingPrice * i.gstRate / 100 * i.quantity, 0);
+    const totalGst = gstExempt ? 0 : cart.reduce((s, i) => s + i.sellingPrice * i.gstRate / 100 * i.quantity, 0);
     const totalAmount = Math.max(0, subtotal + totalGst - discount);
     const totalProfit = cart.reduce((s, i) => s + (i.sellingPrice - i.costPrice) * i.quantity, 0);
     const paidNum = paymentMethod === "PARTIAL" && amountPaid !== "" ? Math.min(+amountPaid || 0, totalAmount) : totalAmount;
@@ -169,11 +189,13 @@ export default function BillingPage() {
                         customerName: customer.name,
                         customerPhone: customer.phone || null,
                         customerGstin: customer.gstin || null,
+                        customerAddress: customer.address || null,
                         items: cart.map(i => ({ productId: i.productId, quantity: i.quantity, sellingPrice: i.sellingPrice })),
                         discountAmount: discount,
                         paymentMethod,
                         notes: notes || null,
                         amountPaid: paymentMethod === "PARTIAL" ? paidNum : null,
+                        gstExempt,
                     },
                 },
             } as any) as any;
@@ -461,7 +483,7 @@ export default function BillingPage() {
                                                     type="number"
                                                     min={1}
                                                     max={item.stock}
-                                                    value={qtyDraft[item.productId] !== undefined && qtyDraft[item.productId] !== ""
+                                                    value={qtyDraft[item.productId] !== undefined
                                                         ? qtyDraft[item.productId]
                                                         : item.quantity}
                                                     onChange={e => setQtyDraft(d => ({ ...d, [item.productId]: e.target.value }))}
@@ -481,8 +503,8 @@ export default function BillingPage() {
                                                 <button onClick={() => updateQty(item.productId, 1)} style={{ width: 22, height: 22, borderRadius: 6, background: "rgba(79,70,229,0.12)", border: "1px solid rgba(79,70,229,0.2)", cursor: "pointer", color: "#818cf8", display: "flex", alignItems: "center", justifyContent: "center" }}><Plus size={10} /></button>
                                             </div>
                                             <div style={{ textAlign: "right", flexShrink: 0, minWidth: 72 }}>
-                                                <div style={{ fontWeight: 800, fontSize: 13, color: "var(--text)", fontVariantNumeric: "tabular-nums" }}>₹{fmtN(lineTotal)}</div>
-                                                {item.gstRate > 0 && <div style={{ fontSize: 9, color: "#818cf8" }}>GST ₹{fmtN(gstAmt)}</div>}
+                                                <div style={{ fontWeight: 800, fontSize: 13, color: "var(--text)", fontVariantNumeric: "tabular-nums" }}>₹{fmtN(gstExempt ? item.sellingPrice * item.quantity : lineTotal)}</div>
+                                                {!gstExempt && item.gstRate > 0 && <div style={{ fontSize: 9, color: "#818cf8" }}>GST ₹{fmtN(gstAmt)}</div>}
                                             </div>
                                             <button onClick={() => removeItem(item.productId)} style={{ background: "none", border: "none", cursor: "pointer", color: "#f87171", opacity: 0.55, display: "flex", padding: 4, borderRadius: 5, transition: "opacity 0.12s" }}
                                                 onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.opacity = "1"}
@@ -560,6 +582,8 @@ export default function BillingPage() {
                                         value={customer.gstin} onChange={e => setCustomer({ ...customer, gstin: e.target.value.toUpperCase() })} />
                                 </div>
                             </div>
+                            <input className="input" style={{ fontSize: 13 }} placeholder="Address (optional)"
+                                value={customer.address} onChange={e => setCustomer({ ...customer, address: e.target.value })} />
                         </div>
                     </div>
 
@@ -579,6 +603,13 @@ export default function BillingPage() {
                                 <input type="number" min={0} className="input"
                                     style={{ width: 80, textAlign: "right", fontSize: 12, padding: "4px 8px" }}
                                     value={discount} onChange={e => setDiscount(Math.max(0, +e.target.value))} />
+                            </div>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13, marginTop: 4, padding: "6px 0" }}>
+                                <span style={{ color: "var(--text)", fontWeight: 700 }}>Exempt GST</span>
+                                <input type="checkbox"
+                                    checked={gstExempt}
+                                    onChange={e => setGstExempt(e.target.checked)}
+                                    style={{ width: 16, height: 16, accentColor: "#818cf8", cursor: "pointer" }} />
                             </div>
                             {/* Grand total */}
                             <div style={{
