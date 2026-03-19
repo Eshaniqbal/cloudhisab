@@ -1,9 +1,9 @@
 "use client";
 import { useState } from "react";
-import { useQuery, useMutation } from "@apollo/client";
+import { useQuery, useMutation, useApolloClient } from "@apollo/client";
 import { AuthGuard } from "@/components/AuthGuard";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
-import { LIST_CUSTOMERS, GET_CUSTOMER_LEDGER } from "@/lib/graphql/queries";
+import { LIST_CUSTOMERS, GET_CUSTOMER_LEDGER, GET_STATEMENT_DOWNLOAD_URL } from "@/lib/graphql/queries";
 import { RECORD_CUSTOMER_PAYMENT, RECORD_ADVANCE, DELETE_CUSTOMER } from "@/lib/graphql/mutations";
 import {
     Users, Search, X, Phone, CreditCard, Wallet, CheckCircle2,
@@ -44,6 +44,8 @@ export default function CustomersPage() {
     const [deleteTarget, setDeleteTarget] = useState<{ phone: string; name: string } | null>(null);
     const [deleteLoading, setDeleteLoading] = useState(false);
     const [statementEntry, setStatementEntry] = useState<any>(null);
+    const [pdfLoading, setPdfLoading] = useState(false);
+    const client = useApolloClient();
 
     const { data: listData, loading: listLoading, refetch: refetchList } =
         useQuery(LIST_CUSTOMERS, { variables: { search: search || null }, fetchPolicy: "cache-and-network" } as any);
@@ -188,6 +190,41 @@ export default function CustomersPage() {
             setPayModal(null); setModalAmt(""); setModalNotes("");
             refetchLedger(); refetchList();
         } catch (e: any) { setModalErr(e.message || "Failed"); }
+    };
+
+    const handleDownloadPdf = async () => {
+        if (!selPhone || pdfLoading) return;
+        setPdfLoading(true);
+        
+        const poll = async (retries = 0) => {
+            if (retries > 10) {
+                setPdfLoading(false);
+                alert("Generation took too long. Please try again.");
+                return;
+            }
+            
+            try {
+                const { data } = await client.query({
+                    query: GET_STATEMENT_DOWNLOAD_URL,
+                    variables: { phone: selPhone },
+                    fetchPolicy: "network-only",
+                });
+                
+                if (data?.getStatementDownloadUrl) {
+                    window.open(data.getStatementDownloadUrl, "_blank");
+                    setPdfLoading(false);
+                } else {
+                    // Not ready yet, wait 3 seconds and try again
+                    setTimeout(() => poll(retries + 1), 3000);
+                }
+            } catch (e) {
+                console.error(e);
+                setPdfLoading(false);
+                alert("Failed to generate PDF");
+            }
+        };
+
+        poll();
     };
 
     return (
@@ -569,7 +606,33 @@ export default function CustomersPage() {
                                         onMouseEnter={e => { (e.currentTarget as any).style.color = "var(--text)"; (e.currentTarget as any).style.borderColor = "rgba(99,102,241,0.3)"; }}
                                         onMouseLeave={e => { (e.currentTarget as any).style.color = "var(--muted)"; (e.currentTarget as any).style.borderColor = "var(--border)"; }}
                                     >
-                                        <Download size={12} /> Export CSV
+                                        <Download size={12} /> CSV
+                                    </button>
+                                    <button
+                                        onClick={handleDownloadPdf}
+                                        disabled={pdfLoading}
+                                        style={{ 
+                                            display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", 
+                                            borderRadius: 12, background: pdfLoading ? "rgba(99,102,241,0.1)" : "var(--bg-card)", 
+                                            border: "1px solid var(--border)", fontSize: 13, fontWeight: 600, 
+                                            cursor: pdfLoading ? "wait" : "pointer", color: pdfLoading ? "var(--indigo-l)" : "var(--muted)", 
+                                            transition: "all 0.2s cubic-bezier(0.16, 1, 0.3, 1)", whiteSpace: "nowrap",
+                                            boxShadow: pdfLoading ? "none" : "0 2px 8px rgba(0,0,0,0.05)"
+                                        }}
+                                        onMouseEnter={e => { if(!pdfLoading){ (e.currentTarget as any).style.color = "var(--text)"; (e.currentTarget as any).style.borderColor = "var(--indigo-l)"; (e.currentTarget as any).style.transform = "translateY(-1px)"; } }}
+                                        onMouseLeave={e => { if(!pdfLoading){ (e.currentTarget as any).style.color = "var(--muted)"; (e.currentTarget as any).style.borderColor = "var(--border)"; (e.currentTarget as any).style.transform = "translateY(0)"; } }}
+                                    >
+                                        {pdfLoading ? (
+                                            <>
+                                                <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} />
+                                                <span>Preparing...</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Receipt size={14} style={{ color: "var(--indigo-l)" }} />
+                                                <span>Export PDF</span>
+                                            </>
+                                        )}
                                     </button>
                                 </div>
 

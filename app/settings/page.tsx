@@ -38,6 +38,7 @@ export default function SettingsPage() {
 
     const router = useRouter();
     const [form, setForm] = useState<Record<string, string>>({});
+    const [showGstOnInvoice, setShowGstOnInvoice] = useState(true);
     const [dirty, setDirty] = useState(false);
     const [saved, setSaved] = useState(false);
     const [saveErr, setSaveErr] = useState("");
@@ -61,6 +62,7 @@ export default function SettingsPage() {
                 state: profile.state || "",
                 pincode: profile.pincode || "",
             });
+            setShowGstOnInvoice(profile.showGstOnInvoice !== false);
             setDirty(false);
 
             // Auto-switch to billing if no plan selected
@@ -92,6 +94,7 @@ export default function SettingsPage() {
                         city: form.city || null,
                         state: form.state || null,
                         pincode: form.pincode || null,
+                        showGstOnInvoice: form.gstin ? showGstOnInvoice : false,
                     },
                 },
             } as any);
@@ -328,10 +331,50 @@ export default function SettingsPage() {
                         display: "flex", gap: 12, alignItems: "flex-start",
                     }}>
                         <ShieldCheck size={16} color="#818cf8" style={{ flexShrink: 0, marginTop: 1 }} />
-                        <div>
+                        <div style={{ flex: 1 }}>
                             <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text)", marginBottom: 3 }}>GST Compliance</div>
                             <div style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.6 }}>
-                                Your business name, GSTIN, address and phone are printed on every invoice header. Keep them accurate for GST filing.
+                                Your business name, address and phone are printed on every invoice header. Keep them accurate for GST filing.
+                            </div>
+                            {/* GST on Invoice toggle */}
+                            <div style={{
+                                marginTop: 14, display: "flex", alignItems: "center", justifyContent: "space-between",
+                                padding: "10px 14px", borderRadius: 10,
+                                background: "var(--bg-input)", border: "1px solid var(--border)",
+                            }}>
+                                <div>
+                                    <div style={{ fontSize: 12.5, fontWeight: 700, color: form.gstin ? "var(--text)" : "var(--muted)" }}>
+                                        Print GST No. on Invoice
+                                    </div>
+                                    <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>
+                                        {form.gstin
+                                            ? "Show your GSTIN in the invoice header"
+                                            : "Add a GSTIN above to enable this option"}
+                                    </div>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        if (!form.gstin) return;
+                                        setShowGstOnInvoice(v => !v);
+                                        setDirty(true);
+                                    }}
+                                    style={{
+                                        position: "relative", width: 44, height: 24, borderRadius: 99,
+                                        border: "none", cursor: form.gstin ? "pointer" : "not-allowed",
+                                        background: (!form.gstin || !showGstOnInvoice) ? "var(--border)" : "#6366f1",
+                                        transition: "background 0.2s", flexShrink: 0,
+                                        opacity: form.gstin ? 1 : 0.5,
+                                    }}
+                                    title={!form.gstin ? "Enter a GSTIN first" : undefined}
+                                >
+                                    <span style={{
+                                        position: "absolute", top: 3, left: (!form.gstin || !showGstOnInvoice) ? 3 : 23,
+                                        width: 18, height: 18, borderRadius: "50%",
+                                        background: "#fff", transition: "left 0.2s",
+                                        boxShadow: "0 1px 4px rgba(0,0,0,0.2)",
+                                    }} />
+                                </button>
                             </div>
                         </div>
                     </div>

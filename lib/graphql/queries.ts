@@ -371,6 +371,7 @@ export const GET_TENANT_PROFILE = gql`
       city
       state
       pincode
+      showGstOnInvoice
       plan
       subStatus
       razorpaySubId
@@ -498,5 +499,11 @@ export const GET_RETURN = gql`
 export const GET_RETURN_DOWNLOAD_URL = gql`
   query GetReturnDownloadUrl($returnId: String!) {
     getReturnDownloadUrl(returnId: $returnId)
+  }
+`;
+
+export const GET_STATEMENT_DOWNLOAD_URL = gql`
+  query GetStatementDownloadUrl($phone: String!) {
+    getStatementDownloadUrl(phone: $phone)
   }
 `;

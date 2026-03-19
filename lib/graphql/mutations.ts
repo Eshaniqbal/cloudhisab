@@ -233,6 +233,7 @@ export const UPDATE_TENANT_PROFILE = gql`
       city
       state
       pincode
+      showGstOnInvoice
       plan
     }
   }
