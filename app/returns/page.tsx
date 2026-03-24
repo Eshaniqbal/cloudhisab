@@ -1,5 +1,6 @@
 "use client";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useLazyQuery } from "@apollo/client";
 import { AuthGuard } from "@/components/AuthGuard";
 import { LIST_RETURNS, GET_INVOICE, SEARCH_INVOICES } from "@/lib/graphql/queries";
@@ -72,9 +73,11 @@ function Steps({ current }: { current: number }) {
 
 // ─── Create Return Modal ─────────────────────────────────────────────────────
 function CreateReturnModal({ onClose, refetch }: { onClose: () => void; refetch: () => void }) {
+    const searchParams = useSearchParams();
+    const invoiceIdParam = searchParams.get("invoiceId");
+
     const [step, setStep] = useState(0);
     const [searchQuery, setSearchQuery] = useState("");
-    const [showSuggestions, setShowSuggestions] = useState(false);
     const [reason, setReason] = useState("DAMAGED");
     const [refundType, setRefundType] = useState("CREDIT_NOTE");
     const [restock, setRestock] = useState(true);
@@ -84,7 +87,6 @@ function CreateReturnModal({ onClose, refetch }: { onClose: () => void; refetch:
     const [error, setError] = useState("");
     const [success, setSuccess] = useState<any>(null);
     const debounceRef = useRef<any>(null);
-    const wrapperRef = useRef<HTMLDivElement>(null);
 
     const [searchInvoices, { loading: searching, data: searchData }] = useLazyQuery<any>(SEARCH_INVOICES, { fetchPolicy: "network-only" });
     const [fetchInvoice, { loading: loadingInv }] = useLazyQuery<any>(GET_INVOICE);
@@ -92,27 +94,27 @@ function CreateReturnModal({ onClose, refetch }: { onClose: () => void; refetch:
 
     const suggestions = searchData?.searchInvoices?.items || [];
 
+    // Auto-fetch if invoiceId matches, else fetch recent invoices
+    useEffect(() => {
+        if (invoiceIdParam) {
+            handleSelectSuggestion({ saleId: invoiceIdParam });
+        } else {
+            searchInvoices({ variables: { query: "", limit: 12 } });
+        }
+    }, [invoiceIdParam]);
+
     const handleSearchChange = (val: string) => {
         setSearchQuery(val);
-        setShowSuggestions(true);
         if (debounceRef.current) clearTimeout(debounceRef.current);
         debounceRef.current = setTimeout(() => {
-            if (val.trim().length >= 2) searchInvoices({ variables: { query: val.trim(), limit: 8 } });
+            searchInvoices({ variables: { query: val.trim(), limit: 12 } });
         }, 280);
     };
 
-    useEffect(() => {
-        const h = (e: MouseEvent) => {
-            if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node))
-                setShowSuggestions(false);
-        };
-        document.addEventListener("mousedown", h);
-        return () => document.removeEventListener("mousedown", h);
-    }, []);
-
     const handleSelectSuggestion = async (sug: any) => {
-        setShowSuggestions(false);
-        setSearchQuery(`${sug.invoiceNumber} — ${sug.customerName}`);
+        if (sug.invoiceNumber) {
+            setSearchQuery(`${sug.invoiceNumber} — ${sug.customerName}`);
+        }
         setError("");
         const r = await fetchInvoice({ variables: { saleId: sug.saleId } });
         if (!r.data?.getInvoice) { setError("Could not load invoice details."); return; }
@@ -125,8 +127,8 @@ function CreateReturnModal({ onClose, refetch }: { onClose: () => void; refetch:
 
     const totalSelected = invoice?.items?.reduce((s: number, it: any) =>
         s + (it.sellingPrice || 0) * (selectedItems[it.productId] || 0), 0) || 0;
-    const totalGst = invoice?.items?.reduce((s: number, it: any) =>
-        s + (it.gstRate / 100) * (it.sellingPrice || 0) * (selectedItems[it.productId] || 0), 0) || 0;
+    const totalGst = invoice?.gstExempt ? 0 : (invoice?.items?.reduce((s: number, it: any) =>
+        s + (it.gstRate / 100) * (it.sellingPrice || 0) * (selectedItems[it.productId] || 0), 0) || 0);
     const itemsSelected = Object.values(selectedItems).some(v => v > 0);
 
     const handleSubmit = async () => {
@@ -206,67 +208,58 @@ function CreateReturnModal({ onClose, refetch }: { onClose: () => void; refetch:
                         <div style={{ fontSize: 13, color: "var(--muted)" }}>Search by customer phone, name, or invoice number</div>
                     </div>
 
-                    <div ref={wrapperRef} style={{ position: "relative" }}>
-                        <div style={{ position: "relative" }}>
-                            <Search size={15} style={{ position: "absolute", left: 13, top: "50%", transform: "translateY(-50%)", color: searching ? "var(--indigo-l)" : "var(--muted)", pointerEvents: "none", transition: "color 0.2s" }} />
-                            <input
-                                className="input"
-                                style={{ paddingLeft: 40, paddingRight: 40, height: 48, fontSize: 14 }}
-                                placeholder="Type phone, name, or invoice number..."
-                                value={searchQuery}
-                                onChange={e => handleSearchChange(e.target.value)}
-                                onFocus={() => searchQuery.length >= 2 && setShowSuggestions(true)}
-                                autoFocus autoComplete="off"
-                            />
-                            {searching && <Loader2 size={14} style={{ position: "absolute", right: 13, top: "50%", transform: "translateY(-50%)", color: "var(--indigo-l)", animation: "spin 0.7s linear infinite" }} />}
-                        </div>
+                    <div style={{ position: "relative" }}>
+                        <Search size={15} style={{ position: "absolute", left: 13, top: "50%", transform: "translateY(-50%)", color: searching ? "var(--indigo-l)" : "var(--muted)", pointerEvents: "none", transition: "color 0.2s" }} />
+                        <input
+                            className="input"
+                            style={{ paddingLeft: 40, paddingRight: 40, height: 48, fontSize: 14 }}
+                            placeholder="Type phone, name, or invoice number..."
+                            value={searchQuery}
+                            onChange={e => handleSearchChange(e.target.value)}
+                            autoFocus autoComplete="off"
+                        />
+                        {searching && <Loader2 size={14} style={{ position: "absolute", right: 13, top: "50%", transform: "translateY(-50%)", color: "var(--indigo-l)", animation: "spin 0.7s linear infinite" }} />}
+                    </div>
 
-                        {/* Suggestions */}
-                        {showSuggestions && suggestions.length > 0 && (
-                            <div style={{ position: "absolute", top: "calc(100% + 8px)", left: 0, right: 0, zIndex: 200, background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 16, boxShadow: "0 24px 64px rgba(0,0,0,0.45)", overflow: "hidden" }}>
-                                <div style={{ padding: "8px 12px 4px", fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--muted)" }}>
-                                    Matching Invoices
+                    {/* Suggestions List */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 310, overflowY: "auto", paddingRight: 4 }}>
+                        {suggestions.length > 0 ? (
+                            <>
+                                <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--muted)", paddingLeft: 4 }}>
+                                    {searchQuery.trim() ? "Search Results" : "Recent Invoices"}
                                 </div>
-                                {suggestions.map((sug: any, i: number) => (
+                                {suggestions.map((sug: any) => (
                                     <button key={sug.saleId} type="button" onClick={() => handleSelectSuggestion(sug)}
-                                        style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "10px 16px", textAlign: "left", background: "none", border: "none", cursor: "pointer", borderTop: i === 0 ? "none" : "1px solid var(--border)", transition: "background 0.1s" }}
-                                        onMouseEnter={e => (e.currentTarget as any).style.background = "var(--bg-card2)"}
-                                        onMouseLeave={e => (e.currentTarget as any).style.background = "none"}
+                                        style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "12px 14px", textAlign: "left", background: "var(--bg-card2)", border: "1px solid var(--border)", borderRadius: 12, cursor: "pointer", transition: "all 0.15s" }}
+                                        onMouseEnter={e => { (e.currentTarget as any).style.borderColor = "var(--indigo-l)"; (e.currentTarget as any).style.background = "var(--bg-input)"}}
+                                        onMouseLeave={e => { (e.currentTarget as any).style.borderColor = "var(--border)"; (e.currentTarget as any).style.background = "var(--bg-card2)"}}
                                     >
-                                        <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(239,68,68,0.08)", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                                            <FileText size={15} color="#ef4444" />
+                                        <div style={{ width: 38, height: 38, borderRadius: 10, background: "rgba(99,102,241,0.1)", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                            <FileText size={16} color="var(--indigo-l)" />
                                         </div>
                                         <div style={{ flex: 1, minWidth: 0 }}>
                                             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
                                                 <span style={{ fontFamily: "monospace", fontSize: 13, fontWeight: 800, color: "var(--text)" }}>{sug.invoiceNumber}</span>
-                                                <span style={{ width: 3, height: 3, borderRadius: "50%", background: "var(--muted)", flexShrink: 0 }} />
+                                                {sug.returns?.length > 0 && (
+                                                    <span style={{ fontSize: 9, fontWeight: 800, textTransform: "uppercase", padding: "2px 6px", borderRadius: 4, background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.3)", color: "var(--orange)" }}>Returned</span>
+                                                )}
+                                                <span style={{ width: 4, height: 4, borderRadius: "50%", background: "var(--muted)", flexShrink: 0 }} />
                                                 <span style={{ fontSize: 13, fontWeight: 600 }}>{sug.customerName}</span>
                                             </div>
                                             <div style={{ display: "flex", gap: 14, fontSize: 11.5, color: "var(--muted)" }}>
-                                                <span style={{ display: "flex", alignItems: "center", gap: 4 }}><Phone size={10} />{sug.customerPhone || "—"}</span>
-                                                <span style={{ display: "flex", alignItems: "center", gap: 4 }}><Calendar size={10} />{fmtDate(sug.createdAt)}</span>
+                                                <span style={{ display: "flex", alignItems: "center", gap: 5 }}><Phone size={11} />{sug.customerPhone || "—"}</span>
+                                                <span style={{ display: "flex", alignItems: "center", gap: 5 }}><Calendar size={11} />{fmtDate(sug.createdAt)}</span>
                                             </div>
                                         </div>
                                         <div style={{ fontSize: 14, fontWeight: 900, color: "var(--green)", flexShrink: 0 }}>{fmt(sug.totalAmount)}</div>
                                     </button>
                                 ))}
+                            </>
+                        ) : !searching ? (
+                            <div style={{ padding: "32px 20px", textAlign: "center", color: "var(--muted)", fontSize: 13, background: "var(--bg-card2)", borderRadius: 14, border: "1px dashed var(--border)" }}>
+                                No invoices found{searchQuery.trim() ? ` for "${searchQuery}"` : ""}
                             </div>
-                        )}
-
-                        {showSuggestions && !searching && searchQuery.length >= 2 && suggestions.length === 0 && (
-                            <div style={{ position: "absolute", top: "calc(100% + 8px)", left: 0, right: 0, zIndex: 200, background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 16, padding: "20px", textAlign: "center", color: "var(--muted)", fontSize: 13 }}>
-                                No invoices found for "<strong>{searchQuery}</strong>"
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Search hints */}
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                        {[{ icon: <Phone size={11} />, label: "Phone number" }, { icon: <Hash size={11} />, label: "Invoice no." }, { icon: <User size={11} />, label: "Customer name" }].map(h => (
-                            <div key={h.label} style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 10px", borderRadius: 20, background: "var(--bg-card2)", border: "1px solid var(--border)", fontSize: 11.5, color: "var(--muted)" }}>
-                                {h.icon} {h.label}
-                            </div>
-                        ))}
+                        ) : null}
                     </div>
 
                     {loadingInv && (
@@ -275,7 +268,9 @@ function CreateReturnModal({ onClose, refetch }: { onClose: () => void; refetch:
                         </div>
                     )}
 
-                    <button className="btn btn-ghost" onClick={onClose} style={{ marginTop: 4 }}>Cancel</button>
+                    <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4 }}>
+                        <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+                    </div>
                 </div>
             )}
 
@@ -309,7 +304,10 @@ function CreateReturnModal({ onClose, refetch }: { onClose: () => void; refetch:
                                         </button>
                                         <div style={{ flex: 1, minWidth: 0 }}>
                                             <div style={{ fontSize: 13.5, fontWeight: 700, marginBottom: 2 }}>{it.productName}</div>
-                                            <div style={{ fontSize: 11, color: "var(--muted)" }}>{it.sku} · {fmt(it.sellingPrice)}/unit · sold: {it.quantity}</div>
+                                            <div style={{ fontSize: 11, color: "var(--muted)" }}>
+                                                {it.sku} · {fmt(it.sellingPrice)}/unit · sold: {it.quantity} 
+                                                {it.returnedQuantity > 0 && <span style={{ color: "var(--orange)", marginLeft: 6 }}>({it.returnedQuantity} already returned)</span>}
+                                            </div>
                                         </div>
                                         {/* Qty stepper with direct input */}
                                         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -319,7 +317,7 @@ function CreateReturnModal({ onClose, refetch }: { onClose: () => void; refetch:
                                             <input
                                                 type="number"
                                                 min={0}
-                                                max={it.quantity}
+                                                max={it.remainingQuantity}
                                                 value={qty === 0 ? "" : qty}
                                                 placeholder="0"
                                                 onChange={e => {
@@ -327,7 +325,7 @@ function CreateReturnModal({ onClose, refetch }: { onClose: () => void; refetch:
                                                     if (isNaN(v) || e.target.value === "") {
                                                         setSelectedItems(p => ({ ...p, [it.productId]: 0 }));
                                                     } else {
-                                                        setSelectedItems(p => ({ ...p, [it.productId]: Math.min(it.quantity, Math.max(0, v)) }));
+                                                        setSelectedItems(p => ({ ...p, [it.productId]: Math.min(it.remainingQuantity, Math.max(0, v)) }));
                                                     }
                                                 }}
                                                 style={{
@@ -338,10 +336,10 @@ function CreateReturnModal({ onClose, refetch }: { onClose: () => void; refetch:
                                                     MozAppearance: "textfield",
                                                 }}
                                             />
-                                            <button type="button" onClick={() => setSelectedItems(p => ({ ...p, [it.productId]: Math.min(it.quantity, (p[it.productId] || 0) + 1) }))}
+                                            <button type="button" onClick={() => setSelectedItems(p => ({ ...p, [it.productId]: Math.min(it.remainingQuantity, (p[it.productId] || 0) + 1) }))}
                                                 style={{ width: 28, height: 28, borderRadius: 7, border: "1px solid rgba(99,102,241,0.3)", background: "rgba(79,70,229,0.08)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 15, color: "var(--indigo-l)", flexShrink: 0 }}
                                             >+</button>
-                                            <span style={{ fontSize: 10, color: "var(--muted)", whiteSpace: "nowrap" }}>/ {it.quantity}</span>
+                                            <span style={{ fontSize: 10, color: "var(--muted)", whiteSpace: "nowrap" }}>/ {it.remainingQuantity}</span>
                                         </div>
                                     </div>
                                 );
@@ -570,9 +568,17 @@ function CreditNoteModal({ ret, onClose }: { ret: any; onClose: () => void }) {
 }
 
 // ─── Main page ────────────────────────────────────────────────────────────────
-export default function ReturnsPage() {
+function ReturnsPageContent() {
+    const searchParams = useSearchParams();
+    const invoiceId = searchParams.get("invoiceId");
+
     const [showCreate, setShowCreate] = useState(false);
     const [viewReturn, setViewReturn] = useState<any>(null);
+
+    // Auto-open modal if invoiceId is in URL
+    useEffect(() => {
+        if (invoiceId) setShowCreate(true);
+    }, [invoiceId]);
 
     const { data, loading, refetch } = useQuery<any>(LIST_RETURNS, {
         fetchPolicy: "cache-and-network",
@@ -749,5 +755,13 @@ export default function ReturnsPage() {
                 .form-group label { display:block; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:var(--muted); margin-bottom:7px; }
             `}</style>
         </AuthGuard>
+    );
+}
+
+export default function ReturnsPage() {
+    return (
+        <Suspense fallback={<div>Loading...</div>}>
+            <ReturnsPageContent />
+        </Suspense>
     );
 }

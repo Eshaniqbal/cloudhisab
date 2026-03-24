@@ -116,7 +116,12 @@ export default function CustomersPage() {
                                 <Receipt size={13} color="var(--indigo-l)" />
                                 <span style={{ fontSize: 12, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Original Invoice</span>
                             </div>
-                            {entry.saleId && <a href={`/billing/${entry.saleId}`} style={{ fontSize: 11, color: "var(--indigo-l)", textDecoration: "none", display: "flex", alignItems: "center", gap: 4 }} onClick={e => e.stopPropagation()}><ExternalLink size={10} /> View</a>}
+                            {entry.saleId && (
+                                <div style={{ display: "flex", gap: 12 }}>
+                                    <a href={`/billing/${entry.saleId}`} style={{ fontSize: 11, color: "var(--indigo-l)", textDecoration: "none", display: "flex", alignItems: "center", gap: 4 }} onClick={e => e.stopPropagation()}><ExternalLink size={10} /> View</a>
+                                    <a href={`/returns?invoiceId=${entry.saleId}`} style={{ fontSize: 11, color: "var(--red)", textDecoration: "none", display: "flex", alignItems: "center", gap: 4 }} onClick={e => e.stopPropagation()}><RotateCcw size={10} /> Return Items</a>
+                                </div>
+                            )}
                         </div>
                         <div style={{ padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                             <div>

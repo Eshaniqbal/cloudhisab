@@ -128,6 +128,8 @@ export const GET_INVOICE = gql`
         productName
         sku
         quantity
+        returnedQuantity
+        remainingQuantity
         unit
         costPrice
         sellingPrice
@@ -146,6 +148,7 @@ export const GET_INVOICE = gql`
       totalCost
       totalProfit
       paymentMethod
+      gstExempt
       pdfUrl
       notes
       createdAt
@@ -182,6 +185,9 @@ export const SEARCH_INVOICES = gql`
         customerPhone
         totalAmount
         createdAt
+        returns {
+          returnId
+        }
       }
     }
   }
