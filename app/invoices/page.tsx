@@ -7,8 +7,15 @@ import {
     FileText, Search, Printer, Eye, Loader2,
     IndianRupee, Receipt, Calendar,
     ChevronLeft, ChevronRight, Clock, CheckCircle2,
-    RotateCcw, ArrowDownCircle, Mail, X
+    RotateCcw, ArrowDownCircle, Mail, X, Sparkles, TrendingUp,
 } from "lucide-react";
+
+// Returns true if the invoice was created within the last 2 hours
+const isNew = (createdAt: string) => {
+    if (!createdAt) return false;
+    const diff = Date.now() - new Date(createdAt).getTime();
+    return diff < 2 * 60 * 60 * 1000; // 2 hours
+};
 
 const fmt = (n: number) =>
     new Intl.NumberFormat("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
@@ -60,8 +67,16 @@ export default function InvoicesPage() {
         fetchPolicy: "cache-and-network",
     } as any);
 
-    const allInvoices: any[] = data?.listInvoices?.items || [];
-    const allReturns: any[] = retData?.listReturns?.items || [];
+    // Sort invoices newest-first
+    const allInvoices: any[] = [...(data?.listInvoices?.items || [])].sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+    const allReturns: any[] = [...(retData?.listReturns?.items || [])].sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+
+    // Count how many invoices are "new" (created in last 2 hours)
+    const newInvoiceCount = allInvoices.filter(inv => isNew(inv.createdAt)).length;
 
     // Filter logic
     const filteredInvoices = allInvoices.filter((inv: any) => {
@@ -145,8 +160,24 @@ export default function InvoicesPage() {
             {/* ── Page header ─────────────────────────── */}
             <div className="page-header">
                 <div>
-                    <h1 className="page-title">{activeTab === "invoices" ? "Sales Invoices" : "Credit Notes (Returns)"}</h1>
-                    <p className="page-subtitle">Track your {activeTab === "invoices" ? "billing history" : "returns and refunds"}</p>
+                    <h1 className="page-title" style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        {activeTab === "invoices" ? "Sales Invoices" : "Credit Notes (Returns)"}
+                        {activeTab === "invoices" && newInvoiceCount > 0 && (
+                            <span style={{
+                                display: "inline-flex", alignItems: "center", gap: 5,
+                                fontSize: 11, fontWeight: 800, letterSpacing: "0.05em",
+                                color: "#fff",
+                                background: "linear-gradient(135deg, #10b981, #34d399)",
+                                padding: "3px 10px", borderRadius: 20,
+                                boxShadow: "0 0 14px rgba(16,185,129,0.5)",
+                                animation: "newBadgePulse 2s ease-in-out infinite",
+                            }}>
+                                <Sparkles size={10} />
+                                {newInvoiceCount} NEW
+                            </span>
+                        )}
+                    </h1>
+                    <p className="page-subtitle">Track your {activeTab === "invoices" ? "billing history" : "returns and refunds"} · newest first</p>
                 </div>
 
                 <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
@@ -271,12 +302,46 @@ export default function InvoicesPage() {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {invSlice.map((inv: any) => {
+                                        {invSlice.map((inv: any, idx: number) => {
                                             const pm = PM_COLOR[inv.paymentMethod] || { bg: "var(--bg-input)", color: "var(--muted)" };
                                             const d = new Date(inv.createdAt);
+                                            const fresh = isNew(inv.createdAt);
+                                            // "latest" = first row on page 0 (already sorted newest-first)
+                                            const isLatest = page === 0 && idx === 0;
                                             return (
-                                                <tr key={inv.saleId} onClick={() => window.location.href = `/billing/${inv.saleId}`} style={{ cursor: "pointer" }}>
-                                                    <td><span style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 700, color: "var(--indigo-l)" }}>{inv.invoiceNumber}</span></td>
+                                                <tr
+                                                    key={inv.saleId}
+                                                    onClick={() => window.location.href = `/billing/${inv.saleId}`}
+                                                    style={{
+                                                        cursor: "pointer",
+                                                        background: isLatest
+                                                            ? "linear-gradient(90deg, rgba(99,102,241,0.07), transparent)"
+                                                            : fresh
+                                                            ? "rgba(16,185,129,0.03)"
+                                                            : undefined,
+                                                        boxShadow: isLatest ? "inset 3px 0 0 #6366f1" : undefined,
+                                                        animation: fresh ? `rowSlideIn 0.4s ease ${idx * 0.04}s both` : undefined,
+                                                    }}
+                                                >
+                                                    <td>
+                                                        <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                                                            <span style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 700, color: "var(--indigo-l)" }}>{inv.invoiceNumber}</span>
+                                                            {fresh && (
+                                                                <span style={{
+                                                                    fontSize: 9, fontWeight: 900, letterSpacing: "0.06em",
+                                                                    color: isLatest ? "#6366f1" : "#10b981",
+                                                                    background: isLatest ? "rgba(99,102,241,0.12)" : "rgba(16,185,129,0.12)",
+                                                                    border: `1px solid ${isLatest ? "rgba(99,102,241,0.3)" : "rgba(16,185,129,0.3)"}`,
+                                                                    padding: "1px 6px", borderRadius: 20,
+                                                                    display: "flex", alignItems: "center", gap: 3,
+                                                                    animation: "newBadgePulse 2s ease-in-out infinite",
+                                                                    whiteSpace: "nowrap",
+                                                                }}>
+                                                                    <Sparkles size={7} />{isLatest ? "LATEST" : "NEW"}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </td>
                                                     <td><div style={{ fontWeight: 600, fontSize: 13 }}>{inv.customerName}</div>{inv.customerPhone && <div style={{ fontSize: 11, color: "var(--muted)" }}>{inv.customerPhone}</div>}</td>
                                                     <td><div style={{ fontSize: 13 }}>{d.toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}</div><div style={{ fontSize: 11, color: "var(--muted)" }}>{d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</div></td>
                                                     <td className="num">{inv.items?.length ?? "—"}</td>
@@ -443,7 +508,20 @@ export default function InvoicesPage() {
                 </div>
             )}
 
-            <style>{`.spin { animation: spin 1s linear infinite; } @keyframes spin { to { transform: rotate(360deg); } } @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } } @keyframes slideUpFade { from { opacity: 0; transform: translate(-50%, 20px); } to { opacity: 1; transform: translate(-50%, 0); } }`}</style>
+            <style>{`
+                .spin { animation: spin 1s linear infinite; }
+                @keyframes spin { to { transform: rotate(360deg); } }
+                @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+                @keyframes slideUpFade { from { opacity: 0; transform: translate(-50%, 20px); } to { opacity: 1; transform: translate(-50%, 0); } }
+                @keyframes newBadgePulse {
+                    0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(16,185,129,0.4); }
+                    50% { opacity: 0.85; box-shadow: 0 0 0 4px rgba(16,185,129,0); }
+                }
+                @keyframes rowSlideIn {
+                    from { opacity: 0; transform: translateX(-8px); }
+                    to   { opacity: 1; transform: translateX(0); }
+                }
+            `}</style>
         </AuthGuard>
     );
 }
