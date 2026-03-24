@@ -50,6 +50,9 @@ export default function InvoiceDetailPage() {
     const saleId = params.saleId as string;
     const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
     const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    // Use a ref to track if the PDF is ready inside the interval callback
+    // (avoids stale closure problem with `downloadUrl` state)
+    const pdfReadyRef = useRef(false);
 
     const { data, loading, error, refetch } = useQuery<any, any>(GET_INVOICE, {
         variables: { saleId },
@@ -64,6 +67,7 @@ export default function InvoiceDetailPage() {
             fetchPolicy: "no-cache",
             onCompleted: (d: any) => {
                 if (d?.getInvoiceDownloadUrl) {
+                    pdfReadyRef.current = true;
                     setDownloadUrl(d.getInvoiceDownloadUrl);
                     // PDF is ready — stop polling
                     if (pollRef.current) {
@@ -77,31 +81,32 @@ export default function InvoiceDetailPage() {
 
     const inv = data?.getInvoice;
 
-    // Auto-poll every 5s until we get the download URL
+    // Auto-poll every 5s until we get the download URL.
+    // Reset pdfReadyRef whenever the saleId changes (new invoice navigation).
     useEffect(() => {
         if (!inv) return;
+
+        // Reset state for this invoice
+        pdfReadyRef.current = false;
+        setDownloadUrl(null);
 
         // Kick off immediately
         fetchDownloadUrl();
 
-        // Start polling interval
+        // Start polling interval — use the ref (not state) to check readiness
+        // to avoid stale closure capturing `downloadUrl` as always-null
         pollRef.current = setInterval(() => {
-            if (!downloadUrl) fetchDownloadUrl();
+            if (!pdfReadyRef.current) fetchDownloadUrl();
         }, 5000);
 
         return () => {
-            if (pollRef.current) clearInterval(pollRef.current);
+            if (pollRef.current) {
+                clearInterval(pollRef.current);
+                pollRef.current = null;
+            }
         };
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [inv?.saleId]);
-
-    // Stop polling once URL is found
-    useEffect(() => {
-        if (downloadUrl && pollRef.current) {
-            clearInterval(pollRef.current);
-            pollRef.current = null;
-        }
-    }, [downloadUrl]);
 
     if (loading) return (
         <AuthGuard>
@@ -180,12 +185,13 @@ export default function InvoiceDetailPage() {
                     ) : (
                         <span style={{
                             display: "flex", alignItems: "center", gap: 7,
-                            fontSize: 12, color: "var(--muted)",
-                            background: "var(--bg-card)", border: "1px solid var(--border)",
+                            fontSize: 12, color: "#818cf8",
+                            background: "rgba(129,140,248,0.08)", border: "1px solid rgba(129,140,248,0.25)",
                             borderRadius: 10, padding: "7px 14px",
+                            animation: "pdfPulse 2s ease-in-out infinite",
                         }}>
-                            <Loader2 size={13} style={{ animation: "spin 0.8s linear infinite", color: "#818cf8" }} />
-                            Generating PDF…
+                            <Loader2 size={13} style={{ animation: "spin 0.8s linear infinite" }} />
+                            {urlLoading ? "Checking PDF…" : "Generating PDF…"}
                         </span>
                     )}
                 </div>
@@ -457,7 +463,7 @@ export default function InvoiceDetailPage() {
                         {downloadUrl ? (
                             <><CheckCircle2 size={14} /> Ready — <a href={downloadUrl} target="_blank" rel="noreferrer" style={{ color: "var(--indigo-l)", textDecoration: "underline" }}>Download</a></>
                         ) : (
-                            <><Loader2 size={14} style={{ animation: "spin 0.8s linear infinite" }} /> Generating… auto-refreshing every 5s</>
+                            <><Loader2 size={14} style={{ animation: "spin 0.8s linear infinite" }} /> {urlLoading ? "Checking…" : "Generating…"} auto-refreshing every 5s</>
                         )}
                     </span>
                 </div>
@@ -470,6 +476,10 @@ export default function InvoiceDetailPage() {
                     #invoice-paper { box-shadow: none !important; max-width: 100% !important; width: 100% !important; }
                 }
                 @keyframes spin { to { transform: rotate(360deg); } }
+                @keyframes pdfPulse {
+                    0%, 100% { opacity: 1; }
+                    50% { opacity: 0.65; }
+                }
             `}</style>
         </AuthGuard>
     );
