@@ -23,6 +23,7 @@ interface CartItem {
     productId: string; name: string; sku: string;
     sellingPrice: number; costPrice: number; gstRate: number;
     quantity: number; unit: string; stock: number;
+    useCustomPrice: boolean; customPrice: number;
 }
 
 const fmtN = (n: number) =>
@@ -60,6 +61,7 @@ export default function BillingPage() {
     const [error, setError] = useState("");
     const [stockAlert, setStockAlert] = useState("");
     const [qtyDraft, setQtyDraft] = useState<Record<string, string>>({});  // raw typed value per productId
+    const [priceDraft, setPriceDraft] = useState<Record<string, string>>({}); // raw typed price per productId
     const searchRef = useRef<HTMLInputElement>(null);
     const stockAlertTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const phoneDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -126,7 +128,35 @@ export default function BillingPage() {
                 if (ex.quantity >= stock) { showStockAlert(`Only ${stock} unit(s) of "${p.name}" available`); return c; }
                 return c.map(i => i.productId === p.productId ? { ...i, quantity: i.quantity + 1 } : i);
             }
-            return [...c, { productId: p.productId, name: p.name, sku: p.sku, sellingPrice: p.sellingPrice, costPrice: p.costPrice, gstRate: p.gstRate, unit: p.unit, quantity: 1, stock }];
+            return [...c, { productId: p.productId, name: p.name, sku: p.sku, sellingPrice: p.sellingPrice, costPrice: p.costPrice, gstRate: p.gstRate, unit: p.unit, quantity: 1, stock, useCustomPrice: false, customPrice: p.sellingPrice }];
+        });
+    };
+
+    const effectivePrice = (item: CartItem) => item.useCustomPrice ? (item.customPrice || 0) : item.sellingPrice;
+
+    const toggleCustomPrice = (id: string, checked: boolean) => {
+        setCart(c => c.map(i => {
+            if (i.productId !== id) return i;
+            if (checked) {
+                // Initialize draft with current price if enabling
+                setPriceDraft(v => ({ ...v, [id]: i.sellingPrice.toString() }));
+                return { ...i, useCustomPrice: true, customPrice: i.sellingPrice };
+            }
+            return { ...i, useCustomPrice: false };
+        }));
+    };
+
+    const commitPrice = (id: string, raw: string) => {
+        const val = parseFloat(raw);
+        setCart(c => c.map(i => {
+            if (i.productId !== id) return i;
+            if (!raw || isNaN(val)) return i;
+            return { ...i, customPrice: val };
+        }));
+        setPriceDraft(d => {
+            const next = { ...d };
+            delete next[id];
+            return next;
         });
     };
 
@@ -170,10 +200,10 @@ export default function BillingPage() {
         setQtyDraft({});
     };
 
-    const subtotal = cart.reduce((s, i) => s + i.sellingPrice * i.quantity, 0);
-    const totalGst = gstExempt ? 0 : cart.reduce((s, i) => s + i.sellingPrice * i.gstRate / 100 * i.quantity, 0);
+    const subtotal = cart.reduce((s, i) => s + effectivePrice(i) * i.quantity, 0);
+    const totalGst = gstExempt ? 0 : cart.reduce((s, i) => s + effectivePrice(i) * i.gstRate / 100 * i.quantity, 0);
     const totalAmount = Math.max(0, subtotal + totalGst - discount);
-    const totalProfit = cart.reduce((s, i) => s + (i.sellingPrice - i.costPrice) * i.quantity, 0);
+    const totalProfit = cart.reduce((s, i) => s + (effectivePrice(i) - i.costPrice) * i.quantity, 0);
     const paidNum = paymentMethod === "PARTIAL" && amountPaid !== "" ? Math.min(+amountPaid || 0, totalAmount) : totalAmount;
     const balanceDue = Math.max(0, totalAmount - paidNum);
 
@@ -190,7 +220,7 @@ export default function BillingPage() {
                         customerPhone: customer.phone || null,
                         customerGstin: customer.gstin || null,
                         customerAddress: customer.address || null,
-                        items: cart.map(i => ({ productId: i.productId, quantity: i.quantity, sellingPrice: i.sellingPrice })),
+                        items: cart.map(i => ({ productId: i.productId, quantity: i.quantity, sellingPrice: effectivePrice(i) })),
                         discountAmount: discount,
                         paymentMethod,
                         notes: notes || null,
@@ -457,61 +487,112 @@ export default function BillingPage() {
                                 </button>
                             </div>
 
-                            <div style={{ maxHeight: 220, overflowY: "auto", padding: "8px 12px", display: "flex", flexDirection: "column", gap: 6 }}>
+                            <div style={{ maxHeight: 260, overflowY: "auto", padding: "8px 12px", display: "flex", flexDirection: "column", gap: 6 }}>
                                 {cart.map((item, idx) => {
-                                    const gstAmt = item.sellingPrice * item.gstRate / 100 * item.quantity;
-                                    const lineTotal = (item.sellingPrice + item.sellingPrice * item.gstRate / 100) * item.quantity;
+                                    const ep = effectivePrice(item);
+                                    const gstAmt = ep * item.gstRate / 100 * item.quantity;
+                                    const lineTotal = (ep + ep * item.gstRate / 100) * item.quantity;
                                     const stockLeft = item.stock - item.quantity;
                                     return (
-                                        <div key={item.productId} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", background: "var(--bg-input)", borderRadius: 10 }}>
-                                            <span style={{ fontSize: 10, fontWeight: 900, color: "#818cf8", minWidth: 16, textAlign: "center" }}>{idx + 1}</span>
-                                            <div style={{ width: 28, height: 28, borderRadius: 7, flexShrink: 0, background: getProductColor(item.name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 900, color: "#fff" }}>
-                                                {item.name.charAt(0).toUpperCase()}
-                                            </div>
-                                            <div style={{ flex: 1, minWidth: 0 }}>
-                                                <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{item.name}</div>
-                                                <div style={{ fontSize: 10, color: "var(--muted)" }}>₹{fmtN(item.sellingPrice)}/{item.unit}</div>
-                                                {/* Remaining stock */}
-                                                <div style={{ fontSize: 9, marginTop: 1, fontWeight: 700, color: stockLeft <= 0 ? "#f87171" : stockLeft <= 3 ? "#f59e0b" : "#34d399" }}>
-                                                    {stockLeft <= 0 ? "⚠ Max stock reached" : `${stockLeft} left in stock`}
+                                        <div key={item.productId} style={{
+                                            display: "flex", flexDirection: "column", gap: 6, padding: "10px 12px",
+                                            background: item.useCustomPrice ? "rgba(251,191,36,0.06)" : "var(--bg-input)",
+                                            borderRadius: 12,
+                                            border: item.useCustomPrice ? "1px solid rgba(251,191,36,0.3)" : "1px solid transparent",
+                                            transition: "all 0.2s ease"
+                                        }}>
+                                            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                                <span style={{ fontSize: 10, fontWeight: 900, color: "#818cf8", minWidth: 16, textAlign: "center" }}>{idx + 1}</span>
+                                                <div style={{ width: 30, height: 30, borderRadius: 8, flexShrink: 0, background: getProductColor(item.name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 900, color: "#fff", boxShadow: item.useCustomPrice ? "0 4px 12px rgba(251,191,36,0.2)" : "none" }}>
+                                                    {item.name.charAt(0).toUpperCase()}
                                                 </div>
+                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                    <div style={{ fontSize: 12, fontWeight: 800, color: "var(--text)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{item.name}</div>
+                                                    
+                                                    {/* Price / Rate Control Area */}
+                                                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 2 }}>
+                                                        {item.useCustomPrice ? (
+                                                            <div style={{ display: "flex", alignItems: "center", gap: 4, background: "rgba(251,191,36,0.12)", padding: "2px 8px", borderRadius: 6, border: "1px solid rgba(251,191,36,0.2)" }}>
+                                                                <Tag size={9} color="#fbbf24" strokeWidth={3} />
+                                                                <span style={{ fontSize: 10, color: "rgba(251,191,36,0.8)", textDecoration: "line-through", fontWeight: 600 }}>₹{fmtN(item.sellingPrice)}</span>
+                                                                <span style={{ fontWeight: 900, color: "#fbbf24", fontSize: 10 }}>→</span>
+                                                                <div style={{ display: "flex", alignItems: "center" }}>
+                                                                    <span style={{ fontSize: 10, fontWeight: 900, color: "#fbbf24", marginRight: 1 }}>₹</span>
+                                                                    <input
+                                                                        type="number"
+                                                                        step="any"
+                                                                        value={priceDraft[item.productId] !== undefined ? priceDraft[item.productId] : item.customPrice}
+                                                                        onChange={e => setPriceDraft(v => ({ ...v, [item.productId]: e.target.value }))}
+                                                                        onBlur={e => commitPrice(item.productId, e.target.value)}
+                                                                        onFocus={e => e.target.select()}
+                                                                        onKeyDown={e => { if (e.key === "Enter") commitPrice(item.productId, (e.target as HTMLInputElement).value); }}
+                                                                        style={{
+                                                                            width: 58, height: 18, borderRadius: 4,
+                                                                            border: "none", background: "transparent",
+                                                                            color: "#fbbf24", fontWeight: 900, fontSize: 11,
+                                                                            textAlign: "left", outline: "none",
+                                                                            padding: 0
+                                                                        }}
+                                                                        autoFocus
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                        ) : (
+                                                            <div style={{ fontSize: 10, color: "var(--muted)", fontWeight: 600 }}>
+                                                                ₹{fmtN(item.sellingPrice)}/{item.unit}
+                                                            </div>
+                                                        )}
+                                                        
+                                                        {/* Toggle Design */}
+                                                        <button 
+                                                            onClick={() => toggleCustomPrice(item.productId, !item.useCustomPrice)}
+                                                            style={{
+                                                                display: "flex", alignItems: "center", gap: 3, 
+                                                                padding: "2px 7px", borderRadius: 20, 
+                                                                fontSize: 9, fontWeight: 800, cursor: "pointer",
+                                                                transition: "all 0.2s",
+                                                                border: "1px solid",
+                                                                background: item.useCustomPrice ? "#fbbf24" : "transparent",
+                                                                borderColor: item.useCustomPrice ? "#fbbf24" : "var(--border)",
+                                                                color: item.useCustomPrice ? "#fff" : "var(--muted)"
+                                                            }}
+                                                        >
+                                                            {item.useCustomPrice ? <CheckCircle2 size={9} strokeWidth={3} /> : <Zap size={9} />}
+                                                            {item.useCustomPrice ? "Custom Active" : "Set Custom Rate"}
+                                                        </button>
+                                                    </div>
+
+                                                    <div style={{ fontSize: 9, marginTop: 3, fontWeight: 700, color: stockLeft <= 0 ? "#f87171" : stockLeft <= 3 ? "#f59e0b" : "#34d399", opacity: 0.8 }}>
+                                                        {stockLeft <= 0 ? "⚠ No Stock" : `${stockLeft} left`}
+                                                    </div>
+                                                </div>
+
+                                                {/* Qty controls */}
+                                                <div style={{ display: "flex", alignItems: "center", gap: 3, flexShrink: 0, background: "var(--bg-card)", padding: "2px", borderRadius: 8, border: "1px solid var(--border)" }}>
+                                                    <button onClick={() => updateQty(item.productId, -1)} style={{ width: 20, height: 20, borderRadius: 6, background: "none", border: "none", cursor: "pointer", color: "var(--muted)", display: "flex", alignItems: "center", justifyContent: "center" }}><Minus size={10} /></button>
+                                                    <input
+                                                        type="number"
+                                                        value={qtyDraft[item.productId] !== undefined ? qtyDraft[item.productId] : item.quantity}
+                                                        onChange={e => setQtyDraft(d => ({ ...d, [item.productId]: e.target.value }))}
+                                                        onBlur={e => commitQty(item.productId, e.target.value)}
+                                                        onKeyDown={e => { if (e.key === "Enter") commitQty(item.productId, (e.target as HTMLInputElement).value); }}
+                                                        style={{ width: 34, height: 20, border: "none", background: "none", color: "var(--text)", fontWeight: 800, fontSize: 11, textAlign: "center", outline: "none", padding: 0 }}
+                                                    />
+                                                    <button onClick={() => updateQty(item.productId, 1)} style={{ width: 20, height: 20, borderRadius: 6, background: "rgba(79,70,229,0.1)", border: "none", cursor: "pointer", color: "#818cf8", display: "flex", alignItems: "center", justifyContent: "center" }}><Plus size={10} /></button>
+                                                </div>
+
+                                                <div style={{ textAlign: "right", flexShrink: 0, minWidth: 70 }}>
+                                                    <div style={{ fontWeight: 900, fontSize: 13, color: item.useCustomPrice ? "#fbbf24" : "var(--text)", fontVariantNumeric: "tabular-nums" }}>₹{fmtN(gstExempt ? ep * item.quantity : lineTotal)}</div>
+                                                    {!gstExempt && item.gstRate > 0 && <div style={{ fontSize: 9, color: "#818cf8", fontWeight: 700 }}>GST ₹{fmtN(gstAmt)}</div>}
+                                                </div>
+
+                                                <button onClick={() => removeItem(item.productId)} style={{ background: "none", border: "none", cursor: "pointer", color: "#f87171", opacity: 0.4, display: "flex", padding: 4, borderRadius: 5, transition: "all 0.12s" }}
+                                                    onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.opacity = "1"}
+                                                    onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.opacity = "0.4"}
+                                                >
+                                                    <Trash2 size={12} />
+                                                </button>
                                             </div>
-                                            {/* Qty controls — with direct input */}
-                                            <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
-                                                <button onClick={() => updateQty(item.productId, -1)} style={{ width: 22, height: 22, borderRadius: 6, background: "var(--bg-card)", border: "1px solid var(--border)", cursor: "pointer", color: "var(--muted)", display: "flex", alignItems: "center", justifyContent: "center" }}><Minus size={10} /></button>
-                                                <input
-                                                    type="number"
-                                                    min={1}
-                                                    max={item.stock}
-                                                    value={qtyDraft[item.productId] !== undefined
-                                                        ? qtyDraft[item.productId]
-                                                        : item.quantity}
-                                                    onChange={e => setQtyDraft(d => ({ ...d, [item.productId]: e.target.value }))}
-                                                    onBlur={e => commitQty(item.productId, e.target.value)}
-                                                    onKeyDown={e => { if (e.key === "Enter") commitQty(item.productId, (e.target as HTMLInputElement).value); }}
-                                                    style={{
-                                                        width: 44, height: 22, borderRadius: 6,
-                                                        border: "1px solid var(--border)",
-                                                        background: "var(--bg-card)",
-                                                        color: "var(--text)",
-                                                        fontWeight: 900, fontSize: 12,
-                                                        textAlign: "center",
-                                                        fontVariantNumeric: "tabular-nums",
-                                                        padding: 0,
-                                                    }}
-                                                />
-                                                <button onClick={() => updateQty(item.productId, 1)} style={{ width: 22, height: 22, borderRadius: 6, background: "rgba(79,70,229,0.12)", border: "1px solid rgba(79,70,229,0.2)", cursor: "pointer", color: "#818cf8", display: "flex", alignItems: "center", justifyContent: "center" }}><Plus size={10} /></button>
-                                            </div>
-                                            <div style={{ textAlign: "right", flexShrink: 0, minWidth: 72 }}>
-                                                <div style={{ fontWeight: 800, fontSize: 13, color: "var(--text)", fontVariantNumeric: "tabular-nums" }}>₹{fmtN(gstExempt ? item.sellingPrice * item.quantity : lineTotal)}</div>
-                                                {!gstExempt && item.gstRate > 0 && <div style={{ fontSize: 9, color: "#818cf8" }}>GST ₹{fmtN(gstAmt)}</div>}
-                                            </div>
-                                            <button onClick={() => removeItem(item.productId)} style={{ background: "none", border: "none", cursor: "pointer", color: "#f87171", opacity: 0.55, display: "flex", padding: 4, borderRadius: 5, transition: "opacity 0.12s" }}
-                                                onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.opacity = "1"}
-                                                onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.opacity = "0.55"}
-                                            >
-                                                <Trash2 size={12} />
-                                            </button>
                                         </div>
                                     );
                                 })}
