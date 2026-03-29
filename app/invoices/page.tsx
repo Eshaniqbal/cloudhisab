@@ -1,13 +1,14 @@
 "use client";
 import { useState } from "react";
-import { useQuery } from "@apollo/client";
+import { useQuery, useMutation } from "@apollo/client";
 import { AuthGuard } from "@/components/AuthGuard";
 import { LIST_INVOICES, LIST_RETURNS } from "@/lib/graphql/queries";
+import { DELETE_INVOICE } from "@/lib/graphql/mutations";
 import {
     FileText, Search, Printer, Eye, Loader2,
     IndianRupee, Receipt, Calendar,
     ChevronLeft, ChevronRight, Clock, CheckCircle2,
-    RotateCcw, ArrowDownCircle, Mail, X, Sparkles, TrendingUp,
+    RotateCcw, ArrowDownCircle, Mail, X, Sparkles, TrendingUp, Trash2,
 } from "lucide-react";
 
 // Returns true if the invoice was created within the last 2 hours
@@ -55,6 +56,29 @@ export default function InvoicesPage() {
     const showNotification = (msg: string, type: "success" | "error") => {
         setNotification({ msg, type });
         setTimeout(() => setNotification(null), 3000);
+    };
+
+    const [isDeleting, setIsDeleting] = useState<boolean>(false);
+    const [invoiceToDelete, setInvoiceToDelete] = useState<any>(null);
+    const [deleteInvoiceMut] = useMutation(DELETE_INVOICE, {
+        onCompleted: () => {
+            showNotification("Invoice deleted successfully", "success");
+            refetch();
+        },
+        onError: (e) => {
+            showNotification("Failed to delete invoice: " + e.message, "error");
+        }
+    });
+
+    const confirmDeleteInvoice = async () => {
+        if (!invoiceToDelete) return;
+        setIsDeleting(true);
+        try {
+            await deleteInvoiceMut({ variables: { saleId: invoiceToDelete.saleId } });
+        } finally {
+            setIsDeleting(false);
+            setInvoiceToDelete(null);
+        }
     };
 
     const { data, loading, error, refetch } = useQuery<any, any>(LIST_INVOICES, {
@@ -349,6 +373,9 @@ export default function InvoicesPage() {
                                                     <td className="num" style={{ fontWeight: 700 }}>₹{fmt(inv.totalAmount)}</td>
                                                     <td>{inv.pdfUrl ? <span style={{ color: "var(--green)", display: "flex", gap: 4, fontSize: 11 }}><CheckCircle2 size={12} /> Ready</span> : <span style={{ color: "var(--yellow)", display: "flex", gap: 4, fontSize: 11 }}><Clock size={12} /> Pending</span>}</td>
                                                     <td onClick={e => e.stopPropagation()}><div style={{ display: "flex", gap: 6 }}>
+                                                        <button onClick={() => setInvoiceToDelete(inv)} className="btn btn-ghost" style={{ padding: 5, color: "var(--red)" }} title="Delete Invoice">
+                                                            <Trash2 size={13} />
+                                                        </button>
                                                         <button onClick={() => openEmailModal(inv)} className="btn btn-ghost" style={{ padding: 5, color: 'var(--indigo-l)' }} title="Send via Email">
                                                             <Mail size={13} />
                                                         </button>
@@ -434,6 +461,45 @@ export default function InvoicesPage() {
                             )}
                         </>
                     )}
+                </div>
+            )}
+
+            {/* ── DELETE MODAL ─────────────────────────── */}
+            {invoiceToDelete && (
+                <div style={{
+                    position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+                    background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)",
+                    display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100,
+                    padding: 20
+                }}>
+                    <div className="glass" style={{
+                        width: "100%", maxWidth: 400, background: "var(--bg-card)",
+                        padding: 30, borderRadius: 24, boxShadow: "0 20px 40px rgba(0,0,0,0.2)",
+                        position: "relative", animation: "slideUp 0.3s ease",
+                        textAlign: "center"
+                    }}>
+                        <div style={{
+                            width: 60, height: 60, borderRadius: 20, background: "rgba(239, 68, 68, 0.1)",
+                            display: "flex", alignItems: "center", justifyContent: "center", color: "var(--red)",
+                            margin: "0 auto 20px"
+                        }}>
+                            <Trash2 size={28} />
+                        </div>
+                        <h3 style={{ margin: "0 0 10px 0", fontSize: 20, color: "var(--text)", fontWeight: 800 }}>Delete Invoice?</h3>
+                        <p style={{ margin: "0 0 24px 0", fontSize: 14, color: "var(--muted)", lineHeight: 1.5 }}>
+                            Are you sure you want to delete invoice <strong style={{ color: "var(--text)" }}>{invoiceToDelete.invoiceNumber}</strong>?<br/>This action cannot be undone.
+                        </p>
+
+                        <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
+                            <button onClick={() => setInvoiceToDelete(null)} className="btn btn-ghost" style={{ flex: 1, padding: "12px 16px", borderRadius: 12, fontWeight: 700 }} disabled={isDeleting}>Cancel</button>
+                            <button onClick={confirmDeleteInvoice} disabled={isDeleting} className="btn" style={{
+                                flex: 1, padding: "12px 16px", borderRadius: 12, background: "var(--red)", border: "none", color: "white", fontWeight: 700,
+                                display: "flex", alignItems: "center", justifyContent: "center", gap: 8, opacity: isDeleting ? 0.7 : 1, cursor: "pointer"
+                            }}>
+                                {isDeleting ? <Loader2 size={16} className="spin" /> : "Yes, delete"}
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
 

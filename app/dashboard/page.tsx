@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
+import { getUser } from "@/lib/auth";
 import { useQuery, useLazyQuery } from "@apollo/client";
 import { AuthGuard } from "@/components/AuthGuard";
 import { GET_DASHBOARD, GET_PROFIT_REPORT } from "@/lib/graphql/queries";
@@ -8,7 +9,7 @@ import {
     IndianRupee, AlertTriangle, BarChart3, RefreshCw,
     ArrowUpRight, ArrowDownRight, ShoppingBag,
     Calendar, ArrowRight, Download, Loader2, ChevronDown, X,
-    ShieldCheck,
+    ShieldCheck, Boxes,
 } from "lucide-react";
 import { useTheme } from "@/lib/useTheme";
 import { useSubscription } from "@/lib/useSubscription";
@@ -236,6 +237,9 @@ function ModernEmptyState({ title, sub, icon: Icon, actionLabel, onAction }: {
 
 /* ─── Date Range Filter Dropdown ────────────────────────────────────── */
 function DateRangeFilter() {
+    const user = getUser();
+    const isCashier = user?.role === "CASHIER";
+
     const now = new Date();
     const pad = (n: number) => String(n).padStart(2, "0");
     const todayStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
@@ -271,34 +275,41 @@ function DateRangeFilter() {
 
     const handleCSVSummary = () => {
         if (!r) return;
-        downloadCSV([
+        const rows = [
             ["CloudHisaab Report", `${dateFrom} to ${dateTo}`],
             [],
             ["Metric", "Value"],
             ["Total Revenue", fmtFull(r.totalRevenue)],
-            ["Cost of Goods Sold", fmtFull(r.totalCost)],
-            ["Gross Profit", fmtFull(r.grossProfit)],
-            ["Total Expenses", fmtFull(r.totalExpenses)],
-            ["Net Profit", fmtFull(r.netProfit)],
-            ["Profit Margin %", `${r.profitMarginPercent.toFixed(2)}%`],
             ["Total Invoices", String(r.invoiceCount)],
-        ], `cloudhisaab-report-${dateFrom}-to-${dateTo}.csv`);
+        ];
+        if (!isCashier) {
+            rows.splice(4, 0,
+                ["Cost of Goods Sold", fmtFull(r.totalCost)],
+                ["Gross Profit", fmtFull(r.grossProfit)],
+                ["Total Expenses", fmtFull(r.totalExpenses)],
+                ["Net Profit", fmtFull(r.netProfit)],
+                ["Profit Margin %", `${r.profitMarginPercent.toFixed(2)}%`]
+            );
+        }
+        downloadCSV(rows, `cloudhisaab-report-${dateFrom}-to-${dateTo}.csv`);
     };
 
     const handleCSVDaily = () => {
         if (!r?.dailyBreakdown?.length) return;
+        
+        const headers = isCashier 
+            ? ["Date", "Revenue", "Invoices"] 
+            : ["Date", "Revenue", "Gross Profit", "Expenses", "Net Profit", "Invoices"];
+            
         downloadCSV([
             [`Daily Breakdown: ${dateFrom} to ${dateTo}`],
             [],
-            ["Date", "Revenue", "Gross Profit", "Expenses", "Net Profit", "Invoices"],
-            ...r.dailyBreakdown.map((d: any) => [
-                d.date,
-                fmtFull(d.totalSales),
-                fmtFull(d.totalProfit),
-                fmtFull(d.totalExpenses),
-                fmtFull(d.netProfit),
-                String(d.invoiceCount),
-            ]),
+            headers,
+            ...r.dailyBreakdown.map((d: any) => 
+                isCashier 
+                    ? [d.date, fmtFull(d.totalSales), String(d.invoiceCount)]
+                    : [d.date, fmtFull(d.totalSales), fmtFull(d.totalProfit), fmtFull(d.totalExpenses), fmtFull(d.netProfit), String(d.invoiceCount)]
+            ),
         ], `cloudhisaab-daily-${dateFrom}-to-${dateTo}.csv`);
     };
 
@@ -461,14 +472,15 @@ function DateRangeFilter() {
 
                     {!loading && r && (
                         <div style={{ padding: "16px 20px" }}>
-                            {/* 4 mini stat tiles */}
-                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8, marginBottom: 12 }}>
-                                {[
+                            {/* mini stat tiles */}
+                            <div style={{ display: "grid", gridTemplateColumns: isCashier ? "1fr" : "1fr 1fr 1fr 1fr", gap: 8, marginBottom: 12 }}>
+                                {([
                                     { label: "Revenue", value: fmtShort(r.totalRevenue), full: fmtFull(r.totalRevenue), color: "var(--indigo-l)" },
+                                ] as any[]).concat(isCashier ? [] : [
                                     { label: "Gross Profit", value: fmtShort(r.grossProfit), full: `${r.profitMarginPercent.toFixed(1)}% margin`, color: "var(--green)" },
                                     { label: "Expenses", value: fmtShort(r.totalExpenses), full: fmtFull(r.totalExpenses), color: "var(--red)" },
                                     { label: "Net Profit", value: fmtShort(r.netProfit), full: fmtFull(r.netProfit), color: r.netProfit >= 0 ? "var(--yellow)" : "var(--red)" },
-                                ].map(tile => (
+                                ]).map(tile => (
                                     <div key={tile.label} style={{
                                         background: "var(--bg-card2)", border: "1px solid var(--border)",
                                         borderRadius: 12, padding: "12px 14px",
@@ -482,21 +494,23 @@ function DateRangeFilter() {
 
                             {/* Margin bar + invoices row */}
                             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-                                <div style={{ flex: 1, background: "var(--bg-card2)", border: "1px solid var(--border)", borderRadius: 10, padding: "10px 14px" }}>
-                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                                        <span style={{ fontSize: 10, fontWeight: 700, color: "var(--muted)" }}>PROFIT MARGIN</span>
-                                        <span style={{ fontSize: 10, fontWeight: 700, color: marginColor, background: marginColor + "1a", padding: "2px 8px", borderRadius: 20 }}>
-                                            {r.profitMarginPercent >= 20 ? "Excellent" : r.profitMarginPercent >= 10 ? "Good" : "Low"}
-                                        </span>
-                                    </div>
-                                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                                        <div style={{ flex: 1, height: 5, background: "var(--border)", borderRadius: 99, overflow: "hidden" }}>
-                                            <div style={{ height: "100%", borderRadius: 99, width: `${Math.min(r.profitMarginPercent, 100)}%`, background: `linear-gradient(90deg,${marginColor},${marginColor}88)`, transition: "width 0.8s ease" }} />
+                                {!isCashier && (
+                                    <div style={{ flex: 1, background: "var(--bg-card2)", border: "1px solid var(--border)", borderRadius: 10, padding: "10px 14px" }}>
+                                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                                            <span style={{ fontSize: 10, fontWeight: 700, color: "var(--muted)" }}>PROFIT MARGIN</span>
+                                            <span style={{ fontSize: 10, fontWeight: 700, color: marginColor, background: marginColor + "1a", padding: "2px 8px", borderRadius: 20 }}>
+                                                {r.profitMarginPercent >= 20 ? "Excellent" : r.profitMarginPercent >= 10 ? "Good" : "Low"}
+                                            </span>
                                         </div>
-                                        <span style={{ fontSize: 13, fontWeight: 900, color: marginColor, minWidth: 36 }}>{r.profitMarginPercent.toFixed(1)}%</span>
+                                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                            <div style={{ flex: 1, height: 5, background: "var(--border)", borderRadius: 99, overflow: "hidden" }}>
+                                                <div style={{ height: "100%", borderRadius: 99, width: `${Math.min(r.profitMarginPercent, 100)}%`, background: `linear-gradient(90deg,${marginColor},${marginColor}88)`, transition: "width 0.8s ease" }} />
+                                            </div>
+                                            <span style={{ fontSize: 13, fontWeight: 900, color: marginColor, minWidth: 36 }}>{r.profitMarginPercent.toFixed(1)}%</span>
+                                        </div>
                                     </div>
-                                </div>
-                                <div style={{ background: "var(--bg-card2)", border: "1px solid var(--border)", borderRadius: 10, padding: "10px 16px", display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                                )}
+                                <div style={{ flex: isCashier ? 1 : undefined, background: "var(--bg-card2)", border: "1px solid var(--border)", borderRadius: 10, padding: "10px 16px", display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
                                     <Receipt size={14} color="var(--indigo-l)" />
                                     <div>
                                         <div style={{ fontSize: 16, fontWeight: 900, color: "var(--indigo-l)" }}>{r.invoiceCount}</div>
@@ -515,8 +529,8 @@ function DateRangeFilter() {
                                                 <tr style={{ background: "var(--bg-card2)", position: "sticky", top: 0 }}>
                                                     <th style={{ padding: "8px 12px", textAlign: "left", fontWeight: 700, color: "var(--muted)", fontSize: 10 }}>Date</th>
                                                     <th style={{ padding: "8px 12px", textAlign: "right", fontWeight: 700, color: "var(--muted)", fontSize: 10 }}>Revenue</th>
-                                                    <th style={{ padding: "8px 12px", textAlign: "right", fontWeight: 700, color: "var(--muted)", fontSize: 10 }}>Profit</th>
-                                                    <th style={{ padding: "8px 12px", textAlign: "right", fontWeight: 700, color: "var(--muted)", fontSize: 10 }}>Net</th>
+                                                    {!isCashier && <th style={{ padding: "8px 12px", textAlign: "right", fontWeight: 700, color: "var(--muted)", fontSize: 10 }}>Profit</th>}
+                                                    {!isCashier && <th style={{ padding: "8px 12px", textAlign: "right", fontWeight: 700, color: "var(--muted)", fontSize: 10 }}>Net</th>}
                                                     <th style={{ padding: "8px 12px", textAlign: "right", fontWeight: 700, color: "var(--muted)", fontSize: 10 }}>Inv</th>
                                                 </tr>
                                             </thead>
@@ -525,8 +539,8 @@ function DateRangeFilter() {
                                                     <tr key={day.date} style={{ borderTop: "1px solid var(--border)", background: i % 2 === 0 ? "transparent" : "var(--bg-card2)" }}>
                                                         <td style={{ padding: "7px 12px", fontFamily: "monospace", color: "var(--muted)", fontSize: 11 }}>{day.date}</td>
                                                         <td style={{ padding: "7px 12px", textAlign: "right", color: "var(--indigo-l)", fontWeight: 700 }}>{fmtShort(day.totalSales)}</td>
-                                                        <td style={{ padding: "7px 12px", textAlign: "right", color: "var(--green)", fontWeight: 700 }}>{fmtShort(day.totalProfit)}</td>
-                                                        <td style={{ padding: "7px 12px", textAlign: "right", color: day.netProfit >= 0 ? "var(--yellow)" : "var(--red)", fontWeight: 800 }}>{fmtShort(day.netProfit)}</td>
+                                                        {!isCashier && <td style={{ padding: "7px 12px", textAlign: "right", color: "var(--green)", fontWeight: 700 }}>{fmtShort(day.totalProfit)}</td>}
+                                                        {!isCashier && <td style={{ padding: "7px 12px", textAlign: "right", color: day.netProfit >= 0 ? "var(--yellow)" : "var(--red)", fontWeight: 800 }}>{fmtShort(day.netProfit)}</td>}
                                                         <td style={{ padding: "7px 12px", textAlign: "right", color: "var(--muted)" }}>{day.invoiceCount}</td>
                                                     </tr>
                                                 ))}
@@ -573,6 +587,9 @@ function DateRangeFilter() {
 }
 
 export default function DashboardPage() {
+    const user = getUser();
+    const isCashier = user?.role === "CASHIER";
+
     const today = new Date().toISOString().split("T")[0];
     const { data, loading, refetch } = useQuery(GET_DASHBOARD, {
         variables: { date: today },
@@ -669,8 +686,8 @@ export default function DashboardPage() {
 
                 {/* ── TODAY SECTION ────────────────────────────────── */}
                 <SectionHeader icon={BarChart3} title="Today's Overview" color="var(--indigo)" />
-                <div className="grid-4" style={{ marginBottom: 14 }}>
-                    {loading ? [1, 2, 3, 4].map(i => <SkeletonCard key={i} />) : (<>
+                <div className={isCashier ? "grid-1" : "grid-4"} style={{ marginBottom: 14 }}>
+                    {loading ? (isCashier ? [1] : [1, 2, 3, 4]).map(i => <SkeletonCard key={i} />) : (<>
                         <MetricCard
                             label="Total Sales"
                             value={fmtShort(t?.totalSales || 0)}
@@ -680,36 +697,54 @@ export default function DashboardPage() {
                             trend="up"
                             trendLabel="Today"
                         />
-                        <MetricCard
-                            label="Gross Profit"
-                            value={fmtShort(t?.totalProfit || 0)}
-                            icon={TrendingUp}
-                            gradient="linear-gradient(135deg,var(--green),var(--green))"
-                            trend={t?.totalProfit > 0 ? "up" : "neutral"}
-                            trendLabel="Earned"
-                        />
-                        <MetricCard
-                            label="Expenses"
-                            value={fmtShort(t?.totalExpenses || 0)}
-                            icon={TrendingDown}
-                            gradient="linear-gradient(135deg,var(--red),var(--red))"
-                            trend={t?.totalExpenses > 0 ? "down" : "neutral"}
-                            trendLabel="Spent"
-                        />
-                        <MetricCard
-                            label="Net Profit"
-                            value={fmtShort(t?.netProfit || 0)}
-                            icon={BarChart3}
-                            gradient="linear-gradient(135deg,var(--yellow),var(--yellow))"
-                            trend={t?.netProfit > 0 ? "up" : "down"}
-                            trendLabel="Net"
-                        />
+                        {!isCashier && (
+                            <>
+                                <MetricCard
+                                    label="Gross Profit"
+                                    value={fmtShort(t?.totalProfit || 0)}
+                                    icon={TrendingUp}
+                                    gradient="linear-gradient(135deg,var(--green),var(--green))"
+                                    trend={t?.totalProfit > 0 ? "up" : "neutral"}
+                                    trendLabel="Earned"
+                                />
+                                <MetricCard
+                                    label="Expenses"
+                                    value={fmtShort(t?.totalExpenses || 0)}
+                                    icon={TrendingDown}
+                                    gradient="linear-gradient(135deg,var(--red),var(--red))"
+                                    trend={t?.totalExpenses > 0 ? "down" : "neutral"}
+                                    trendLabel="Spent"
+                                />
+                                <MetricCard
+                                    label="Net Profit"
+                                    value={fmtShort(t?.netProfit || 0)}
+                                    icon={BarChart3}
+                                    gradient="linear-gradient(135deg,var(--yellow),var(--yellow))"
+                                    trend={t?.netProfit > 0 ? "up" : "down"}
+                                    trendLabel="Net"
+                                />
+                            </>
+                        )}
                     </>)}
                 </div>
 
                 {/* Quick counts row */}
                 {!loading && (
-                    <div className="grid-3" style={{ marginBottom: 28 }}>
+                    <div className="grid-5" style={{ marginBottom: 28 }}>
+                        <CountCard
+                            value={d?.totalProducts || 0}
+                            label="Total Products"
+                            icon={ShoppingBag}
+                            color="#0ea5e9"
+                            bg="rgba(14,165,233,0.10)"
+                        />
+                        <CountCard
+                            value={d?.totalStock || 0}
+                            label="Total Stock"
+                            icon={Boxes}
+                            color="#8b5cf6"
+                            bg="rgba(139,92,246,0.10)"
+                        />
                         <CountCard
                             value={t?.invoiceCount || 0}
                             label="Invoices Today"
@@ -728,16 +763,16 @@ export default function DashboardPage() {
                             value={m?.invoiceCount || 0}
                             label="Invoices This Month"
                             icon={Package}
-                            color="#a78bfa"
-                            bg="rgba(167,139,250,0.10)"
+                            color="#ec4899"
+                            bg="rgba(236,72,153,0.10)"
                         />
                     </div>
                 )}
 
                 {/* ── THIS MONTH SECTION ───────────────────────────── */}
                 <SectionHeader icon={ShoppingBag} title="This Month" color="var(--green)" />
-                <div className="grid-4" style={{ marginBottom: 14 }}>
-                    {loading ? [1, 2, 3, 4].map(i => <SkeletonCard key={i} />) : (<>
+                <div className={isCashier ? "grid-1" : "grid-4"} style={{ marginBottom: 14 }}>
+                    {loading ? (isCashier ? [1] : [1, 2, 3, 4]).map(i => <SkeletonCard key={i} />) : (<>
                         <MetricCard
                             label="Monthly Sales"
                             value={fmtShort(m?.totalSales || 0)}
@@ -745,29 +780,33 @@ export default function DashboardPage() {
                             icon={IndianRupee}
                             gradient="linear-gradient(135deg,var(--indigo),#6366f1)"
                         />
-                        <MetricCard
-                            label="Monthly Profit"
-                            value={fmtShort(m?.totalProfit || 0)}
-                            sub={fmt(m?.totalProfit || 0)}
-                            icon={TrendingUp}
-                            gradient="linear-gradient(135deg,var(--green),var(--green))"
-                            trend="up"
-                        />
-                        <MetricCard
-                            label="Monthly Expenses"
-                            value={fmtShort(m?.totalExpenses || 0)}
-                            sub={fmt(m?.totalExpenses || 0)}
-                            icon={TrendingDown}
-                            gradient="linear-gradient(135deg,var(--red),var(--red))"
-                        />
-                        <MetricCard
-                            label="Net Profit"
-                            value={fmtShort(m?.netProfit || 0)}
-                            sub={fmt(m?.netProfit || 0)}
-                            icon={BarChart3}
-                            gradient="linear-gradient(135deg,var(--yellow),var(--yellow))"
-                            trend={(m?.netProfit || 0) > 0 ? "up" : "down"}
-                        />
+                        {!isCashier && (
+                            <>
+                                <MetricCard
+                                    label="Monthly Profit"
+                                    value={fmtShort(m?.totalProfit || 0)}
+                                    sub={fmt(m?.totalProfit || 0)}
+                                    icon={TrendingUp}
+                                    gradient="linear-gradient(135deg,var(--green),var(--green))"
+                                    trend="up"
+                                />
+                                <MetricCard
+                                    label="Monthly Expenses"
+                                    value={fmtShort(m?.totalExpenses || 0)}
+                                    sub={fmt(m?.totalExpenses || 0)}
+                                    icon={TrendingDown}
+                                    gradient="linear-gradient(135deg,var(--red),var(--red))"
+                                />
+                                <MetricCard
+                                    label="Net Profit"
+                                    value={fmtShort(m?.netProfit || 0)}
+                                    sub={fmt(m?.netProfit || 0)}
+                                    icon={BarChart3}
+                                    gradient="linear-gradient(135deg,var(--yellow),var(--yellow))"
+                                    trend={(m?.netProfit || 0) > 0 ? "up" : "down"}
+                                />
+                            </>
+                        )}
                     </>)}
                 </div>
 
@@ -800,7 +839,7 @@ export default function DashboardPage() {
                     <div className="grid-2-1" style={{ marginBottom: 28 }}>
                         {/* 7-Day Revenue Trend */}
                         <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 18, padding: "20px" }}>
-                            <SectionHeader icon={TrendingUp} title="7-Day Revenue & Profit Trend" color="var(--indigo)" />
+                            <SectionHeader icon={TrendingUp} title={isCashier ? "7-Day Revenue Trend" : "7-Day Revenue & Profit Trend"} color="var(--indigo)" />
                             <div style={{ height: 280, marginTop: 16, marginLeft: -16 }}>
                                 <ResponsiveContainer width="100%" height="100%">
                                     <AreaChart data={chartDataReversed} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
@@ -809,17 +848,19 @@ export default function DashboardPage() {
                                                 <stop offset="5%" stopColor="#818cf8" stopOpacity={0.3} />
                                                 <stop offset="95%" stopColor="#818cf8" stopOpacity={0} />
                                             </linearGradient>
-                                            <linearGradient id="colorProfit" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="5%" stopColor="#34d399" stopOpacity={0.3} />
-                                                <stop offset="95%" stopColor="#34d399" stopOpacity={0} />
-                                            </linearGradient>
+                                            {!isCashier && (
+                                                <linearGradient id="colorProfit" x1="0" y1="0" x2="0" y2="1">
+                                                    <stop offset="5%" stopColor="#34d399" stopOpacity={0.3} />
+                                                    <stop offset="95%" stopColor="#34d399" stopOpacity={0} />
+                                                </linearGradient>
+                                            )}
                                         </defs>
                                         <XAxis dataKey="displayDate" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "var(--muted)" }} dy={10} />
                                         <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "var(--muted)" }} tickFormatter={v => `₹${v / 1000}k`} />
                                         <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="var(--border)" opacity={0.5} />
                                         <RechartsTooltip content={<CustomTooltip />} cursor={{ stroke: "var(--border)", strokeWidth: 1, strokeDasharray: "4 4" }} />
                                         <Area type="monotone" dataKey="totalSales" name="Revenue" stroke="#818cf8" strokeWidth={3} fillOpacity={1} fill="url(#colorRevenue)" activeDot={{ r: 6, stroke: "#fff", strokeWidth: 2 }} />
-                                        <Area type="monotone" dataKey="totalProfit" name="Gross Profit" stroke="#34d399" strokeWidth={3} fillOpacity={1} fill="url(#colorProfit)" activeDot={{ r: 6, stroke: "#fff", strokeWidth: 2 }} />
+                                        {!isCashier && <Area type="monotone" dataKey="totalProfit" name="Gross Profit" stroke="#34d399" strokeWidth={3} fillOpacity={1} fill="url(#colorProfit)" activeDot={{ r: 6, stroke: "#fff", strokeWidth: 2 }} />}
                                     </AreaChart>
                                 </ResponsiveContainer>
                             </div>
@@ -869,8 +910,8 @@ export default function DashboardPage() {
                                         <th>SKU</th>
                                         <th className="num">Qty Sold</th>
                                         <th className="num">Revenue</th>
-                                        <th className="num">Profit</th>
-                                        <th className="num" style={{ width: 100 }}>Margin</th>
+                                        {!isCashier && <th className="num">Profit</th>}
+                                        {!isCashier && <th className="num" style={{ width: 100 }}>Margin</th>}
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -895,20 +936,22 @@ export default function DashboardPage() {
                                                 <td style={{ color: "var(--muted)", fontFamily: "monospace", fontSize: 12 }}>{p.sku}</td>
                                                 <td className="num" style={{ fontWeight: 700 }}>{p.totalQuantitySold}</td>
                                                 <td className="num" style={{ color: "var(--indigo-l)", fontWeight: 700 }}>{fmt(p.totalRevenue)}</td>
-                                                <td className="num" style={{ color: "var(--green)", fontWeight: 700 }}>{fmt(p.totalProfit)}</td>
-                                                <td className="num">
-                                                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                                        <div style={{ flex: 1, height: 5, background: "var(--bg-card2)", borderRadius: 99, overflow: "hidden" }}>
-                                                            <div style={{
-                                                                height: "100%", borderRadius: 99, width: `${Math.min(margin, 100)}%`,
-                                                                background: margin > 20 ? "var(--green)" : margin > 10 ? "var(--yellow)" : "var(--red)",
-                                                            }} />
+                                                {!isCashier && <td className="num" style={{ color: "var(--green)", fontWeight: 700 }}>{fmt(p.totalProfit)}</td>}
+                                                {!isCashier && (
+                                                    <td className="num">
+                                                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                                            <div style={{ flex: 1, height: 5, background: "var(--bg-card2)", borderRadius: 99, overflow: "hidden" }}>
+                                                                <div style={{
+                                                                    height: "100%", borderRadius: 99, width: `${Math.min(margin, 100)}%`,
+                                                                    background: margin > 20 ? "var(--green)" : margin > 10 ? "var(--yellow)" : "var(--red)",
+                                                                }} />
+                                                            </div>
+                                                            <span style={{ fontSize: 11, fontWeight: 700, color: margin > 20 ? "var(--green)" : margin > 10 ? "var(--yellow)" : "var(--red)", minWidth: 32 }}>
+                                                                {margin}%
+                                                            </span>
                                                         </div>
-                                                        <span style={{ fontSize: 11, fontWeight: 700, color: margin > 20 ? "var(--green)" : margin > 10 ? "var(--yellow)" : "var(--red)", minWidth: 32 }}>
-                                                            {margin}%
-                                                        </span>
-                                                    </div>
-                                                </td>
+                                                    </td>
+                                                )}
                                             </tr>
                                         );
                                     })}

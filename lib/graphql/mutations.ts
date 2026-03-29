@@ -131,6 +131,12 @@ export const CREATE_INVOICE = gql`
   }
 `;
 
+export const DELETE_INVOICE = gql`
+  mutation DeleteInvoice($saleId: String!) {
+    deleteInvoice(saleId: $saleId)
+  }
+`;
+
 // ─── Stock / Purchases ───
 export const RECORD_PURCHASE = gql`
   mutation RecordPurchase($input: PurchaseInput!) {

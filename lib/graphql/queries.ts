@@ -29,6 +29,8 @@ export const GET_DASHBOARD = gql`
         totalRevenue
         totalProfit
       }
+      totalProducts
+      totalStock
       lowStockCount
       pendingInvoices
     }
