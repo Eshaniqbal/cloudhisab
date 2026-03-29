@@ -94,11 +94,12 @@ function ProductModal({ onClose, refetch, existing }: any) {
                                 <input className="input" style={{ fontSize: 15 }} value={form.name} onChange={e => set("name", e.target.value)} placeholder="e.g. Samsung Galaxy M14" required autoFocus />
                                 {suggestion && !existing && (!form.hsnCode || form.hsnCode !== suggestion.hsn) && (
                                     <div style={{ marginTop: 10, padding: "12px 14px", borderRadius: 12, background: "rgba(99,102,241,0.08)", border: "1px solid rgba(99,102,241,0.2)", cursor: "pointer", display: "flex", gap: 10, alignItems: "flex-start" }}
-                                        onClick={() => { set("hsnCode", suggestion.hsn); set("gstRate", suggestion.gst); }}>
+                                        onClick={() => { set("hsnCode", suggestion.hsn); if (suggestion.gst) set("gstRate", suggestion.gst); }}>
                                         <span style={{ fontSize: 14 }}>✨</span>
                                         <div style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.5 }}>
                                             <span style={{ color: "#818cf8", fontWeight: 700 }}>Intelligent Match</span> — Looks like <b>{suggestion.desc}</b>.<br />
-                                            Click to auto-apply HSN <span style={{ fontFamily: "monospace", color: "var(--text)", background: "var(--bg-input)", padding: "1px 4px", borderRadius: 4 }}>{suggestion.hsn}</span> & GST <strong style={{ color: "var(--text)" }}>{suggestion.gst}%</strong>.
+                                            Click to auto-apply HSN <span style={{ fontFamily: "monospace", color: "var(--text)", background: "var(--bg-input)", padding: "1px 4px", borderRadius: 4 }}>{suggestion.hsn}</span>
+                                            {suggestion.gst && <> &amp; GST <strong style={{ color: "var(--text)" }}>{suggestion.gst}%</strong></>}.
                                         </div>
                                     </div>
                                 )}
@@ -123,12 +124,12 @@ function ProductModal({ onClose, refetch, existing }: any) {
                                             <div key={d.hsn} style={{ padding: "12px 14px", cursor: "pointer", borderBottom: "1px solid var(--border)" }}
                                                 onMouseEnter={e => e.currentTarget.style.background = "var(--bg-input)"}
                                                 onMouseLeave={e => e.currentTarget.style.background = "transparent"}
-                                                onMouseDown={e => { e.preventDefault(); set("hsnCode", d.hsn); set("gstRate", d.gst); setShowHsnMenu(false); }}>
+                                                onMouseDown={e => { e.preventDefault(); set("hsnCode", d.hsn); if (d.gst) set("gstRate", d.gst); setShowHsnMenu(false); }}>
                                                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 6 }}>
                                                     <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>{d.desc}</span>
                                                     <span style={{ fontFamily: "monospace", fontSize: 11, fontWeight: 800, padding: "3px 6px", borderRadius: 6, color: "#818cf8", background: "rgba(99,102,241,0.1)" }}>{d.hsn}</span>
                                                 </div>
-                                                <div style={{ fontSize: 11, fontWeight: 600, color: "var(--muted)" }}>GST Rate: <span style={{ color: Number(d.gst) > 0 ? "#f87171" : "#10b981" }}>{d.gst}%</span></div>
+                                                {d.gst && <div style={{ fontSize: 11, fontWeight: 600, color: "var(--muted)" }}>GST Rate: <span style={{ color: Number(d.gst) > 0 ? "#f87171" : "#10b981" }}>{d.gst}%</span></div>}
                                             </div>
                                         ))}
                                         {filteredHsn.length === 0 && <div style={{ padding: "32px 20px", textAlign: "center", fontSize: 13, color: "var(--muted)" }}>No matching HSN codes found.</div>}
