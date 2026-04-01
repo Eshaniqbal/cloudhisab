@@ -83,22 +83,30 @@ export default function SettingsPage() {
     const handleSave = async () => {
         setSaveErr("");
         try {
+            const businessName = form.businessName?.trim() || "";
+            const ownerName = form.ownerName?.trim() || "";
+            const phone = form.phone?.trim() || "";
+            const gstin = form.gstin?.trim() || "";
+            const address = form.address?.trim() || "";
+            const city = form.city?.trim() || "";
+            const state = form.state?.trim() || "";
+            const pincode = form.pincode?.trim() || "";
             await updateProfile({
                 variables: {
                     input: {
-                        businessName: form.businessName || null,
-                        ownerName: form.ownerName || null,
-                        phone: form.phone || null,
-                        gstin: form.gstin || null,
-                        address: form.address || null,
-                        city: form.city || null,
-                        state: form.state || null,
-                        pincode: form.pincode || null,
-                        showGstOnInvoice: form.gstin ? showGstOnInvoice : false,
+                        businessName,
+                        ownerName,
+                        phone,
+                        gstin,
+                        address,
+                        city,
+                        state,
+                        pincode,
+                        showGstOnInvoice: gstin ? showGstOnInvoice : false,
                     },
                 },
             } as any);
-            if (form.businessName) patchUser({ businessName: form.businessName });
+            if (businessName) patchUser({ businessName });
             setSaved(true);
             setDirty(false);
             refetch();

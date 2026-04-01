@@ -229,9 +229,11 @@ export default function InvoiceDetailPage() {
                                 {inv.businessCategory}
                             </div>
                         )}
-                        <div style={{ fontSize: 9 }}>
-                            {[inv.businessAddress, inv.businessCity, inv.businessState].filter(Boolean).join(", ")}
-                        </div>
+                        {(inv.businessAddress || inv.businessCity || inv.businessState) && (
+                            <div style={{ fontSize: 9 }}>
+                                {[inv.businessAddress, inv.businessCity, inv.businessState].filter(Boolean).join(", ")}
+                            </div>
+                        )}
                         {(inv.businessPhone || inv.businessEmail) && (
                             <div style={{ marginTop: 3, fontSize: 9 }}>
                                 {inv.businessPhone && <>Phone: {inv.businessPhone}</>}
@@ -365,8 +367,6 @@ export default function InvoiceDetailPage() {
                                     ["GROSS TOTAL", f2(grossTotal), false, false],
                                     ["Item Discount", f2(discountAmount), false, false],
                                     ["Tax (GST)", f2(totalGst), false, false],
-                                    ["Freight / Other", "0.00", false, false],
-                                    ["Roundoff", "0.00", false, false],
                                  ].map(([label, val]) => (
                                     <tr key={label as string}>
                                         <td style={{ padding: "4px 8px", fontWeight: "bold", borderBottom: "1px solid #000" }}>{label}</td>

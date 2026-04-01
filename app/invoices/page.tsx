@@ -34,15 +34,11 @@ const PM_COLOR: Record<string, { bg: string; color: string }> = {
 function todayStr() {
     return new Date().toISOString().slice(0, 10);
 }
-function monthStartStr() {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
-}
 
 export default function InvoicesPage() {
     const [activeTab, setActiveTab] = useState<"invoices" | "returns">("invoices");
     const [search, setSearch] = useState("");
-    const [dateFrom, setDateFrom] = useState(monthStartStr());
+    const [dateFrom, setDateFrom] = useState("");
     const [page, setPage] = useState(0);
     const [retPage, setRetPage] = useState(0);
     const PAGE_SIZE = 10;
@@ -82,7 +78,7 @@ export default function InvoicesPage() {
     };
 
     const { data, loading, error, refetch } = useQuery<any, any>(LIST_INVOICES, {
-        variables: { dateFrom, limit: 200 },
+        variables: { limit: 200, ...(dateFrom ? { dateFrom } : {}) },
         fetchPolicy: "cache-and-network",
     } as any);
 
@@ -278,7 +274,12 @@ export default function InvoicesPage() {
                                 type="date" className="input" style={{ width: 148 }}
                                 value={dateFrom}
                                 max={todayStr()}
-                                onChange={e => { setDateFrom(e.target.value); setPage(0); refetch({ dateFrom: e.target.value }); }}
+                                onChange={e => {
+                                    const nextDateFrom = e.target.value;
+                                    setDateFrom(nextDateFrom);
+                                    setPage(0);
+                                    refetch({ limit: 200, ...(nextDateFrom ? { dateFrom: nextDateFrom } : {}) });
+                                }}
                             />
                         </div>
                     </div>
