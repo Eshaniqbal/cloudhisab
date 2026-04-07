@@ -4,7 +4,8 @@ import { useQuery, useMutation, useApolloClient } from "@apollo/client";
 import { AuthGuard } from "@/components/AuthGuard";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { LIST_CUSTOMERS, GET_CUSTOMER_LEDGER, GET_STATEMENT_DOWNLOAD_URL } from "@/lib/graphql/queries";
-import { RECORD_CUSTOMER_PAYMENT, RECORD_ADVANCE, DELETE_CUSTOMER } from "@/lib/graphql/mutations";
+import { RECORD_CUSTOMER_PAYMENT, RECORD_ADVANCE, EDIT_CUSTOMER_PAYMENT, DELETE_CUSTOMER } from "@/lib/graphql/mutations";
+import { Edit } from "lucide-react";
 import {
     Users, Search, X, Phone, CreditCard, Wallet, CheckCircle2,
     Loader2, Receipt, AlertTriangle, Clock, IndianRupee,
@@ -41,6 +42,7 @@ export default function CustomersPage() {
     const [modalAmt, setModalAmt] = useState("");
     const [modalNotes, setModalNotes] = useState("");
     const [modalErr, setModalErr] = useState("");
+    const [editModal, setEditModal] = useState<any>(null);
     const [deleteTarget, setDeleteTarget] = useState<{ phone: string; name: string } | null>(null);
     const [deleteLoading, setDeleteLoading] = useState(false);
     const [statementEntry, setStatementEntry] = useState<any>(null);
@@ -55,6 +57,7 @@ export default function CustomersPage() {
 
     const [recordPayment, { loading: payLoading }] = useMutation(RECORD_CUSTOMER_PAYMENT);
     const [recordAdvance, { loading: advLoading }] = useMutation(RECORD_ADVANCE);
+    const [editPayment, { loading: editLoading }] = useMutation(EDIT_CUSTOMER_PAYMENT);
     const [deleteCustomerMut] = useMutation(DELETE_CUSTOMER);
 
     const customers = listData?.listCustomers?.items || [];
@@ -197,6 +200,26 @@ export default function CustomersPage() {
         } catch (e: any) { setModalErr(e.message || "Failed"); }
     };
 
+    const submitEdit = async () => {
+        setModalErr("");
+        const amt = +modalAmt;
+        if (!amt || amt <= 0) { setModalErr("Enter a valid amount"); return; }
+        try {
+            await editPayment({
+                variables: {
+                    input: {
+                        phone: selPhone,
+                        entryId: editModal.entryId,
+                        amount: amt,
+                        notes: modalNotes || null
+                    }
+                }
+            } as any);
+            setEditModal(null); setModalAmt(""); setModalNotes("");
+            refetchLedger(); refetchList();
+        } catch (e: any) { setModalErr(e.message || "Failed"); }
+    };
+
     const handleDownloadPdf = async () => {
         if (!selPhone || pdfLoading) return;
         setPdfLoading(true);
@@ -325,6 +348,73 @@ export default function CustomersPage() {
                                     onClick={submitModal} disabled={payLoading || advLoading}>
                                     {(payLoading || advLoading) ? <Loader2 size={16} style={{ animation: "spin 0.7s linear infinite" }} /> : null}
                                     {payModal === "payment" ? "Record Payment" : "Save Advance"}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ═══ Edit Payment Modal ═══ */}
+            {editModal && (
+                <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setEditModal(null)}>
+                    <div className="glass-card" style={{ padding: "32px", width: 440, maxWidth: "100%", position: "relative", animation: "fadeInScale 0.2s ease" }} onClick={e => e.stopPropagation()}>
+
+                        <button onClick={() => setEditModal(null)} style={{ position: "absolute", top: 16, right: 16, background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: 8, borderRadius: 8 }} onMouseEnter={e => e.currentTarget.style.background = "var(--bg-input)"} onMouseLeave={e => e.currentTarget.style.background = "none"}>
+                            <X size={18} />
+                        </button>
+
+                        <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 28 }}>
+                            <div style={{
+                                width: 52, height: 52, borderRadius: 16, display: "flex", alignItems: "center", justifyContent: "center",
+                                background: "linear-gradient(135deg,var(--indigo),var(--indigo-l))",
+                                boxShadow: "0 8px 24px rgba(79,70,229,0.35)",
+                            }}>
+                                <Edit size={24} color="#fff" />
+                            </div>
+                            <div>
+                                <div style={{ fontSize: 18, fontWeight: 900, color: "var(--text)", letterSpacing: "-0.3px" }}>
+                                    {editModal.entryType === "PAYMENT" ? "Edit Payment" : 
+                                     editModal.entryType === "ADVANCE" ? "Edit Advance" :
+                                     editModal.entryType === "INVOICE" ? "Edit Invoice Payment" :
+                                     "Edit Return Amount"}
+                                </div>
+                                <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 2 }}>Update entry for <strong style={{ color: "var(--text)" }}>{customer?.name}</strong></div>
+                            </div>
+                        </div>
+
+                        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                            <div className="form-group">
+                                <label style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: 8 }}>
+                                    {editModal.entryType === "INVOICE" ? "Amount Paid (₹)" : "Amount (₹)"}
+                                </label>
+                                <input className="input" type="number" min={1} step={1}
+                                    style={{ fontSize: 24, fontWeight: 900, textAlign: "center", letterSpacing: "-0.5px", padding: "12px" }}
+                                    placeholder="0.00" value={modalAmt} autoFocus
+                                    onChange={e => setModalAmt(e.target.value)}
+                                    onKeyDown={e => e.key === "Enter" && submitEdit()} />
+                            </div>
+                            <div className="form-group">
+                                <label style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: 8 }}>Notes (optional)</label>
+                                <input className="input" style={{ fontSize: 14 }} placeholder="e.g. Cash, UPI, cheque…"
+                                    value={modalNotes} onChange={e => setModalNotes(e.target.value)} />
+                            </div>
+
+                            {modalErr && (
+                                <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", borderRadius: 12, padding: "12px 16px", fontSize: 13, color: "var(--red)", display: "flex", alignItems: "center", gap: 8, animation: "slideDown 0.2s ease" }}>
+                                    <AlertTriangle size={15} style={{ flexShrink: 0 }} /> {modalErr}
+                                </div>
+                            )}
+
+                            <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
+                                <button className="btn btn-ghost" style={{ flex: 1, fontWeight: 700 }}
+                                    onClick={() => { setEditModal(null); setModalAmt(""); setModalErr(""); }}>
+                                    Cancel
+                                </button>
+                                <button className="btn btn-primary" style={{ flex: 2, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontWeight: 700, fontSize: 14, boxShadow: "0 4px 16px rgba(79,70,229,0.3)" }}
+                                    onClick={submitEdit} disabled={editLoading}>
+                                    {editLoading ? <Loader2 size={16} style={{ animation: "spin 0.7s linear infinite" }} /> : null}
+                                    Update Entry
                                 </button>
                             </div>
                         </div>
@@ -705,6 +795,22 @@ export default function CustomersPage() {
                                                                     <span style={{ fontSize: 11, fontWeight: 800, padding: "3px 10px", borderRadius: 20, background: "rgba(245,158,11,0.12)", color: "var(--yellow)" }}>
                                                                         Partial — Due ₹{fmt(invoiceDue)}
                                                                     </span>
+                                                                )}
+                                                                {(e.entryType === "PAYMENT" || e.entryType === "ADVANCE" || e.entryType === "INVOICE" || e.entryType === "RETURN") && (
+                                                                    <button
+                                                                        onClick={(ev) => {
+                                                                            ev.stopPropagation();
+                                                                            setEditModal(e);
+                                                                            // For invoices, we edit the paid_now amount
+                                                                            setModalAmt(e.entryType === "INVOICE" ? (e.amountPaid ?? e.amount).toString() : e.amount.toString());
+                                                                            setModalNotes(e.description);
+                                                                        }}
+                                                                        style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: "rgba(255,255,255,0.05)", color: "var(--muted)", border: "1px solid var(--border)", cursor: "pointer", transition: "all 0.15s" }}
+                                                                        onMouseEnter={el => { (el.currentTarget as any).style.background = "var(--bg-input)"; (el.currentTarget as any).style.color = "var(--text)"; }}
+                                                                        onMouseLeave={el => { (el.currentTarget as any).style.background = "rgba(255,255,255,0.05)"; (el.currentTarget as any).style.color = "var(--muted)"; }}
+                                                                    >
+                                                                        <Edit size={10} /> Edit
+                                                                    </button>
                                                                 )}
                                                                 {/* Invoice link + download button */}
                                                                 {isInvoice && (

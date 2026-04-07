@@ -213,6 +213,20 @@ export const RECORD_ADVANCE = gql`
   }
 `;
 
+export const EDIT_CUSTOMER_PAYMENT = gql`
+  mutation EditCustomerPayment($input: EditPaymentInput!) {
+    editCustomerPayment(input: $input) {
+      customerId
+      name
+      phone
+      totalInvoiced
+      totalPaid
+      advance
+      outstanding
+    }
+  }
+`;
+
 export const DELETE_CUSTOMER = gql`
   mutation DeleteCustomer($phone: String!) {
     deleteCustomer(phone: $phone)
