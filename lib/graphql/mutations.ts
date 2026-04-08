@@ -233,6 +233,20 @@ export const EDIT_CUSTOMER_PAYMENT = gql`
   }
 `;
 
+export const DELETE_CUSTOMER_PAYMENT = gql`
+  mutation DeleteCustomerPayment($phone: String!, $entryId: String!) {
+    deleteCustomerPayment(phone: $phone, entryId: $entryId) {
+      customerId
+      name
+      phone
+      totalInvoiced
+      totalPaid
+      advance
+      outstanding
+    }
+  }
+`;
+
 export const DELETE_CUSTOMER = gql`
   mutation DeleteCustomer($phone: String!) {
     deleteCustomer(phone: $phone)

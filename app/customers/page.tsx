@@ -4,13 +4,12 @@ import { useQuery, useMutation, useApolloClient } from "@apollo/client";
 import { AuthGuard } from "@/components/AuthGuard";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { LIST_CUSTOMERS, GET_CUSTOMER_LEDGER, GET_STATEMENT_DOWNLOAD_URL } from "@/lib/graphql/queries";
-import { RECORD_CUSTOMER_PAYMENT, RECORD_ADVANCE, EDIT_CUSTOMER_PAYMENT, DELETE_CUSTOMER } from "@/lib/graphql/mutations";
-import { Edit } from "lucide-react";
+import { RECORD_CUSTOMER_PAYMENT, RECORD_ADVANCE, EDIT_CUSTOMER_PAYMENT, DELETE_CUSTOMER_PAYMENT, DELETE_CUSTOMER } from "@/lib/graphql/mutations";
 import {
     Users, Search, X, Phone, CreditCard, Wallet, CheckCircle2,
     Loader2, Receipt, AlertTriangle, Clock, IndianRupee,
     ArrowDownLeft, Sparkles, Trash2, ChevronRight, Download,
-    RotateCcw, ExternalLink, ClipboardList
+    RotateCcw, ExternalLink, ClipboardList, Edit
 } from "lucide-react";
 
 const fmt = (n: number) => new Intl.NumberFormat("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
@@ -44,6 +43,7 @@ export default function CustomersPage() {
     const [modalErr, setModalErr] = useState("");
     const [editModal, setEditModal] = useState<any>(null);
     const [deleteTarget, setDeleteTarget] = useState<{ phone: string; name: string } | null>(null);
+    const [deleteEntryTarget, setDeleteEntryTarget] = useState<{ phone: string; entryId: string; description: string } | null>(null);
     const [deleteLoading, setDeleteLoading] = useState(false);
     const [statementEntry, setStatementEntry] = useState<any>(null);
     const [pdfLoading, setPdfLoading] = useState(false);
@@ -58,6 +58,7 @@ export default function CustomersPage() {
     const [recordPayment, { loading: payLoading }] = useMutation(RECORD_CUSTOMER_PAYMENT);
     const [recordAdvance, { loading: advLoading }] = useMutation(RECORD_ADVANCE);
     const [editPayment, { loading: editLoading }] = useMutation(EDIT_CUSTOMER_PAYMENT);
+    const [deletePaymentEntry, { loading: deleteEntryLoading }] = useMutation(DELETE_CUSTOMER_PAYMENT);
     const [deleteCustomerMut] = useMutation(DELETE_CUSTOMER);
 
     const customers = listData?.listCustomers?.items || [];
@@ -79,6 +80,24 @@ export default function CustomersPage() {
         } finally {
             setDeleteLoading(false);
             setDeleteTarget(null);
+        }
+    };
+
+    const confirmDeleteEntry = async () => {
+        if (!deleteEntryTarget) return;
+        setDeleteLoading(true);
+        try {
+            await (deletePaymentEntry as any)({ 
+                variables: { 
+                    phone: deleteEntryTarget.phone, 
+                    entryId: deleteEntryTarget.entryId 
+                } 
+            });
+            refetchLedger();
+            refetchList();
+        } finally {
+            setDeleteLoading(false);
+            setDeleteEntryTarget(null);
         }
     };
 
@@ -206,8 +225,8 @@ export default function CustomersPage() {
                                     {Math.abs(prevBal) > 0.01 && (
                                         <>
                                             <div style={{ padding: "12px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: otherPending.length > 0 ? "none" : "1px solid var(--border)" }}>
-                                                <span style={{ fontSize: 13, color: "var(--muted)" }}>Previous Balance</span>
-                                                <span style={{ fontSize: 14, fontWeight: 700, color: prevBal > 0 ? "var(--red)" : "var(--green)" }}>₹{fmt(Math.abs(prevBal))}</span>
+                                                <span style={{ fontSize: 13, color: "var(--muted)" }}>{prevBal < 0 ? "Previous Advance" : "Previous Balance"}</span>
+                                                <span style={{ fontSize: 14, fontWeight: 700, color: prevBal < 0 ? "var(--yellow)" : "var(--red)" }}>₹{fmt(Math.abs(prevBal))}</span>
                                             </div>
                                             {otherPending.map((p, idx) => (
                                                 <div key={idx} style={{ padding: "4px 18px 4px 32px", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 11, color: "var(--muted)", fontStyle: "italic", borderBottom: idx === otherPending.length - 1 ? "1px solid var(--border)" : "none" }}>
@@ -218,8 +237,8 @@ export default function CustomersPage() {
                                         </>
                                     )}
                                     <div style={{ padding: "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--bg-input)", borderTop: "2px solid var(--border)" }}>
-                                        <span style={{ fontSize: 14, fontWeight: 800 }}>TOTAL PENDING</span>
-                                        <span style={{ fontSize: 20, fontWeight: 900, color: totalPending > 0 ? "var(--red)" : "var(--green)" }}>₹{fmt(Math.abs(totalPending))}</span>
+                                        <span style={{ fontSize: 14, fontWeight: 800 }}>{totalPending < 0 ? "TOTAL ADVANCE" : "TOTAL PENDING"}</span>
+                                        <span style={{ fontSize: 20, fontWeight: 900, color: totalPending < 0 ? "var(--yellow)" : "var(--red)" }}>₹{fmt(Math.abs(totalPending))}</span>
                                     </div>
                                 </>
                             );
@@ -331,6 +350,17 @@ export default function CustomersPage() {
                 loading={deleteLoading}
                 onConfirm={confirmDelete}
                 onCancel={() => setDeleteTarget(null)}
+            />
+
+            <ConfirmDialog
+                open={!!deleteEntryTarget}
+                title="Delete Ledger Entry"
+                message={`Permanently delete the ${deleteEntryTarget?.description} entry?`}
+                subMessage="This will adjust the customer's aggregate balance accordingly."
+                confirmLabel="Yes, Delete"
+                loading={deleteLoading}
+                onConfirm={confirmDeleteEntry}
+                onCancel={() => setDeleteEntryTarget(null)}
             />
 
             {/* ═══ Payment / Advance Modal ═══ */}
@@ -697,21 +727,30 @@ export default function CustomersPage() {
                                 <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12, position: "relative", zIndex: 1 }}>
                                     {(() => {
                                         const returned = customer.totalReturned || 0;
-                                        const outstanding = customer.outstanding; // signed
-                                        const isCredit = outstanding < 0;
-                                        const displayOutstanding = Math.abs(outstanding);
+                                        const outstanding = customer.outstanding; // signed: +ve means customer owes us, -ve means advance
+                                        const isAdvance = outstanding < 0;
+                                        const balanceDue = outstanding > 0 ? outstanding : 0;
+                                        const advanceBalance = outstanding < 0 ? Math.abs(outstanding) : 0;
                                         const totalPaid = (customer.totalPaid || 0) + (customer.advance || 0);
+                                        
                                         return [
                                             { label: "Total Billed", val: `₹${fmt(customer.totalInvoiced)}`, color: "var(--text)", icon: <IndianRupee size={14} color="var(--indigo-l)" />, bg: "var(--bg-card)", border: "rgba(99,102,241,0.2)" },
                                             { label: "Total Returned", val: `₹${fmt(returned)}`, color: returned > 0 ? "#f87171" : "var(--muted)", icon: <RotateCcw size={14} color={returned > 0 ? "#f87171" : "var(--muted)"} />, bg: returned > 0 ? "rgba(239,68,68,0.06)" : "var(--bg-card)", border: returned > 0 ? "rgba(239,68,68,0.25)" : "rgba(99,102,241,0.2)" },
                                             { label: "Total Paid", val: `₹${fmt(totalPaid)}`, color: "var(--green)", icon: <ArrowDownLeft size={14} color="var(--green)" />, bg: "rgba(16,185,129,0.05)", border: "rgba(16,185,129,0.2)" },
-                                            {
-                                                label: "Total Pending",
-                                                val: `₹${fmt(displayOutstanding)}`,
-                                                color: isCredit ? "#10b981" : outstanding > 0 ? "var(--red)" : "var(--green)",
-                                                icon: isCredit ? <CheckCircle2 size={14} color="#10b981" /> : outstanding > 0 ? <AlertTriangle size={14} color="var(--red)" /> : <CheckCircle2 size={14} color="var(--green)" />,
-                                                bg: isCredit ? "rgba(16,185,129,0.08)" : outstanding > 0 ? "rgba(239,68,68,0.08)" : "rgba(16,185,129,0.08)",
-                                                border: isCredit ? "rgba(16,185,129,0.3)" : outstanding > 0 ? "rgba(239,68,68,0.3)" : "rgba(16,185,129,0.3)",
+                                            isAdvance ? {
+                                                label: "Advance Balance",
+                                                val: `₹${fmt(advanceBalance)}`,
+                                                color: "var(--yellow)",
+                                                icon: <Wallet size={14} color="var(--yellow)" />,
+                                                bg: "rgba(245,158,11,0.08)",
+                                                border: "rgba(245,158,11,0.3)",
+                                            } : {
+                                                label: "Balance Due",
+                                                val: `₹${fmt(balanceDue)}`,
+                                                color: balanceDue > 0 ? "var(--red)" : "var(--green)",
+                                                icon: balanceDue > 0 ? <AlertTriangle size={14} color="var(--red)" /> : <CheckCircle2 size={14} color="var(--green)" />,
+                                                bg: balanceDue > 0 ? "rgba(239,68,68,0.08)" : "rgba(16,185,129,0.08)",
+                                                border: balanceDue > 0 ? "rgba(239,68,68,0.3)" : "rgba(16,185,129,0.3)",
                                             },
                                         ];
                                     })().map(s => (
@@ -845,20 +884,35 @@ export default function CustomersPage() {
                                                                     </span>
                                                                 )}
                                                                 {(e.entryType === "PAYMENT" || e.entryType === "ADVANCE" || e.entryType === "INVOICE" || e.entryType === "RETURN") && (
-                                                                    <button
-                                                                        onClick={(ev) => {
-                                                                            ev.stopPropagation();
-                                                                            setEditModal(e);
-                                                                            // For invoices, we edit the paid_now amount
-                                                                            setModalAmt(e.entryType === "INVOICE" ? (e.amountPaid ?? e.amount).toString() : e.amount.toString());
-                                                                            setModalNotes(e.description);
-                                                                        }}
-                                                                        style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: "rgba(255,255,255,0.05)", color: "var(--muted)", border: "1px solid var(--border)", cursor: "pointer", transition: "all 0.15s" }}
-                                                                        onMouseEnter={el => { (el.currentTarget as any).style.background = "var(--bg-input)"; (el.currentTarget as any).style.color = "var(--text)"; }}
-                                                                        onMouseLeave={el => { (el.currentTarget as any).style.background = "rgba(255,255,255,0.05)"; (el.currentTarget as any).style.color = "var(--muted)"; }}
-                                                                    >
-                                                                        <Edit size={10} /> Edit
-                                                                    </button>
+                                                                    <div style={{ display: "flex", gap: 6 }}>
+                                                                        <button
+                                                                            onClick={(ev) => {
+                                                                                ev.stopPropagation();
+                                                                                setEditModal(e);
+                                                                                // For invoices, we edit the paid_now amount
+                                                                                setModalAmt(e.entryType === "INVOICE" ? (e.amountPaid ?? e.amount).toString() : e.amount.toString());
+                                                                                setModalNotes(e.description);
+                                                                            }}
+                                                                            style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: "rgba(255,255,255,0.05)", color: "var(--muted)", border: "1px solid var(--border)", cursor: "pointer", transition: "all 0.15s" }}
+                                                                            onMouseEnter={el => { (el.currentTarget as any).style.background = "var(--bg-input)"; (el.currentTarget as any).style.color = "var(--text)"; }}
+                                                                            onMouseLeave={el => { (el.currentTarget as any).style.background = "rgba(255,255,255,0.05)"; (el.currentTarget as any).style.color = "var(--muted)"; }}
+                                                                        >
+                                                                            <Edit size={10} /> Edit
+                                                                        </button>
+                                                                        {e.entryType !== "INVOICE" && (
+                                                                            <button
+                                                                                onClick={(ev) => {
+                                                                                    ev.stopPropagation();
+                                                                                    setDeleteEntryTarget({ phone: selPhone!, entryId: e.entryId, description: e.description });
+                                                                                }}
+                                                                                style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: "rgba(239,68,68,0.05)", color: "var(--red)", border: "1px solid rgba(239,68,68,0.2)", cursor: "pointer", transition: "all 0.15s" }}
+                                                                                onMouseEnter={el => { (el.currentTarget as any).style.background = "rgba(239,68,68,0.15)"; }}
+                                                                                onMouseLeave={el => { (el.currentTarget as any).style.background = "rgba(239,68,68,0.05)"; }}
+                                                                            >
+                                                                                <Trash2 size={10} /> Delete
+                                                                            </button>
+                                                                        )}
+                                                                    </div>
                                                                 )}
                                                                 {/* Invoice link + download button */}
                                                                 {isInvoice && (
@@ -919,8 +973,8 @@ export default function CustomersPage() {
                                                             <div style={{ fontSize: 18, fontWeight: 900, color: fullyPaid ? "var(--green)" : cfg.color, fontVariantNumeric: "tabular-nums", letterSpacing: "-0.5px" }}>
                                                                 {cfg.sign} ₹{fmt(e.amount)}
                                                             </div>
-                                                            <div style={{ fontSize: 12, marginTop: 4, fontWeight: 800, color: e.balanceAfter > 0 ? "var(--red)" : "var(--green)", fontVariantNumeric: "tabular-nums", background: "var(--bg-card)", padding: "4px 8px", borderRadius: 6, display: "inline-block", border: "1px solid var(--border)" }}>
-                                                                Bal: ₹{fmt(Math.abs(e.balanceAfter))}
+                                                            <div style={{ fontSize: 12, marginTop: 4, fontWeight: 800, color: e.balanceAfter > 0 ? "var(--yellow)" : "var(--red)", fontVariantNumeric: "tabular-nums", background: "var(--bg-card)", padding: "4px 8px", borderRadius: 6, display: "inline-block", border: "1px solid var(--border)" }}>
+                                                                {e.balanceAfter > 0 ? "Adv: " : "Due: "}₹{fmt(Math.abs(e.balanceAfter))}
                                                             </div>
                                                         </div>
 
