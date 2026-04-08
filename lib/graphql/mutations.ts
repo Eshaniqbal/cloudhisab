@@ -137,6 +137,12 @@ export const DELETE_INVOICE = gql`
   }
 `;
 
+export const REGENERATE_INVOICE_PDF = gql`
+  mutation RegenerateInvoicePdf($saleId: String!) {
+    regenerateInvoicePdf(saleId: $saleId)
+  }
+`;
+
 // ─── Stock / Purchases ───
 export const RECORD_PURCHASE = gql`
   mutation RecordPurchase($input: PurchaseInput!) {

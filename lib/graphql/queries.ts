@@ -511,7 +511,7 @@ export const GET_RETURN_DOWNLOAD_URL = gql`
 `;
 
 export const GET_STATEMENT_DOWNLOAD_URL = gql`
-  query GetStatementDownloadUrl($phone: String!) {
-    getStatementDownloadUrl(phone: $phone)
+  query GetStatementDownloadUrl($phone: String!, $force: Boolean) {
+    getStatementDownloadUrl(phone: $phone, force: $force)
   }
 `;

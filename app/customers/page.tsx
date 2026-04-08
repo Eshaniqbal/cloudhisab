@@ -167,16 +167,63 @@ export default function CustomersPage() {
                             { label: "Net Billed", value: `₹${fmt(netBilled)}`, color: "var(--text)", bold: true },
                             { label: "Amount Paid", value: `₹${fmt(paid)}`, color: "var(--green)", bold: false },
                         ].map((row, i) => (
-                            <div key={row.label} style={{ padding: "12px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: i < 3 ? "1px solid var(--border)" : "none" }}>
+                            <div key={row.label} style={{ padding: "12px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border)" }}>
                                 <span style={{ fontSize: 13, color: "var(--muted)", fontWeight: row.bold ? 700 : 500 }}>{row.label}</span>
                                 <span style={{ fontSize: row.bold ? 16 : 14, fontWeight: row.bold ? 900 : 600, color: row.color }}>{row.value}</span>
                             </div>
                         ))}
-                        {/* Outstanding after returns */}
-                        <div style={{ padding: "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", background: netOutstanding > 0 ? "rgba(239,68,68,0.05)" : "rgba(16,185,129,0.05)", borderTop: "2px solid var(--border)" }}>
-                            <span style={{ fontSize: 14, fontWeight: 800 }}>Net Outstanding</span>
-                            <span style={{ fontSize: 20, fontWeight: 900, color: netOutstanding > 0 ? "#ef4444" : "#10b981" }}>₹{fmt(netOutstanding)}</span>
-                        </div>
+                        {/* Twist: Previous balance and Total Pending */}
+                        {(() => {
+                            // Find all other pending invoices
+                            const otherPending = (entries as any[]).filter(
+                                (e: any) => e.entryType === "INVOICE" && e.saleId !== entry.saleId && e.description !== entry.description
+                            ).map((e: any) => {
+                                const eDue = e.amount - (e.amountPaid ?? e.amount);
+                                return { description: e.description, due: eDue };
+                            }).filter(e => e.due > 0.01);
+
+                            // Calculate previous balance correctly: sum of other dues minus all payments/advances/returns
+                            let prevBal = 0;
+                            (entries as any[]).forEach((e: any) => {
+                                // Skip current invoice
+                                if (e.saleId === entry.saleId || e.description === entry.description) return;
+                                
+                                if (e.entryType === "INVOICE") {
+                                    prevBal += (e.amount - (e.amountPaid ?? e.amount));
+                                } else if (["PAYMENT", "ADVANCE", "RETURN"].includes(e.entryType)) {
+                                    prevBal -= e.amount;
+                                }
+                            });
+
+                            const totalPending = netOutstanding + prevBal;
+
+                            return (
+                                <>
+                                    <div style={{ padding: "12px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border)" }}>
+                                        <span style={{ fontSize: 13, color: "var(--muted)" }}>Current Bill Pending</span>
+                                        <span style={{ fontSize: 14, fontWeight: 700, color: netOutstanding > 0 ? "var(--red)" : "var(--green)" }}>₹{fmt(netOutstanding)}</span>
+                                    </div>
+                                    {Math.abs(prevBal) > 0.01 && (
+                                        <>
+                                            <div style={{ padding: "12px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: otherPending.length > 0 ? "none" : "1px solid var(--border)" }}>
+                                                <span style={{ fontSize: 13, color: "var(--muted)" }}>Previous Balance</span>
+                                                <span style={{ fontSize: 14, fontWeight: 700, color: prevBal > 0 ? "var(--red)" : "var(--green)" }}>₹{fmt(Math.abs(prevBal))}</span>
+                                            </div>
+                                            {otherPending.map((p, idx) => (
+                                                <div key={idx} style={{ padding: "4px 18px 4px 32px", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 11, color: "var(--muted)", fontStyle: "italic", borderBottom: idx === otherPending.length - 1 ? "1px solid var(--border)" : "none" }}>
+                                                    <span>↳ {p.description}</span>
+                                                    <span>₹{fmt(p.due)}</span>
+                                                </div>
+                                            ))}
+                                        </>
+                                    )}
+                                    <div style={{ padding: "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--bg-input)", borderTop: "2px solid var(--border)" }}>
+                                        <span style={{ fontSize: 14, fontWeight: 800 }}>TOTAL PENDING</span>
+                                        <span style={{ fontSize: 20, fontWeight: 900, color: totalPending > 0 ? "var(--red)" : "var(--green)" }}>₹{fmt(Math.abs(totalPending))}</span>
+                                    </div>
+                                </>
+                            );
+                        })()}
                     </div>
 
                     <button className="btn btn-ghost" style={{ width: "100%", marginTop: 16 }} onClick={() => setStatementEntry(null)}>Close</button>
@@ -225,17 +272,18 @@ export default function CustomersPage() {
         setPdfLoading(true);
         
         const poll = async (retries = 0) => {
-            if (retries > 10) {
+            if (retries > 15) {
                 setPdfLoading(false);
                 alert("Generation took too long. Please try again.");
                 return;
             }
             
             try {
+                // First call with force=true, subsequent calls without force to poll
                 const { data } = await client.query({
                     query: GET_STATEMENT_DOWNLOAD_URL,
-                    variables: { phone: selPhone },
-                    fetchPolicy: "network-only",
+                    variables: { phone: selPhone, force: retries === 0 },
+                    fetchPolicy: "no-cache",
                 });
                 
                 if (data?.getStatementDownloadUrl) {
@@ -645,20 +693,20 @@ export default function CustomersPage() {
                                     </div>
                                 </div>
 
-                                {/* Stat cards — 5 cards: Billed, Returned, Paid, Advance, Outstanding */}
-                                <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 12, position: "relative", zIndex: 1 }}>
+                                {/* Stat cards — 4 cards: Billed, Returned, Paid, Total Pending */}
+                                <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12, position: "relative", zIndex: 1 }}>
                                     {(() => {
                                         const returned = customer.totalReturned || 0;
                                         const outstanding = customer.outstanding; // signed
                                         const isCredit = outstanding < 0;
                                         const displayOutstanding = Math.abs(outstanding);
+                                        const totalPaid = (customer.totalPaid || 0) + (customer.advance || 0);
                                         return [
                                             { label: "Total Billed", val: `₹${fmt(customer.totalInvoiced)}`, color: "var(--text)", icon: <IndianRupee size={14} color="var(--indigo-l)" />, bg: "var(--bg-card)", border: "rgba(99,102,241,0.2)" },
                                             { label: "Total Returned", val: `₹${fmt(returned)}`, color: returned > 0 ? "#f87171" : "var(--muted)", icon: <RotateCcw size={14} color={returned > 0 ? "#f87171" : "var(--muted)"} />, bg: returned > 0 ? "rgba(239,68,68,0.06)" : "var(--bg-card)", border: returned > 0 ? "rgba(239,68,68,0.25)" : "rgba(99,102,241,0.2)" },
-                                            { label: "Net Billed", val: `₹${fmt(customer.totalInvoiced - returned)}`, color: "var(--text)", icon: <Receipt size={14} color="var(--indigo-l)" />, bg: "var(--bg-card)", border: "rgba(99,102,241,0.2)" },
-                                            { label: "Total Paid", val: `₹${fmt(customer.totalPaid)}`, color: "var(--green)", icon: <ArrowDownLeft size={14} color="var(--green)" />, bg: "rgba(16,185,129,0.05)", border: "rgba(16,185,129,0.2)" },
+                                            { label: "Total Paid", val: `₹${fmt(totalPaid)}`, color: "var(--green)", icon: <ArrowDownLeft size={14} color="var(--green)" />, bg: "rgba(16,185,129,0.05)", border: "rgba(16,185,129,0.2)" },
                                             {
-                                                label: isCredit ? "Credit Balance" : "Outstanding",
+                                                label: "Total Pending",
                                                 val: `₹${fmt(displayOutstanding)}`,
                                                 color: isCredit ? "#10b981" : outstanding > 0 ? "var(--red)" : "var(--green)",
                                                 icon: isCredit ? <CheckCircle2 size={14} color="#10b981" /> : outstanding > 0 ? <AlertTriangle size={14} color="var(--red)" /> : <CheckCircle2 size={14} color="var(--green)" />,
@@ -872,7 +920,7 @@ export default function CustomersPage() {
                                                                 {cfg.sign} ₹{fmt(e.amount)}
                                                             </div>
                                                             <div style={{ fontSize: 12, marginTop: 4, fontWeight: 800, color: e.balanceAfter > 0 ? "var(--red)" : "var(--green)", fontVariantNumeric: "tabular-nums", background: "var(--bg-card)", padding: "4px 8px", borderRadius: 6, display: "inline-block", border: "1px solid var(--border)" }}>
-                                                                Bal: ₹{fmt(e.balanceAfter)}
+                                                                Bal: ₹{fmt(Math.abs(e.balanceAfter))}
                                                             </div>
                                                         </div>
 

@@ -1,7 +1,8 @@
 "use client";
-import { useQuery, useLazyQuery } from "@apollo/client";
+import { useQuery, useLazyQuery, useMutation } from "@apollo/client";
 import { AuthGuard } from "@/components/AuthGuard";
-import { GET_INVOICE, GET_INVOICE_DOWNLOAD_URL } from "@/lib/graphql/queries";
+import { GET_INVOICE, GET_INVOICE_DOWNLOAD_URL, GET_CUSTOMER_LEDGER } from "@/lib/graphql/queries";
+import { REGENERATE_INVOICE_PDF } from "@/lib/graphql/mutations";
 import { Download, ArrowLeft, CheckCircle2, Loader2, RefreshCw, RotateCcw } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -60,6 +61,8 @@ export default function InvoiceDetailPage() {
         skip: !saleId,
     } as any);
 
+    const [regeneratePdf, { loading: regenerating }] = useMutation(REGENERATE_INVOICE_PDF);
+
     const [fetchDownloadUrl, { loading: urlLoading }] = useLazyQuery<any, any>(
         GET_INVOICE_DOWNLOAD_URL,
         {
@@ -80,6 +83,15 @@ export default function InvoiceDetailPage() {
     );
 
     const inv = data?.getInvoice;
+
+    const { data: ledgerData } = useQuery<any, any>(GET_CUSTOMER_LEDGER, {
+        variables: { phone: inv?.customerPhone },
+        skip: !inv?.customerPhone,
+        fetchPolicy: "cache-and-network",
+    } as any);
+
+    const customer = ledgerData?.getCustomerLedger?.customer;
+    const entries = ledgerData?.getCustomerLedger?.entries || [];
 
     // Auto-poll every 5s until we get the download URL.
     // Reset pdfReadyRef whenever the saleId changes (new invoice navigation).
@@ -169,6 +181,27 @@ export default function InvoiceDetailPage() {
     const R: React.CSSProperties = { textAlign: "right" };
     const C: React.CSSProperties = { textAlign: "center" };
 
+    const handleDownloadClick = async (e: React.MouseEvent) => {
+        e.preventDefault();
+        try {
+            // 1. Reset state to show "Generating"
+            pdfReadyRef.current = false;
+            setDownloadUrl(null);
+
+            // 2. Trigger fresh generation on backend
+            await regeneratePdf({ variables: { saleId } });
+
+            // 3. Start polling again if not already polling
+            if (!pollRef.current) {
+                pollRef.current = setInterval(() => {
+                    if (!pdfReadyRef.current) fetchDownloadUrl();
+                }, 5000);
+            }
+        } catch (err) {
+            console.error("Failed to regenerate PDF:", err);
+        }
+    };
+
     return (
         <AuthGuard>
             {/* ── Screen nav bar (hidden on print) ── */}
@@ -178,10 +211,17 @@ export default function InvoiceDetailPage() {
                 </a>
                 <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                     {downloadUrl ? (
-                        <a href={downloadUrl} target="_blank" rel="noreferrer"
-                            className="btn btn-ghost" style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
-                            <Download size={14} /> Download PDF
-                        </a>
+                        <div style={{ display: "flex", gap: 8 }}>
+                            <a href={downloadUrl} target="_blank" rel="noreferrer"
+                                className="btn btn-primary" style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
+                                <Download size={14} /> Download PDF
+                            </a>
+                            <button onClick={handleDownloadClick}
+                                disabled={regenerating}
+                                className="btn btn-ghost" style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
+                                <RefreshCw size={14} className={regenerating ? "animate-spin" : ""} /> {regenerating ? "Regenerating..." : "Update Balance & Download"}
+                            </button>
+                        </div>
                     ) : (
                         <span style={{
                             display: "flex", alignItems: "center", gap: 7,
@@ -191,7 +231,7 @@ export default function InvoiceDetailPage() {
                             animation: "pdfPulse 2s ease-in-out infinite",
                         }}>
                             <Loader2 size={13} style={{ animation: "spin 0.8s linear infinite" }} />
-                            {urlLoading ? "Checking PDF…" : "Generating PDF…"}
+                            {urlLoading || regenerating ? "Regenerating PDF…" : "Generating PDF…"}
                         </span>
                     )}
                 </div>
@@ -381,10 +421,58 @@ export default function InvoiceDetailPage() {
                                     <td style={{ padding: "4px 8px", fontWeight: "bold", color: "#006600", borderTop: "1px solid #000" }}>Amt. Paid</td>
                                     <td style={{ padding: "4px 8px", textAlign: "right", fontWeight: "bold", color: "#006600", borderTop: "1px solid #000", width: 100 }}>{f2(amountPaid)}</td>
                                  </tr>
-                                 <tr style={{ background: balanceDue > 0 ? "#fff0f0" : "#f0fff0" }}>
-                                    <td style={{ padding: "4px 8px", fontWeight: "bold", color: balanceDue > 0 ? "#cc0000" : "#006600", borderTop: "1px solid #000" }}>Balance / Pending</td>
-                                    <td style={{ padding: "4px 8px", textAlign: "right", fontWeight: "bold", color: balanceDue > 0 ? "#cc0000" : "#006600", borderTop: "1px solid #000", width: 100 }}>{f2(balanceDue)}</td>
-                                 </tr>
+                                 {/* New Twist: Previous balance and Total Pending */}
+                                 {(() => {
+                                     // Find all other pending invoices
+                                     const otherPending = entries.filter(
+                                         (e: any) => e.entryType === "INVOICE" && e.saleId !== saleId && e.description !== inv?.description
+                                     ).map((e: any) => {
+                                         const eDue = e.amount - (e.amountPaid ?? e.amount);
+                                         return { description: e.description, due: eDue };
+                                     }).filter((e: any) => e.due > 0.01);
+
+                                     // Calculate previous balance correctly: sum of other dues minus all payments/advances/returns
+                                     let prevBal = 0;
+                                     entries.forEach((e: any) => {
+                                         // Skip current invoice
+                                         if (e.saleId === saleId || e.description === inv?.description) return;
+                                         
+                                         if (e.entryType === "INVOICE") {
+                                             prevBal += (e.amount - (e.amountPaid ?? e.amount));
+                                         } else if (["PAYMENT", "ADVANCE", "RETURN"].includes(e.entryType)) {
+                                             prevBal -= e.amount;
+                                         }
+                                     });
+
+                                     const totalPending = balanceDue + prevBal;
+
+                                     return (
+                                         <>
+                                             <tr style={{ background: balanceDue > 0 ? "#fff0f0" : "#f0fff0" }}>
+                                                 <td style={{ padding: "4px 8px", fontWeight: "bold", color: balanceDue > 0 ? "#cc0000" : "#006600", borderTop: "1px solid #000" }}>Current Bill Pending</td>
+                                                 <td style={{ padding: "4px 8px", textAlign: "right", fontWeight: "bold", color: balanceDue > 0 ? "#cc0000" : "#006600", borderTop: "1px solid #000", width: 100 }}>{f2(balanceDue)}</td>
+                                             </tr>
+                                             {Math.abs(prevBal) > 0.01 && (
+                                                 <>
+                                                     <tr>
+                                                         <td style={{ padding: "4px 8px", fontWeight: "bold", color: prevBal > 0 ? "#cc0000" : "#006600", borderTop: "1px solid #000" }}>Previous Balance</td>
+                                                         <td style={{ padding: "4px 8px", textAlign: "right", fontWeight: "bold", color: prevBal > 0 ? "#cc0000" : "#006600", borderTop: "1px solid #000", width: 100 }}>{f2(Math.abs(prevBal))}</td>
+                                                     </tr>
+                                                     {otherPending.map((p: any, idx: number) => (
+                                                         <tr key={idx} style={{ fontSize: 7, color: "#666", fontStyle: "italic" }}>
+                                                             <td style={{ padding: "2px 8px 2px 20px" }}>↳ {p.description}</td>
+                                                             <td style={{ padding: "2px 8px", textAlign: "right" }}>{f2(p.due)}</td>
+                                                         </tr>
+                                                     ))}
+                                                 </>
+                                             )}
+                                             <tr style={{ background: "#f0f0f0", borderTop: "2px solid #000" }}>
+                                                 <td style={{ padding: "6px 8px", fontWeight: "bold", fontSize: 11 }}>TOTAL PENDING</td>
+                                                 <td style={{ padding: "6px 8px", textAlign: "right", fontWeight: "bold", fontSize: 11, width: 100 }}>₹{f2(Math.abs(totalPending))}</td>
+                                             </tr>
+                                         </>
+                                     );
+                                 })()}
                             </tbody>
                         </table>
                     </div>
