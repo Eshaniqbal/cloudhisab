@@ -30,7 +30,7 @@ const avatarGrad = (name: string) => {
 const ENTRY_CFG: Record<string, { color: string; bg: string; label: string; icon: any; sign: string }> = {
     INVOICE: { color: "var(--indigo-l)", bg: "rgba(99,102,241,0.12)", label: "Invoice", icon: Receipt, sign: "−" },
     PAYMENT: { color: "var(--green)", bg: "rgba(16,185,129,0.12)", label: "Payment", icon: CheckCircle2, sign: "+" },
-    ADVANCE: { color: "var(--yellow)", bg: "rgba(245,158,11,0.12)", label: "Advance", icon: Wallet, sign: "+" },
+    ADVANCE: { color: "var(--green)", bg: "rgba(16,185,129,0.12)", label: "Payment", icon: Wallet, sign: "+" },
     RETURN: { color: "#f87171", bg: "rgba(239,68,68,0.12)", label: "Return", icon: RotateCcw, sign: "+" },
 };
 
@@ -225,8 +225,8 @@ export default function CustomersPage() {
                                     {Math.abs(prevBal) > 0.01 && (
                                         <>
                                             <div style={{ padding: "12px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: otherPending.length > 0 ? "none" : "1px solid var(--border)" }}>
-                                                <span style={{ fontSize: 13, color: "var(--muted)" }}>{prevBal < 0 ? "Previous Advance" : "Previous Balance"}</span>
-                                                <span style={{ fontSize: 14, fontWeight: 700, color: prevBal < 0 ? "var(--yellow)" : "var(--red)" }}>₹{fmt(Math.abs(prevBal))}</span>
+                                                <span style={{ fontSize: 13, color: "var(--muted)" }}>Previous Balance</span>
+                                                <span style={{ fontSize: 14, fontWeight: 700, color: prevBal > 0 ? "var(--red)" : "var(--green)" }}>₹{fmt(Math.abs(prevBal))}</span>
                                             </div>
                                             {otherPending.map((p, idx) => (
                                                 <div key={idx} style={{ padding: "4px 18px 4px 32px", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 11, color: "var(--muted)", fontStyle: "italic", borderBottom: idx === otherPending.length - 1 ? "1px solid var(--border)" : "none" }}>
@@ -237,8 +237,8 @@ export default function CustomersPage() {
                                         </>
                                     )}
                                     <div style={{ padding: "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--bg-input)", borderTop: "2px solid var(--border)" }}>
-                                        <span style={{ fontSize: 14, fontWeight: 800 }}>{totalPending < 0 ? "TOTAL ADVANCE" : "TOTAL PENDING"}</span>
-                                        <span style={{ fontSize: 20, fontWeight: 900, color: totalPending < 0 ? "var(--yellow)" : "var(--red)" }}>₹{fmt(Math.abs(totalPending))}</span>
+                                        <span style={{ fontSize: 14, fontWeight: 800 }}>TOTAL PENDING</span>
+                                        <span style={{ fontSize: 20, fontWeight: 900, color: totalPending > 0 ? "var(--red)" : "var(--green)" }}>₹{fmt(Math.abs(totalPending))}</span>
                                     </div>
                                 </>
                             );
@@ -708,13 +708,6 @@ export default function CustomersPage() {
                                     </div>
                                     {/* Action buttons */}
                                     <div style={{ display: "flex", gap: 12 }}>
-                                        <button
-                                            style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 20px", borderRadius: 12, fontSize: 14, fontWeight: 800, cursor: "pointer", transition: "all 0.15s", background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.25)", color: "var(--yellow)" }}
-                                            onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.background = "rgba(245,158,11,0.15)"}
-                                            onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.background = "rgba(245,158,11,0.08)"}
-                                            onClick={() => { setPayModal("advance"); setModalAmt(""); setModalErr(""); }}>
-                                            <Wallet size={15} /> Add Advance
-                                        </button>
                                         <button className="btn btn-primary"
                                             style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 24px", borderRadius: 12, fontSize: 14, fontWeight: 800, boxShadow: "0 8px 24px rgba(79,70,229,0.35)" }}
                                             onClick={() => { setPayModal("payment"); setModalAmt(""); setModalErr(""); }}>
@@ -727,24 +720,15 @@ export default function CustomersPage() {
                                 <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12, position: "relative", zIndex: 1 }}>
                                     {(() => {
                                         const returned = customer.totalReturned || 0;
-                                        const outstanding = customer.outstanding; // signed: +ve means customer owes us, -ve means advance
-                                        const isAdvance = outstanding < 0;
-                                        const balanceDue = outstanding > 0 ? outstanding : 0;
-                                        const advanceBalance = outstanding < 0 ? Math.abs(outstanding) : 0;
+                                        const outstanding = customer.outstanding; // signed: +ve means customer owes us
+                                        const balanceDue = Math.max(0, outstanding);
                                         const totalPaid = (customer.totalPaid || 0) + (customer.advance || 0);
                                         
                                         return [
                                             { label: "Total Billed", val: `₹${fmt(customer.totalInvoiced)}`, color: "var(--text)", icon: <IndianRupee size={14} color="var(--indigo-l)" />, bg: "var(--bg-card)", border: "rgba(99,102,241,0.2)" },
                                             { label: "Total Returned", val: `₹${fmt(returned)}`, color: returned > 0 ? "#f87171" : "var(--muted)", icon: <RotateCcw size={14} color={returned > 0 ? "#f87171" : "var(--muted)"} />, bg: returned > 0 ? "rgba(239,68,68,0.06)" : "var(--bg-card)", border: returned > 0 ? "rgba(239,68,68,0.25)" : "rgba(99,102,241,0.2)" },
                                             { label: "Total Paid", val: `₹${fmt(totalPaid)}`, color: "var(--green)", icon: <ArrowDownLeft size={14} color="var(--green)" />, bg: "rgba(16,185,129,0.05)", border: "rgba(16,185,129,0.2)" },
-                                            isAdvance ? {
-                                                label: "Advance Balance",
-                                                val: `₹${fmt(advanceBalance)}`,
-                                                color: "var(--yellow)",
-                                                icon: <Wallet size={14} color="var(--yellow)" />,
-                                                bg: "rgba(245,158,11,0.08)",
-                                                border: "rgba(245,158,11,0.3)",
-                                            } : {
+                                            {
                                                 label: "Balance Due",
                                                 val: `₹${fmt(balanceDue)}`,
                                                 color: balanceDue > 0 ? "var(--red)" : "var(--green)",
@@ -973,9 +957,9 @@ export default function CustomersPage() {
                                                             <div style={{ fontSize: 18, fontWeight: 900, color: fullyPaid ? "var(--green)" : cfg.color, fontVariantNumeric: "tabular-nums", letterSpacing: "-0.5px" }}>
                                                                 {cfg.sign} ₹{fmt(e.amount)}
                                                             </div>
-                                                            <div style={{ fontSize: 12, marginTop: 4, fontWeight: 800, color: e.balanceAfter > 0 ? "var(--yellow)" : "var(--red)", fontVariantNumeric: "tabular-nums", background: "var(--bg-card)", padding: "4px 8px", borderRadius: 6, display: "inline-block", border: "1px solid var(--border)" }}>
-                                                                {e.balanceAfter > 0 ? "Adv: " : "Due: "}₹{fmt(Math.abs(e.balanceAfter))}
-                                                            </div>
+                                                            <div style={{ fontSize: 12, marginTop: 4, fontWeight: 800, color: e.balanceAfter > 0 ? "var(--red)" : "var(--green)", fontVariantNumeric: "tabular-nums", background: "var(--bg-card)", padding: "4px 8px", borderRadius: 6, display: "inline-block", border: "1px solid var(--border)" }}>
+                                                                Bal: ₹{fmt(Math.abs(e.balanceAfter))}
+                                                             </div>
                                                         </div>
 
                                                         <ChevronRight size={18} color="var(--border)" style={{ marginLeft: 8 }} />

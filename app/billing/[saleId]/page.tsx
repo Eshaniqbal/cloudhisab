@@ -455,8 +455,8 @@ export default function InvoiceDetailPage() {
                                              {Math.abs(prevBal) > 0.01 && (
                                                  <>
                                                      <tr>
-                                                         <td style={{ padding: "4px 8px", fontWeight: "bold", color: prevBal < 0 ? "#006600" : "#cc0000", borderTop: "1px solid #000" }}>{prevBal < 0 ? "Previous Advance" : "Previous Balance"}</td>
-                                                         <td style={{ padding: "4px 8px", textAlign: "right", fontWeight: "bold", color: prevBal < 0 ? "#006600" : "#cc0000", borderTop: "1px solid #000", width: 100 }}>{f2(Math.abs(prevBal))}</td>
+                                                         <td style={{ padding: "4px 8px", fontWeight: "bold", color: prevBal > 0 ? "#cc0000" : "#006600", borderTop: "1px solid #000" }}>Previous Balance</td>
+                                                         <td style={{ padding: "4px 8px", textAlign: "right", fontWeight: "bold", color: prevBal > 0 ? "#cc0000" : "#006600", borderTop: "1px solid #000", width: 100 }}>{f2(Math.abs(prevBal))}</td>
                                                      </tr>
                                                      {otherPending.map((p: any, idx: number) => (
                                                          <tr key={idx} style={{ fontSize: 7, color: "#666", fontStyle: "italic" }}>
@@ -467,7 +467,7 @@ export default function InvoiceDetailPage() {
                                                  </>
                                              )}
                                              <tr style={{ background: "#f0f0f0", borderTop: "2px solid #000" }}>
-                                                 <td style={{ padding: "6px 8px", fontWeight: "bold", fontSize: 11 }}>{totalPending < 0 ? "TOTAL ADVANCE" : "TOTAL PENDING"}</td>
+                                                 <td style={{ padding: "6px 8px", fontWeight: "bold", fontSize: 11 }}>TOTAL PENDING</td>
                                                  <td style={{ padding: "6px 8px", textAlign: "right", fontWeight: "bold", fontSize: 11, width: 100 }}>₹{f2(Math.abs(totalPending))}</td>
                                              </tr>
                                          </>
