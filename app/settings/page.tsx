@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@apollo/client";
 import { AuthGuard } from "@/components/AuthGuard";
 import { GET_TENANT_PROFILE } from "@/lib/graphql/queries";
@@ -31,6 +31,188 @@ const FIELDS: Field[] = [
     { key: "state", label: "State", icon: MapPin, placeholder: "State" },
     { key: "pincode", label: "Pincode", icon: Hash, placeholder: "6 digits", maxLength: 6 },
 ];
+
+// ── Plan metadata lookup ──────────────────────────────────────
+const PLAN_META: Record<string, { label: string; price: string; period: string; color: string }> = {
+    MONTHLY_99: { label: "Monthly",    price: "₹99",   period: "/month", color: "#6366f1" },
+    MONTHLY:    { label: "Monthly",    price: "₹299",  period: "/month", color: "#6366f1" },
+    BIANNUAL:   { label: "6-Month",    price: "₹279",  period: "/month", color: "#f59e0b" },
+    YEARLY:     { label: "Yearly",     price: "₹250",  period: "/month", color: "#10b981" },
+    NONE:       { label: "No Plan",    price: "₹0",    period: "",       color: "#6b7280" },
+    FREE:       { label: "Free",       price: "₹0",    period: "",       color: "#6b7280" },
+};
+
+const STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
+    active:        { label: "Active",        color: "#10b981", bg: "rgba(16,185,129,0.12)" },
+    trialing:      { label: "Free Trial",    color: "#6366f1", bg: "rgba(99,102,241,0.12)" },
+    authenticated: { label: "Authenticated", color: "#10b981", bg: "rgba(16,185,129,0.12)" },
+    cancelled:     { label: "Cancelled",     color: "#f87171", bg: "rgba(239,68,68,0.12)" },
+    halted:        { label: "Halted",        color: "#f59e0b", bg: "rgba(245,158,11,0.12)" },
+    inactive:      { label: "Inactive",      color: "#6b7280", bg: "rgba(107,114,128,0.12)" },
+    completed:     { label: "Completed",     color: "#6b7280", bg: "rgba(107,114,128,0.12)" },
+};
+
+function fmtDate(iso?: string) {
+    if (!iso) return "—";
+    return new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" });
+}
+
+function daysLeft(iso?: string): number | null {
+    if (!iso) return null;
+    const diff = new Date(iso).getTime() - Date.now();
+    return Math.max(0, Math.ceil(diff / 86400000));
+}
+
+function BillingDashboard({ profile, onChangePlan, onCancel, cancelling }: {
+    profile: any;
+    onChangePlan: () => void;
+    onCancel: () => void;
+    cancelling: boolean;
+}) {
+    const plan   = PLAN_META[profile.plan] ?? PLAN_META.NONE;
+    const status = STATUS_META[profile.subStatus] ?? STATUS_META.inactive;
+    const isActive = ["active", "trialing", "authenticated"].includes(profile.subStatus);
+    const isTrialing = profile.subStatus === "trialing";
+    const trialDays  = daysLeft(profile.trialEndsAt);
+    const nextBillDays = isTrialing ? null : daysLeft(profile.currentPeriodEnd);
+
+    const card: React.CSSProperties = {
+        padding: "18px 20px", borderRadius: 16,
+        background: "var(--bg-card2)", border: "1px solid var(--border)",
+        display: "flex", flexDirection: "column", gap: 6,
+    };
+    const label: React.CSSProperties = {
+        fontSize: 10, fontWeight: 700, textTransform: "uppercase",
+        letterSpacing: "0.07em", color: "var(--muted)", marginBottom: 2,
+    };
+    const val: React.CSSProperties = { fontSize: 16, fontWeight: 800, color: "var(--text)" };
+    const sub: React.CSSProperties = { fontSize: 11, color: "var(--muted)", marginTop: 1 };
+
+    return (
+        <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+
+            {/* ── Hero plan card ── */}
+            <div style={{
+                borderRadius: 18, border: `1px solid ${plan.color}33`,
+                background: `linear-gradient(135deg, ${plan.color}0d 0%, transparent 60%)`,
+                padding: "24px 28px",
+                display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 20,
+                position: "relative", overflow: "hidden",
+            }}>
+                <div style={{ position: "absolute", top: -30, right: -30, width: 160, height: 160, borderRadius: "50%", background: `radial-gradient(circle, ${plan.color}22 0%, transparent 70%)`, pointerEvents: "none" }} />
+                <div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 6 }}>Current Plan</div>
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 8 }}>
+                        <span style={{ fontSize: 36, fontWeight: 900, color: "var(--text)", lineHeight: 1 }}>{plan.label}</span>
+                        <span style={{ fontSize: 15, fontWeight: 700, color: plan.color }}>{plan.price}</span>
+                        <span style={{ fontSize: 12, color: "var(--muted)" }}>{plan.period}</span>
+                    </div>
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 12px", borderRadius: 99, background: status.bg, border: `1px solid ${status.color}33` }}>
+                        <div style={{ width: 7, height: 7, borderRadius: "50%", background: status.color, boxShadow: `0 0 6px ${status.color}` }} />
+                        <span style={{ fontSize: 11, fontWeight: 700, color: status.color }}>{status.label}</span>
+                    </div>
+                </div>
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                    <button onClick={onChangePlan} style={{
+                        padding: "10px 20px", borderRadius: 12, fontSize: 13, fontWeight: 700,
+                        background: `linear-gradient(135deg, ${plan.color}, ${plan.color}cc)`,
+                        color: "#fff", border: "none", cursor: "pointer",
+                        boxShadow: `0 4px 14px ${plan.color}44`,
+                    }}>
+                        <Zap size={13} style={{ display: "inline", marginRight: 6 }} />
+                        {profile.plan === "NONE" ? "Choose a Plan" : "Change Plan"}
+                    </button>
+                    {isActive && (
+                        <button onClick={onCancel} disabled={cancelling} style={{
+                            padding: "10px 18px", borderRadius: 12, fontSize: 13, fontWeight: 600,
+                            background: "var(--bg-input)", color: "#f87171",
+                            border: "1px solid rgba(239,68,68,0.25)", cursor: "pointer",
+                        }}>
+                            {cancelling ? "Cancelling…" : "Cancel"}
+                        </button>
+                    )}
+                </div>
+            </div>
+
+            {/* ── Stat grid ── */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 14 }}>
+
+                {/* Next Billing / Trial Ends */}
+                <div style={card}>
+                    <div style={label}>{isTrialing ? "Trial Ends" : "Next Billing Date"}</div>
+                    <div style={val}>{fmtDate(isTrialing ? profile.trialEndsAt : profile.currentPeriodEnd)}</div>
+                    {isTrialing && trialDays !== null && (
+                        <div style={{ ...sub, color: trialDays <= 2 ? "#f87171" : trialDays <= 5 ? "#f59e0b" : "#10b981", fontWeight: 700 }}>
+                            {trialDays === 0 ? "Expires today!" : `${trialDays} day${trialDays !== 1 ? "s" : ""} left`}
+                        </div>
+                    )}
+                    {!isTrialing && nextBillDays !== null && (
+                        <div style={sub}>in {nextBillDays} day{nextBillDays !== 1 ? "s" : ""}</div>
+                    )}
+                </div>
+
+                {/* Trial end date (if active after trial) */}
+                {!isTrialing && profile.trialEndsAt && (
+                    <div style={card}>
+                        <div style={label}>Trial Ended On</div>
+                        <div style={val}>{fmtDate(profile.trialEndsAt)}</div>
+                        <div style={sub}>7-day free trial period</div>
+                    </div>
+                )}
+
+                {/* Billing Amount */}
+                <div style={card}>
+                    <div style={label}>Billing Amount</div>
+                    <div style={{ ...val, color: plan.color }}>{plan.price}</div>
+                    <div style={sub}>{plan.period ? `Charged ${plan.period}` : "No active charge"}</div>
+                </div>
+
+                {/* Member Since */}
+                <div style={card}>
+                    <div style={label}>Member Since</div>
+                    <div style={val}>{fmtDate(profile.createdAt)}</div>
+                    <div style={sub}>Account created</div>
+                </div>
+
+                {/* Subscription activated */}
+                {profile.subUpdatedAt && (
+                    <div style={card}>
+                        <div style={label}>Subscription Updated</div>
+                        <div style={val}>{fmtDate(profile.subUpdatedAt)}</div>
+                        <div style={sub}>Last status change</div>
+                    </div>
+                )}
+
+                {/* Subscription ID */}
+                {profile.razorpaySubId && (
+                    <div style={{ ...card, gridColumn: "span 2" }}>
+                        <div style={label}>Subscription ID</div>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", fontFamily: "monospace", wordBreak: "break-all" }}>
+                            {profile.razorpaySubId}
+                        </div>
+                        <div style={sub}>Razorpay reference — use this for billing disputes</div>
+                    </div>
+                )}
+            </div>
+
+            {/* ── Trial countdown bar (if trialing) ── */}
+            {isTrialing && trialDays !== null && (
+                <div style={{ padding: "16px 20px", borderRadius: 14, background: "rgba(99,102,241,0.07)", border: "1px solid rgba(99,102,241,0.18)" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: "#818cf8" }}>🎉 Free Trial Progress</span>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: "#818cf8" }}>{7 - trialDays}/7 days used</span>
+                    </div>
+                    <div style={{ height: 8, borderRadius: 99, background: "var(--bg-input)", overflow: "hidden" }}>
+                        <div style={{ height: "100%", width: `${Math.min(100, ((7 - trialDays) / 7) * 100)}%`, background: "linear-gradient(90deg,#6366f1,#818cf8)", borderRadius: 99, transition: "width 0.6s ease" }} />
+                    </div>
+                    <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 8 }}>
+                        Your free trial ends on <strong style={{ color: "var(--text)" }}>{fmtDate(profile.trialEndsAt)}</strong>. Add a payment method before it expires to avoid interruption.
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
 
 export default function SettingsPage() {
     const { data, loading, error, refetch } = useQuery<any>(GET_TENANT_PROFILE, { fetchPolicy: "cache-and-network" });
@@ -428,80 +610,16 @@ export default function SettingsPage() {
                         )}
 
                         {!showPlans ? (
-                            <>
-                                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 24, marginBottom: 32 }}>
-                                    {/* Current Plan */}
-                                    <div style={{ padding: "20px", borderRadius: 16, background: "var(--bg-card2)", border: "1px solid var(--border)" }}>
-                                        <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", marginBottom: 8 }}>Current Plan</div>
-                                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                            <div style={{ fontSize: 24, fontWeight: 900, color: "var(--text)" }}>{profile.plan}</div>
-                                            <div style={{ padding: "2px 8px", borderRadius: 6, background: ["active", "trialing", "authenticated"].includes(profile.subStatus) ? "rgba(16,185,129,0.1)" : "rgba(239,68,68,0.1)", color: ["active", "trialing", "authenticated"].includes(profile.subStatus) ? "#10b981" : "#ef4444", fontSize: 10, fontWeight: 800, textTransform: "uppercase" }}>
-                                                {profile.subStatus}
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Billing Period */}
-                                    <div style={{ padding: "20px", borderRadius: 16, background: "var(--bg-card2)", border: "1px solid var(--border)" }}>
-                                        <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", marginBottom: 8 }}>
-                                            {profile.subStatus === "trialing" ? "Trial Ends On" : "Next Billing"}
-                                        </div>
-                                        <div style={{ fontSize: 18, fontWeight: 700, color: "var(--text)" }}>
-                                            {profile.subStatus === "trialing"
-                                                ? profile.trialEndsAt ? new Date(profile.trialEndsAt).toLocaleDateString("en-IN", { day: 'numeric', month: 'long', year: 'numeric' }) : "—"
-                                                : profile.currentPeriodEnd ? new Date(profile.currentPeriodEnd).toLocaleDateString("en-IN", { day: 'numeric', month: 'long', year: 'numeric' }) : "—"
-                                            }
-                                        </div>
-                                    </div>
-
-                                    {/* ID */}
-                                    {profile.razorpaySubId && (
-                                        <div style={{ padding: "20px", borderRadius: 16, background: "var(--bg-card2)", border: "1px solid var(--border)" }}>
-                                            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", marginBottom: 8 }}>Subscription ID</div>
-                                            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", fontFamily: "monospace" }}>{profile.razorpaySubId}</div>
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Actions */}
-                                <div style={{ display: "flex", gap: 12, alignItems: "center", paddingTop: 24, borderTop: "1px solid var(--border)" }}>
-                                    <button
-                                        onClick={() => setShowPlans(true)}
-                                        style={{
-                                            display: "flex", alignItems: "center", gap: 8, padding: "10px 20px",
-                                            borderRadius: 12, background: "linear-gradient(135deg,#4f46e5,#6366f1)",
-                                            color: "#fff", fontSize: 13.5, fontWeight: 700, border: "none", cursor: "pointer",
-                                            boxShadow: "0 4px 14px rgba(79,70,229,0.3)"
-                                        }}
-                                    >
-                                        <Zap size={14} /> {profile.plan === "NONE" ? "Choose a Plan" : "Upgrade / Change Plan"}
-                                    </button>
-
-                                    {["active", "trialing", "authenticated"].includes(profile.subStatus) && (
-                                        <button
-                                            onClick={async () => {
-                                                if (confirm("Are you sure you want to cancel your subscription? Your plan will remain active until the end of the current billing period.")) {
-                                                    try {
-                                                        await cancel();
-                                                        refetch();
-                                                    } catch (e: any) {
-                                                        alert(e.message);
-                                                    }
-                                                }
-                                            }}
-                                            disabled={cancelling}
-                                            style={{
-                                                display: "flex", alignItems: "center", gap: 8, padding: "10px 20px",
-                                                borderRadius: 12, background: "var(--bg-input)",
-                                                color: "#ef4444", fontSize: 13.5, fontWeight: 600,
-                                                border: "1px solid var(--border)", cursor: "pointer"
-                                            }}
-                                        >
-                                            {cancelling ? "Cancelling..." : "Cancel Subscription"}
-                                        </button>
-                                    )}
-                                </div>
-                            </>
+                            <BillingDashboard
+                                profile={profile}
+                                onChangePlan={() => setShowPlans(true)}
+                                onCancel={async () => {
+                                    if (confirm("Are you sure you want to cancel? Your plan stays active until the billing period ends.")) {
+                                        try { await cancel(); refetch(); } catch (e: any) { alert(e.message); }
+                                    }
+                                }}
+                                cancelling={cancelling}
+                            />
                         ) : (
                             <div className="pricing-grid-settings">
                                 {PLANS.map(plan => (

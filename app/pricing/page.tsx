@@ -173,8 +173,8 @@ export default function PricingPage() {
               </thead>
               <tbody>
                 {[
-                  ["Price", "₹299/mo", "₹279/mo", "₹250/mo"],
-                  ["Billed as", "₹299 monthly", "₹1,674 once", "₹3,000 once"],
+                  ["Price", "₹99/mo", "₹279/mo", "₹250/mo"],
+                  ["Billed as", "₹99 monthly", "₹1,674 once", "₹3,000 once"],
                   ["Saving", "—", "Save ₹120", "Save ₹588"],
                   ["Free trial", "7 days ✓", "7 days ✓", "7 days ✓"],
                   ["Invoices", "Unlimited", "Unlimited", "Unlimited"],

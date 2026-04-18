@@ -4,12 +4,12 @@
 
 export const PLANS = [
     {
-        key: "MONTHLY",
+        key: "MONTHLY_99",
         name: "Monthly",
-        price: 299,
+        price: 99,
         period: "/ month",
-        billedAs: "₹299 billed monthly",
-        badge: null,
+        billedAs: "₹99 billed monthly",
+        badge: "🔥 New Price",
         highlight: false,
         saving: null,
         features: [
