@@ -423,28 +423,44 @@ export default function InvoiceDetailPage() {
                                  </tr>
                                  {/* New Twist: Previous balance and Total Pending */}
                                  {(() => {
-                                     // Find all other pending invoices
-                                     const otherPending = entries.filter(
-                                         (e: any) => e.entryType === "INVOICE" && e.saleId !== saleId && e.description !== inv?.description
-                                     ).map((e: any) => {
-                                         const eDue = e.amount - (e.amountPaid ?? e.amount);
-                                         return { description: e.description, due: eDue };
-                                     }).filter((e: any) => e.due > 0.01);
-
-                                     // Calculate previous balance correctly: sum of other dues minus all payments/advances/returns
+                                     // Calculate exact previous balance and breakdown from live customer aggregates
                                      let prevBal = 0;
+                                     let totalPending = 0;
+                                     let breakdown = { pastBills: 0, pastPaid: 0, returns: 0, advance: 0 };
+                                     
+                                     if (customer) {
+                                         const cInvoiced = customer.totalInvoiced || 0;
+                                         const cPaid = customer.totalPaid || 0;
+                                         const cReturned = customer.totalReturned || 0;
+                                         const cAdvance = customer.advance || 0;
+                                         
+                                         totalPending = cInvoiced - cPaid - cReturned - cAdvance;
+                                         prevBal = totalPending - balanceDue;
+                                     }
+                                         
+                                     let pendingBills: any[] = [];
+                                     let creditNotes: any[] = [];
+                                     let settlements = 0;
+                                     let totalPendingBills = 0;
+                                     let totalCredits = 0;
+                                     
                                      entries.forEach((e: any) => {
-                                         // Skip current invoice
-                                         if (e.saleId === saleId || e.description === inv?.description) return;
+                                         if (e.entryType === "INVOICE" && (e.saleId === saleId || e.description === inv?.description)) return;
                                          
                                          if (e.entryType === "INVOICE") {
-                                             prevBal += (e.amount - (e.amountPaid ?? e.amount));
-                                         } else if (["PAYMENT", "ADVANCE", "RETURN"].includes(e.entryType)) {
-                                             prevBal -= e.amount;
+                                             const due = e.amount - (e.amountPaid ?? e.amount);
+                                             if (due > 0.01) {
+                                                 pendingBills.push({ desc: e.description, amount: due });
+                                                 totalPendingBills += due;
+                                             }
+                                         } else if (e.entryType === "RETURN") {
+                                             creditNotes.push({ desc: e.description, amount: e.amount });
+                                             totalCredits += e.amount;
+                                         } else if (["PAYMENT", "ADVANCE"].includes(e.entryType)) {
+                                             settlements += e.amount;
+                                             totalCredits += e.amount;
                                          }
                                      });
-
-                                     const totalPending = balanceDue + prevBal;
 
                                      return (
                                          <>
@@ -458,12 +474,36 @@ export default function InvoiceDetailPage() {
                                                          <td style={{ padding: "4px 8px", fontWeight: "bold", color: prevBal > 0 ? "#cc0000" : "#006600", borderTop: "1px solid #000" }}>Previous Balance</td>
                                                          <td style={{ padding: "4px 8px", textAlign: "right", fontWeight: "bold", color: prevBal > 0 ? "#cc0000" : "#006600", borderTop: "1px solid #000", width: 100 }}>{f2(Math.abs(prevBal))}</td>
                                                      </tr>
-                                                     {otherPending.map((p: any, idx: number) => (
-                                                         <tr key={idx} style={{ fontSize: 7, color: "#666", fontStyle: "italic" }}>
-                                                             <td style={{ padding: "2px 8px 2px 20px" }}>↳ {p.description}</td>
-                                                             <td style={{ padding: "2px 8px", textAlign: "right" }}>{f2(p.due)}</td>
+                                                     {pendingBills.map((b: any, idx: number) => (
+                                                         <tr key={`bill-${idx}`} style={{ fontSize: 8, color: "#666", fontStyle: "italic" }}>
+                                                             <td style={{ padding: "2px 8px 2px 20px" }}>↳ {b.desc}</td>
+                                                             <td style={{ padding: "2px 8px", textAlign: "right" }}>{f2(b.amount)}</td>
                                                          </tr>
                                                      ))}
+                                                     {pendingBills.length > 0 && (
+                                                         <tr style={{ fontSize: 8, color: "#333", fontStyle: "italic", fontWeight: "bold", background: "#f9f9f9" }}>
+                                                             <td style={{ padding: "2px 8px 2px 20px" }}>• Total Pending Bills</td>
+                                                             <td style={{ padding: "2px 8px", textAlign: "right" }}>{f2(totalPendingBills)}</td>
+                                                         </tr>
+                                                     )}
+                                                     {creditNotes.map((c: any, idx: number) => (
+                                                         <tr key={`cr-${idx}`} style={{ fontSize: 8, color: "#666", fontStyle: "italic" }}>
+                                                             <td style={{ padding: "2px 8px 2px 20px" }}>↳ {c.desc}</td>
+                                                             <td style={{ padding: "2px 8px", textAlign: "right", color: "#006600" }}>- {f2(c.amount)}</td>
+                                                         </tr>
+                                                     ))}
+                                                     {settlements > 0 && (
+                                                         <tr style={{ fontSize: 8, color: "#666", fontStyle: "italic" }}>
+                                                             <td style={{ padding: "2px 8px 2px 20px" }}>↳ Payments & Settlements</td>
+                                                             <td style={{ padding: "2px 8px", textAlign: "right", color: "#006600" }}>- {f2(settlements)}</td>
+                                                         </tr>
+                                                     )}
+                                                     {totalCredits > 0 && (
+                                                         <tr style={{ fontSize: 8, color: "#333", fontStyle: "italic", fontWeight: "bold", background: "#f9f9f9" }}>
+                                                             <td style={{ padding: "2px 8px 2px 20px" }}>• Total Settled & Credited</td>
+                                                             <td style={{ padding: "2px 8px", textAlign: "right", color: "#006600" }}>- {f2(totalCredits)}</td>
+                                                         </tr>
+                                                     )}
                                                  </>
                                              )}
                                              <tr style={{ background: "#f0f0f0", borderTop: "2px solid #000" }}>

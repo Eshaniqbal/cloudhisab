@@ -3,7 +3,7 @@ import { useState, useRef, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useLazyQuery } from "@apollo/client";
 import { AuthGuard } from "@/components/AuthGuard";
-import { LIST_RETURNS, GET_INVOICE, SEARCH_INVOICES } from "@/lib/graphql/queries";
+import { LIST_RETURNS, GET_INVOICE, SEARCH_INVOICES, GET_CUSTOMER_BY_PHONE } from "@/lib/graphql/queries";
 import { CREATE_RETURN } from "@/lib/graphql/mutations";
 import {
     RotateCcw, Plus, X, Loader2, FileText, Search,
@@ -90,6 +90,7 @@ function CreateReturnModal({ onClose, refetch }: { onClose: () => void; refetch:
 
     const [searchInvoices, { loading: searching, data: searchData }] = useLazyQuery<any>(SEARCH_INVOICES, { fetchPolicy: "network-only" });
     const [fetchInvoice, { loading: loadingInv }] = useLazyQuery<any>(GET_INVOICE);
+    const [fetchCustomer, { data: customerData }] = useLazyQuery<any>(GET_CUSTOMER_BY_PHONE);
     const [createReturn, { loading: creating }] = useMutation<any, any>(CREATE_RETURN);
 
     const suggestions = searchData?.searchInvoices?.items || [];
@@ -122,6 +123,11 @@ function CreateReturnModal({ onClose, refetch }: { onClose: () => void; refetch:
         r.data.getInvoice.items.forEach((it: any) => { init[it.productId] = 0; });
         setSelectedItems(init);
         setInvoice(r.data.getInvoice);
+        
+        if (r.data.getInvoice.customerPhone) {
+            fetchCustomer({ variables: { phone: r.data.getInvoice.customerPhone } });
+        }
+        
         setStep(1);
     };
 
@@ -130,6 +136,15 @@ function CreateReturnModal({ onClose, refetch }: { onClose: () => void; refetch:
     const totalGst = invoice?.gstExempt ? 0 : (invoice?.items?.reduce((s: number, it: any) =>
         s + (it.gstRate / 100) * (it.sellingPrice || 0) * (selectedItems[it.productId] || 0), 0) || 0);
     const itemsSelected = Object.values(selectedItems).some(v => v > 0);
+
+    const customerOutstanding = customerData?.getCustomerByPhone?.outstanding || 0;
+    const hasPending = customerOutstanding > 0;
+
+    useEffect(() => {
+        if (invoice) {
+            setRefundType(hasPending ? "CREDIT_NOTE" : "CASH_REFUND");
+        }
+    }, [invoice, hasPending]);
 
     const handleSubmit = async () => {
         setError("");
@@ -162,7 +177,9 @@ function CreateReturnModal({ onClose, refetch }: { onClose: () => void; refetch:
                 </div>
                 <div style={{ fontSize: 22, fontWeight: 900, marginBottom: 6, letterSpacing: "-0.3px" }}>Return Processed!</div>
                 <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 28 }}>
-                    Credit note has been issued successfully
+                    {success.refundType === "CREDIT_NOTE" 
+                        ? "Amount has been adjusted against pending balance."
+                        : "Cash refund has been processed."}
                 </div>
 
                 {/* CN card */}
@@ -410,17 +427,31 @@ function CreateReturnModal({ onClose, refetch }: { onClose: () => void; refetch:
                         </div>
                     </div>
 
-                    {/* Refund type */}
+                    {/* Refund type - Auto calculated */}
                     <div>
                         <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--muted)", marginBottom: 10 }}>Refund Method</div>
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                            {[{ key: "CREDIT_NOTE", label: "Credit Note", icon: <ClipboardList size={15} color="#818cf8" /> }, { key: "CASH_REFUND", label: "Cash Refund", icon: <Banknote size={15} color="#10b981" /> }].map(rt => (
-                                <button key={rt.key} type="button" onClick={() => setRefundType(rt.key)}
-                                    style={{ padding: "11px 14px", borderRadius: 12, border: `1.5px solid ${refundType === rt.key ? "rgba(99,102,241,0.35)" : "var(--border)"}`, background: refundType === rt.key ? "rgba(99,102,241,0.08)" : "var(--bg-card2)", cursor: "pointer", display: "flex", alignItems: "center", gap: 10, transition: "all 0.15s" }}>
-                                    {rt.icon}
-                                    <span style={{ fontSize: 13, fontWeight: refundType === rt.key ? 700 : 500, color: refundType === rt.key ? "var(--text)" : "var(--muted)" }}>{rt.label}</span>
-                                </button>
-                            ))}
+                        <div style={{ padding: "14px 16px", borderRadius: 12, background: "var(--bg-card2)", border: "1px solid var(--border)" }}>
+                            {hasPending ? (
+                                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                                    <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(99,102,241,0.1)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                                        <ClipboardList size={16} color="var(--indigo-l)" />
+                                    </div>
+                                    <div>
+                                        <div style={{ fontSize: 13.5, fontWeight: 700 }}>Deduct from Balance</div>
+                                        <div style={{ fontSize: 11.5, color: "var(--muted)" }}>Customer owes {fmt(customerOutstanding)}. Amount will be adjusted against their pending balance.</div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                                    <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(16,185,129,0.1)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                                        <Banknote size={16} color="var(--green)" />
+                                    </div>
+                                    <div>
+                                        <div style={{ fontSize: 13.5, fontWeight: 700 }}>Cash Refund</div>
+                                        <div style={{ fontSize: 11.5, color: "var(--muted)" }}>Customer has no pending balance. Amount will be refunded via cash.</div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
 
