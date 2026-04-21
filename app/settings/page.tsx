@@ -632,13 +632,15 @@ export default function SettingsPage() {
                                         onSelect={async (key) => {
                                             setMessage(null);
                                             try {
-                                                await subscribe(key, () => {
+                                                await subscribe(key, (isTrial) => {
                                                     // On Success callback
-                                                    router.push("/dashboard");
+                                                    const msg = isTrial
+                                                        ? "✅ Subscription started! Your 7-day free trial is active."
+                                                        : "✅ Plan activated! Billing will begin at the next cycle.";
+                                                    setMessage(msg);
+                                                    refetch();
+                                                    setTimeout(() => router.push("/dashboard"), 1500);
                                                 });
-                                                setMessage("✅ Subscription started! Your 7-day free trial is active.");
-                                                refetch();
-                                                setTimeout(() => router.push("/dashboard"), 1500);
                                             } catch (e: any) {
                                                 setMessage(`❌ ${e.message}`);
                                             }

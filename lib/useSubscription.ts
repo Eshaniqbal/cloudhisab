@@ -30,6 +30,7 @@ const CREATE_SUBSCRIPTION = gql`
       subscriptionId
       planId
       shortUrl
+      isTrial
     }
   }
 `;
@@ -55,6 +56,7 @@ export interface CreateSubscriptionResult {
     subscriptionId: string;
     planId: string;
     shortUrl: string;
+    isTrial: boolean;
 }
 
 // ── Hook ───────────────────────────────────────────────────────────────
@@ -78,7 +80,7 @@ export function useSubscription() {
      * Creates a Razorpay subscription and opens the checkout modal.
      * planKey = "MONTHLY" | "BIANNUAL" | "YEARLY"
      */
-    async function subscribe(planKey: string, onSuccess?: () => void): Promise<void> {
+    async function subscribe(planKey: string, onSuccess?: (isTrial: boolean) => void): Promise<void> {
         const result = await createSubMutation({
             variables: { input: { planKey } },
         });
@@ -86,18 +88,28 @@ export function useSubscription() {
         const sub = result.data?.createSubscription;
         if (!sub) throw new Error("Failed to create subscription");
 
+        const description = sub.isTrial
+            ? `${planKey} Subscription — 7-day free trial included`
+            : `${planKey} Plan — Billing starts immediately`;
+
         // Open Razorpay checkout in a new tab if SDK unavailable
         if (typeof window !== "undefined" && (window as any).Razorpay) {
             const rzp = new (window as any).Razorpay({
                 key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
                 subscription_id: sub.subscriptionId,
                 name: "CloudHisaab",
-                description: `${planKey} Subscription — 7-day free trial`,
+                description,
                 image: "/logo.png",
                 handler: async function () {
                     // Payment authorised — refetch status
                     await refetch();
-                    if (onSuccess) onSuccess();
+                    if (onSuccess) onSuccess(sub.isTrial);
+                },
+                modal: {
+                    // If user closes modal without paying, refetch to sync real status
+                    ondismiss: async function () {
+                        await refetch();
+                    },
                 },
                 prefill: {},
                 theme: { color: "#4f46e5" },
