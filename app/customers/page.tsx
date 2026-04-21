@@ -328,16 +328,62 @@ export default function CustomersPage() {
             {statementEntry && <StatementModal entry={statementEntry} />}
             <style>{`
                 @keyframes spin { to { transform: rotate(360deg); } }
-                @keyframes slideDown { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
-                @keyframes fadeInScale { from { opacity:0; transform:scale(0.95); } to { opacity:1; transform:scale(1); } }
-                .glass-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 20px; box-shadow: 0 8px 32px rgba(0,0,0,0.2); }
-                .customer-row { transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1); }
-                .customer-row:hover:not(.active) { transform: translateX(4px); border-color: rgba(99,102,241,0.3); background: rgba(79,70,229,0.04); }
-                .customer-row.active { border-color: rgba(99,102,241,0.6); background: rgba(79,70,229,0.1); box-shadow: 0 4px 16px rgba(79,70,229,0.15); }
+                @keyframes slideDown { from { opacity:0; transform:translateY(-10px); } to { opacity:1; transform:translateY(0); } }
+                @keyframes fadeInScale { from { opacity:0; transform:scale(0.96); } to { opacity:1; transform:scale(1); } }
+                @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+                .glass-card { 
+                    background: var(--bg-card); 
+                    border: 1px solid var(--border); 
+                    border-radius: 24px; 
+                    box-shadow: 0 12px 48px rgba(0,0,0,0.3);
+                    position: relative;
+                    overflow: hidden;
+                }
+                .glass-card::before {
+                    content: "";
+                    position: absolute;
+                    top: 0; left: 0; right: 0; height: 1px;
+                    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+                    pointer-events: none;
+                }
+
+                .customer-row { 
+                    transition: all 0.3s cubic-bezier(0.2, 1, 0.3, 1); 
+                    position: relative;
+                }
+                .customer-row:hover:not(.active) { 
+                    transform: translateY(-2px); 
+                    border-color: rgba(99,102,241,0.4); 
+                    background: var(--bg-card2);
+                    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+                }
+                .customer-row.active { 
+                    border-color: var(--indigo-l); 
+                    background: rgba(79,70,229,0.12); 
+                    box-shadow: 0 12px 32px rgba(79,70,229,0.18); 
+                }
+
+                .stat-pill {
+                    padding: 12px 16px;
+                    border-radius: 18px;
+                    background: var(--bg-card);
+                    border: 1px solid var(--border);
+                    transition: all 0.2s ease;
+                }
+                .stat-pill:hover {
+                    border-color: var(--indigo-l);
+                    transform: translateY(-2px);
+                }
+
+                .search-container {
+                    position: relative;
+                    transition: all 0.2s ease;
+                }
+
                 ::-webkit-scrollbar { width: 6px; }
                 ::-webkit-scrollbar-track { background: transparent; }
-                ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
-                ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+                ::-webkit-scrollbar-thumb { background: rgba(99,102,241,0.2); border-radius: 10px; }
+                ::-webkit-scrollbar-thumb:hover { background: rgba(99,102,241,0.4); }
             `}</style>
 
             {/* ═══ Delete Confirm Dialog ═══ */}
@@ -506,45 +552,61 @@ export default function CustomersPage() {
                 {/* ═══════════════════════════════════════════
                     LEFT — Customer panel
                 ═══════════════════════════════════════════ */}
-                <div style={{ width: 340, flexShrink: 0, display: "flex", flexDirection: "column", gap: 20, height: "100%" }}>
+                <div style={{ width: 360, flexShrink: 0, display: "flex", flexDirection: "column", gap: 20, height: "100%" }}>
 
                     {/* Left Header Box */}
-                    <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 20, padding: "20px", display: "flex", flexDirection: "column", gap: 16, position: "relative", overflow: "hidden" }}>
-                        <div style={{ position: "absolute", top: -30, right: -30, width: 120, height: 120, borderRadius: "50%", background: "radial-gradient(circle, rgba(79,70,229,0.15) 0%, transparent 70%)", pointerEvents: "none" }} />
-
-                        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                            <div style={{ width: 44, height: 44, borderRadius: 14, background: "linear-gradient(135deg,var(--indigo),#6366f1)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 8px 20px rgba(79,70,229,0.4)" }}>
-                                <Users size={20} color="#fff" />
-                            </div>
-                            <div>
-                                <h1 style={{ fontSize: 18, fontWeight: 900, color: "var(--text)", letterSpacing: "-0.3px" }}>Customers</h1>
-                                <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>{listData?.listCustomers?.total || 0} registered</p>
-                            </div>
-                        </div>
-
-                        {/* Summary strip */}
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                            {[
-                                { label: "Total Billed", val: fmtK(totalInvoiced), color: "var(--indigo-l)", bg: "rgba(99,102,241,0.08)", border: "rgba(99,102,241,0.2)" },
-                                { label: "Outstanding", val: fmtK(totalOutstanding), color: totalOutstanding > 0 ? "var(--red)" : "var(--green)", bg: totalOutstanding > 0 ? "rgba(239,68,68,0.08)" : "rgba(16,185,129,0.08)", border: totalOutstanding > 0 ? "rgba(239,68,68,0.2)" : "rgba(16,185,129,0.2)" },
-                            ].map(s => (
-                                <div key={s.label} style={{ background: s.bg, border: `1px solid ${s.border}`, borderRadius: 12, padding: "12px 14px" }}>
-                                    <div style={{ fontSize: 10.5, fontWeight: 700, color: "var(--muted)", marginBottom: 4 }}>{s.label}</div>
-                                    <div style={{ fontSize: 16, fontWeight: 900, color: s.color, fontVariantNumeric: "tabular-nums" }}>{s.val}</div>
+                    <div className="glass-card" style={{ padding: "24px", display: "flex", flexDirection: "column", gap: 20, background: "var(--bg-card)" }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                                <div style={{ 
+                                    width: 48, height: 48, borderRadius: 16, 
+                                    background: "linear-gradient(135deg, var(--indigo) 0%, #818cf8 100%)", 
+                                    display: "flex", alignItems: "center", justifyContent: "center", 
+                                    boxShadow: "0 8px 24px rgba(79,70,229,0.4)" 
+                                }}>
+                                    <Users size={22} color="#fff" />
                                 </div>
-                            ))}
+                                <div>
+                                    <h1 style={{ fontSize: 20, fontWeight: 900, color: "var(--text)", letterSpacing: "-0.5px" }}>Customers</h1>
+                                    <div style={{ fontSize: 12, color: "var(--muted)", display: "flex", alignItems: "center", gap: 5, marginTop: 2 }}>
+                                        <div style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--green)" }} />
+                                        {listData?.listCustomers?.total || 0} total active
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
-                        {/* Search */}
-                        <div style={{ position: "relative" }}>
-                            <Search size={14} style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", color: "var(--muted)", pointerEvents: "none" }} />
-                            <input className="input" style={{ paddingLeft: 38, fontSize: 13, background: "var(--bg-input)", border: "1px solid var(--border)", borderRadius: 12 }}
-                                placeholder="Search name or phone…" value={search}
+                        {/* Summary Cards */}
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                            <div className="stat-pill" style={{ background: "rgba(99,102,241,0.05)" }}>
+                                <div style={{ fontSize: 10, fontWeight: 800, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Total Billed</div>
+                                <div style={{ fontSize: 18, fontWeight: 900, color: "var(--indigo-l)", letterSpacing: "-0.5px" }}>{fmtK(totalInvoiced)}</div>
+                            </div>
+                            <div className="stat-pill" style={{ background: totalOutstanding > 0 ? "rgba(239,68,68,0.05)" : "rgba(16,185,129,0.05)" }}>
+                                <div style={{ fontSize: 10, fontWeight: 800, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Outstanding</div>
+                                <div style={{ fontSize: 18, fontWeight: 900, color: totalOutstanding > 0 ? "var(--red)" : "var(--green)", letterSpacing: "-0.5px" }}>{fmtK(totalOutstanding)}</div>
+                            </div>
+                        </div>
+
+                        {/* Search Input */}
+                        <div className="search-container">
+                            <Search size={16} style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", color: "var(--muted)", pointerEvents: "none" }} />
+                            <input className="input" 
+                                style={{ 
+                                    paddingLeft: 44, paddingRight: 40, height: 48, fontSize: 14, 
+                                    background: "var(--bg-input)", border: "1px solid var(--border)", 
+                                    borderRadius: 16, transition: "all 0.2s" 
+                                }}
+                                placeholder="Search by name or phone…" value={search}
                                 onChange={e => setSearch(e.target.value)} />
                             {search && (
                                 <button onClick={() => setSearch("")}
-                                    style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: 4, borderRadius: 6 }}
-                                    onMouseEnter={e => e.currentTarget.style.background = "var(--bg-card2)"} onMouseLeave={e => e.currentTarget.style.background = "none"}
+                                    style={{ 
+                                        position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", 
+                                        background: "var(--bg-card2)", border: "none", cursor: "pointer", 
+                                        color: "var(--muted)", width: 24, height: 24, borderRadius: 8,
+                                        display: "flex", alignItems: "center", justifyContent: "center"
+                                    }}
                                 >
                                     <X size={14} />
                                 </button>
@@ -582,43 +644,63 @@ export default function CustomersPage() {
                                     className={`customer-row ${active ? "active" : ""}`}
                                     style={{
                                         background: "var(--bg-card)", border: "1px solid var(--border)",
-                                        borderRadius: 16, padding: "16px", cursor: "pointer", textAlign: "left", width: "100%",
+                                        borderRadius: 20, padding: "16px", cursor: "pointer", textAlign: "left", width: "100%",
                                     }}
                                 >
-                                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                                    <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
                                         {/* Avatar */}
-                                        <div style={{ width: 42, height: 42, borderRadius: 12, flexShrink: 0, background: avatarGrad(c.name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 900, color: "#fff", boxShadow: `0 4px 12px rgba(0,0,0,0.2)` }}>
+                                        <div style={{ 
+                                            width: 48, height: 48, borderRadius: 14, flexShrink: 0, 
+                                            background: avatarGrad(c.name), 
+                                            display: "flex", alignItems: "center", justifyContent: "center", 
+                                            fontSize: 18, fontWeight: 900, color: "#fff", 
+                                            boxShadow: `0 8px 20px rgba(0,0,0,0.25)`,
+                                            position: "relative", overflow: "hidden"
+                                        }}>
+                                            <div style={{ position: "absolute", inset: 0, background: "linear-gradient(rgba(255,255,255,0.2), transparent)" }} />
                                             {c.name.charAt(0).toUpperCase()}
                                         </div>
+                                        
                                         {/* Info */}
                                         <div style={{ flex: 1, minWidth: 0 }}>
-                                            <div style={{ fontSize: 14, fontWeight: 800, color: "var(--text)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.name}</div>
-                                            <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4, display: "flex", alignItems: "center", gap: 6 }}>
-                                                <Phone size={10} color="var(--indigo-l)" /> <span style={{ fontFamily: "monospace", fontSize: 11.5 }}>{c.phone}</span>
+                                            <div style={{ fontSize: 15, fontWeight: 800, color: "var(--text)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", letterSpacing: "-0.2px" }}>{c.name}</div>
+                                            <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2, display: "flex", alignItems: "center", gap: 6 }}>
+                                                <Phone size={11} color="var(--indigo-l)" /> 
+                                                <span style={{ fontFamily: "var(--font-mono, monospace)", letterSpacing: "0.2px" }}>{c.phone}</span>
                                             </div>
                                         </div>
+                                        
                                         {/* Balance */}
                                         <div style={{ textAlign: "right", flexShrink: 0 }}>
                                             {hasDebt ? (
-                                                <div style={{ fontSize: 14.5, fontWeight: 900, color: "var(--red)", fontVariantNumeric: "tabular-nums" }}>₹{fmt(c.outstanding)}</div>
+                                                <div style={{ fontSize: 15, fontWeight: 900, color: "var(--red)", fontVariantNumeric: "tabular-nums" }}>₹{fmt(c.outstanding)}</div>
                                             ) : (
-                                                <div style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10, fontWeight: 800, color: "var(--green)", background: "rgba(16,185,129,0.12)", padding: "4px 10px", borderRadius: 20 }}>
-                                                    <CheckCircle2 size={10} /> Settled
+                                                <div style={{ 
+                                                    display: "inline-flex", alignItems: "center", gap: 5, 
+                                                    fontSize: 10, fontWeight: 800, color: "var(--green)", 
+                                                    background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.2)",
+                                                    padding: "4px 10px", borderRadius: 20, textTransform: "uppercase", letterSpacing: "0.05em"
+                                                }}>
+                                                    <CheckCircle2 size={10} /> Paid
                                                 </div>
                                             )}
                                         </div>
                                     </div>
+                                    
                                     {/* Progress bar */}
-                                    <div style={{ marginTop: 14, background: "var(--bg-input)", borderRadius: 6, height: 4, overflow: "hidden" }}>
-                                        <div style={{
-                                            height: "100%", borderRadius: 6, transition: "width 0.5s ease",
-                                            background: "linear-gradient(90deg,var(--green),var(--green))",
-                                            width: `${paidPct}%`,
-                                        }} />
-                                    </div>
-                                    <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6 }}>
-                                        <span style={{ fontSize: 10, fontWeight: 600, color: "var(--muted)" }}>Paid {paidPct.toFixed(0)}%</span>
-                                        <span style={{ fontSize: 10, fontWeight: 600, color: "var(--muted)" }}>Total Invoiced: ₹{fmtK(c.totalInvoiced)}</span>
+                                    <div style={{ marginTop: 16 }}>
+                                        <div style={{ background: "var(--bg-input)", borderRadius: 10, height: 6, overflow: "hidden", position: "relative" }}>
+                                            <div style={{
+                                                height: "100%", borderRadius: 10, transition: "width 0.8s cubic-bezier(0.2, 1, 0.3, 1)",
+                                                background: "linear-gradient(90deg, #10b981 0%, #34d399 100%)",
+                                                width: `${paidPct}%`,
+                                                boxShadow: "0 0 10px rgba(16,185,129,0.3)"
+                                            }} />
+                                        </div>
+                                        <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, alignItems: "center" }}>
+                                            <span style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)" }}>{paidPct.toFixed(0)}% Settled</span>
+                                            <span style={{ fontSize: 11, fontWeight: 600, color: "var(--muted)" }}>Total: <span style={{ color: "var(--text)" }}>{fmtK(c.totalInvoiced)}</span></span>
+                                        </div>
                                     </div>
                                 </div>
                             );
@@ -633,19 +715,54 @@ export default function CustomersPage() {
 
                     {/* Empty state */}
                     {!selPhone && (
-                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", gap: 24, padding: 40, position: "relative", overflow: "hidden" }}>
-                            {/* Empty state decoration */}
-                            <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", width: 400, height: 400, background: "radial-gradient(circle, rgba(99,102,241,0.05) 0%, transparent 60%)", pointerEvents: "none" }} />
+                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", gap: 32, padding: 60, textAlign: "center" }}>
+                            <div style={{ position: "relative" }}>
+                                <div style={{ 
+                                    width: 140, height: 140, borderRadius: 40, 
+                                    background: "rgba(99,102,241,0.04)", 
+                                    border: "1px solid rgba(99,102,241,0.1)",
+                                    display: "flex", alignItems: "center", justifyContent: "center",
+                                    animation: "float 4s ease-in-out infinite",
+                                    position: "relative", zIndex: 2
+                                }}>
+                                    <div style={{ 
+                                        width: 80, height: 80, borderRadius: 24,
+                                        background: "linear-gradient(135deg, var(--indigo-l) 0%, #818cf8 100%)",
+                                        display: "flex", alignItems: "center", justifyContent: "center",
+                                        boxShadow: "0 20px 40px rgba(79,70,229,0.25)"
+                                    }}>
+                                        <Users size={40} color="#fff" />
+                                    </div>
+                                </div>
+                                {/* Decorative elements */}
+                                <div style={{ 
+                                    position: "absolute", top: -20, right: -20, width: 60, height: 60, 
+                                    borderRadius: "50%", background: "rgba(16,185,129,0.1)", 
+                                    animation: "float 5s ease-in-out infinite reverse" 
+                                }} />
+                                <div style={{ 
+                                    position: "absolute", bottom: -10, left: -30, width: 40, height: 40, 
+                                    borderRadius: 12, background: "rgba(245,158,11,0.1)", transform: "rotate(15deg)",
+                                    animation: "float 6s ease-in-out infinite 1s" 
+                                }} />
+                            </div>
 
-                            <div style={{ width: 88, height: 88, borderRadius: 28, background: "rgba(99,102,241,0.08)", border: "1px solid rgba(99,102,241,0.2)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 16px 40px rgba(79,70,229,0.1)", zIndex: 1 }}>
-                                <Users size={38} color="var(--indigo-l)" strokeWidth={1.5} />
-                            </div>
-                            <div style={{ textAlign: "center", zIndex: 1 }}>
-                                <div style={{ fontSize: 22, fontWeight: 900, color: "var(--text)", marginBottom: 8, letterSpacing: "-0.5px" }}>Select a customer</div>
-                                <div style={{ fontSize: 14, color: "var(--muted)", lineHeight: 1.6 }}>View their full ledger history, record incoming payments,<br />add advances, and track outstanding balances instantly.</div>
-                            </div>
-                            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 600, color: "var(--muted)", background: "var(--bg-input)", border: "1px solid var(--border)", borderRadius: 99, padding: "8px 20px", zIndex: 1 }}>
-                                <Sparkles size={14} color="var(--indigo-l)" /> {customers.length} total customer{customers.length !== 1 ? "s" : ""} <span style={{ color: "var(--border)" }}>|</span> {overdueCount} overdue
+                            <div style={{ maxWidth: 400 }}>
+                                <h2 style={{ fontSize: 28, fontWeight: 900, color: "var(--text)", marginBottom: 12, letterSpacing: "-0.8px" }}>Select a Customer</h2>
+                                <p style={{ fontSize: 16, color: "var(--muted)", lineHeight: 1.6, marginBottom: 32 }}>
+                                    Track full ledger history, record payments, and manage balances instantly from one central dashboard.
+                                </p>
+                                <div style={{ 
+                                    display: "inline-flex", alignItems: "center", gap: 10, 
+                                    background: "var(--bg-card2)", border: "1px solid var(--border)", 
+                                    padding: "10px 24px", borderRadius: 99, fontSize: 14, fontWeight: 700,
+                                    color: "var(--muted)", boxShadow: "0 4px 20px rgba(0,0,0,0.1)"
+                                }}>
+                                    <Sparkles size={16} color="var(--indigo-l)" />
+                                    <span>{customers.length} Customers</span>
+                                    <span style={{ color: "var(--border)" }}>•</span>
+                                    <span style={{ color: overdueCount > 0 ? "var(--red)" : "var(--green)" }}>{overdueCount} Overdue</span>
+                                </div>
                             </div>
                         </div>
                     )}
@@ -670,80 +787,101 @@ export default function CustomersPage() {
                     {selPhone && !ledgerLoading && ledger && (
                         <>
                             {/* ── Customer hero header ─────────── */}
-                            <div style={{ flexShrink: 0, padding: 32, borderBottom: "1px solid var(--border)", background: "var(--bg-card2)", position: "relative", overflow: "hidden" }}>
-                                {/* Gradient fade */}
-                                <div style={{ position: "absolute", top: 0, right: 0, width: 300, height: 300, background: "radial-gradient(circle at top right, rgba(99,102,241,0.08) 0%, transparent 60%)", pointerEvents: "none" }} />
+                            <div style={{ flexShrink: 0, padding: "40px", borderBottom: "1px solid var(--border)", background: "var(--bg-card2)", position: "relative", overflow: "hidden" }}>
+                                {/* Gradient Background Decoration */}
+                                <div style={{ position: "absolute", top: 0, right: 0, width: 400, height: 400, background: "radial-gradient(circle at top right, rgba(99,102,241,0.1) 0%, transparent 70%)", pointerEvents: "none" }} />
+                                <div style={{ position: "absolute", bottom: -100, left: -100, width: 300, height: 300, background: "radial-gradient(circle at bottom left, rgba(16,185,129,0.05) 0%, transparent 70%)", pointerEvents: "none" }} />
 
                                 {/* Name & Actions row */}
-                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 28, position: "relative", zIndex: 1 }}>
-                                    <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 36, position: "relative", zIndex: 1 }}>
+                                    <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
                                         <div style={{
-                                            width: 64, height: 64, borderRadius: 20, flexShrink: 0,
+                                            width: 80, height: 80, borderRadius: 24, flexShrink: 0,
                                             background: avatarGrad(customer.name),
                                             display: "flex", alignItems: "center", justifyContent: "center",
-                                            fontSize: 28, fontWeight: 900, color: "#fff",
-                                            boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
+                                            fontSize: 32, fontWeight: 900, color: "#fff",
+                                            boxShadow: "0 12px 32px rgba(0,0,0,0.35)",
+                                            position: "relative", overflow: "hidden"
                                         }}>
+                                            <div style={{ position: "absolute", inset: 0, background: "linear-gradient(rgba(255,255,255,0.2), transparent)" }} />
                                             {customer.name.charAt(0).toUpperCase()}
                                         </div>
                                         <div>
-                                            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 6 }}>
-                                                <h2 style={{ fontSize: 24, fontWeight: 900, color: "var(--text)", letterSpacing: "-0.5px" }}>{customer.name}</h2>
+                                            <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 8 }}>
+                                                <h2 style={{ fontSize: 32, fontWeight: 900, color: "var(--text)", letterSpacing: "-1px" }}>{customer.name}</h2>
                                                 <button
                                                     onClick={() => handleDeleteCustomer(customer.phone, customer.name)}
                                                     title="Delete customer"
-                                                    style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 8, padding: "6px 8px", cursor: "pointer", display: "flex", alignItems: "center", color: "var(--red)", transition: "all 0.15s" }}
-                                                    onMouseEnter={e => { e.currentTarget.style.background = "rgba(239,68,68,0.18)" }}
-                                                    onMouseLeave={e => { e.currentTarget.style.background = "rgba(239,68,68,0.08)" }}
+                                                    style={{ 
+                                                        background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.15)", 
+                                                        borderRadius: 10, padding: "8px", cursor: "pointer", display: "flex", 
+                                                        alignItems: "center", color: "var(--red)", transition: "all 0.2s" 
+                                                    }}
+                                                    onMouseEnter={e => { e.currentTarget.style.background = "rgba(239,68,68,0.15)"; e.currentTarget.style.transform = "scale(1.05)"; }}
+                                                    onMouseLeave={e => { e.currentTarget.style.background = "rgba(239,68,68,0.08)"; e.currentTarget.style.transform = "scale(1)"; }}
                                                 >
-                                                    <Trash2 size={14} />
+                                                    <Trash2 size={16} />
                                                 </button>
                                             </div>
-                                            <div style={{ fontSize: 13, color: "var(--muted)", display: "flex", alignItems: "center", gap: 14 }}>
-                                                <span style={{ display: "flex", alignItems: "center", gap: 6 }}><Phone size={13} color="var(--indigo-l)" /> <span style={{ fontFamily: "monospace", fontSize: 13 }}>{customer.phone}</span></span>
-                                                {customer.gstin && <span style={{ display: "flex", alignItems: "center", gap: 6 }}><CreditCard size={13} color="var(--green)" /> {customer.gstin}</span>}
-                                                <span style={{ display: "flex", alignItems: "center", gap: 6 }}><Receipt size={13} color="var(--yellow)" /> {customer.invoiceCount} invoices</span>
+                                            <div style={{ fontSize: 14, color: "var(--muted)", display: "flex", alignItems: "center", gap: 18, fontWeight: 500 }}>
+                                                <span style={{ display: "flex", alignItems: "center", gap: 8 }}><Phone size={14} color="var(--indigo-l)" /> <span style={{ fontFamily: "var(--font-mono, monospace)", color: "var(--text)" }}>{customer.phone}</span></span>
+                                                {customer.gstin && <span style={{ display: "flex", alignItems: "center", gap: 8 }}><CreditCard size={14} color="var(--green)" /> {customer.gstin}</span>}
+                                                <span style={{ display: "flex", alignItems: "center", gap: 8 }}><Receipt size={14} color="var(--yellow)" /> {customer.invoiceCount} invoices</span>
                                             </div>
                                         </div>
                                     </div>
                                     {/* Action buttons */}
-                                    <div style={{ display: "flex", gap: 12 }}>
+                                    <div style={{ display: "flex", gap: 14 }}>
                                         <button className="btn btn-primary"
-                                            style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 24px", borderRadius: 12, fontSize: 14, fontWeight: 800, boxShadow: "0 8px 24px rgba(79,70,229,0.35)" }}
+                                            style={{ 
+                                                display: "flex", alignItems: "center", gap: 10, 
+                                                padding: "14px 28px", borderRadius: 16, fontSize: 15, 
+                                                fontWeight: 800, boxShadow: "0 10px 30px rgba(79,70,229,0.4)",
+                                                transition: "all 0.3s cubic-bezier(0.2, 1, 0.3, 1)"
+                                            }}
                                             onClick={() => { setPayModal("payment"); setModalAmt(""); setModalErr(""); }}>
-                                            <CheckCircle2 size={15} /> Record Payment
+                                            <CheckCircle2 size={18} /> Record Payment
                                         </button>
                                     </div>
                                 </div>
 
                                 {/* Stat cards — 4 cards: Billed, Returned, Paid, Total Pending */}
-                                <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12, position: "relative", zIndex: 1 }}>
+                                <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16, position: "relative", zIndex: 1 }}>
                                     {(() => {
                                         const returned = customer.totalReturned || 0;
-                                        const outstanding = customer.outstanding; // signed: +ve means customer owes us
+                                        const outstanding = customer.outstanding; 
                                         const balanceDue = Math.max(0, outstanding);
                                         const totalPaid = (customer.totalPaid || 0) + (customer.advance || 0);
                                         
                                         return [
-                                            { label: "Total Billed", val: `₹${fmt(customer.totalInvoiced)}`, color: "var(--text)", icon: <IndianRupee size={14} color="var(--indigo-l)" />, bg: "var(--bg-card)", border: "rgba(99,102,241,0.2)" },
-                                            { label: "Total Returned", val: `₹${fmt(returned)}`, color: returned > 0 ? "#f87171" : "var(--muted)", icon: <RotateCcw size={14} color={returned > 0 ? "#f87171" : "var(--muted)"} />, bg: returned > 0 ? "rgba(239,68,68,0.06)" : "var(--bg-card)", border: returned > 0 ? "rgba(239,68,68,0.25)" : "rgba(99,102,241,0.2)" },
-                                            { label: "Total Paid", val: `₹${fmt(totalPaid)}`, color: "var(--green)", icon: <ArrowDownLeft size={14} color="var(--green)" />, bg: "rgba(16,185,129,0.05)", border: "rgba(16,185,129,0.2)" },
+                                            { label: "Total Billed", val: `₹${fmt(customer.totalInvoiced)}`, color: "var(--text)", icon: <IndianRupee size={16} color="var(--indigo-l)" />, bg: "var(--bg-card)", border: "var(--border)" },
+                                            { label: "Total Returned", val: `₹${fmt(returned)}`, color: returned > 0 ? "#f87171" : "var(--muted)", icon: <RotateCcw size={16} color={returned > 0 ? "#f87171" : "var(--muted)"} />, bg: returned > 0 ? "rgba(239,68,68,0.05)" : "var(--bg-card)", border: returned > 0 ? "rgba(239,68,68,0.15)" : "var(--border)" },
+                                            { label: "Total Paid", val: `₹${fmt(totalPaid)}`, color: "var(--green)", icon: <ArrowDownLeft size={16} color="var(--green)" />, bg: "rgba(16,185,129,0.04)", border: "rgba(16,185,129,0.15)" },
                                             {
                                                 label: "Balance Due",
                                                 val: `₹${fmt(balanceDue)}`,
                                                 color: balanceDue > 0 ? "var(--red)" : "var(--green)",
-                                                icon: balanceDue > 0 ? <AlertTriangle size={14} color="var(--red)" /> : <CheckCircle2 size={14} color="var(--green)" />,
+                                                icon: balanceDue > 0 ? <AlertTriangle size={16} color="var(--red)" /> : <CheckCircle2 size={16} color="var(--green)" />,
                                                 bg: balanceDue > 0 ? "rgba(239,68,68,0.08)" : "rgba(16,185,129,0.08)",
-                                                border: balanceDue > 0 ? "rgba(239,68,68,0.3)" : "rgba(16,185,129,0.3)",
+                                                border: balanceDue > 0 ? "rgba(239,68,68,0.25)" : "rgba(16,185,129,0.25)",
+                                                special: true
                                             },
                                         ];
                                     })().map(s => (
-                                        <div key={s.label} style={{ background: s.bg, border: `1px solid ${s.border}`, borderRadius: 16, padding: "14px 16px" }}>
-                                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-                                                <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 700 }}>{s.label}</span>
-                                                <div style={{ width: 28, height: 28, borderRadius: 9, background: "var(--bg-input)", border: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "center" }}>{s.icon}</div>
+                                        <div key={s.label} style={{ 
+                                            background: s.bg, border: `1px solid ${s.border}`, borderRadius: 20, padding: "18px 20px",
+                                            boxShadow: s.special ? "0 8px 24px rgba(239,68,68,0.1)" : "none",
+                                            transition: "all 0.2s ease"
+                                        }}>
+                                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                                                <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em" }}>{s.label}</span>
+                                                <div style={{ 
+                                                    width: 32, height: 32, borderRadius: 10, 
+                                                    background: "var(--bg-input)", border: "1px solid var(--border)", 
+                                                    display: "flex", alignItems: "center", justifyContent: "center" 
+                                                }}>{s.icon}</div>
                                             </div>
-                                            <div style={{ fontSize: 17, fontWeight: 900, color: s.color, fontVariantNumeric: "tabular-nums", letterSpacing: "-0.5px" }}>{s.val}</div>
+                                            <div style={{ fontSize: 20, fontWeight: 900, color: s.color, fontVariantNumeric: "tabular-nums", letterSpacing: "-0.5px" }}>{s.val}</div>
                                         </div>
                                     ))}
                                 </div>
