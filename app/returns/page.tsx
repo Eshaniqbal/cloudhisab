@@ -1,5 +1,5 @@
 "use client";
-import { useState, useRef, useEffect, Suspense } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useLazyQuery } from "@apollo/client";
 import { AuthGuard } from "@/components/AuthGuard";
@@ -7,7 +7,7 @@ import { LIST_RETURNS, GET_INVOICE, SEARCH_INVOICES, GET_CUSTOMER_BY_PHONE } fro
 import { CREATE_RETURN } from "@/lib/graphql/mutations";
 import {
     RotateCcw, Plus, X, Loader2, FileText, Search,
-    Package, CheckCircle2, AlertTriangle, ChevronRight,
+    Package, CheckCircle2, AlertTriangle, ChevronRight, ChevronLeft,
     Printer, Phone, Hash, ArrowLeft, RefreshCw, Banknote,
     Tag, User, Calendar, IndianRupee, ClipboardList,
 } from "lucide-react";
@@ -71,7 +71,7 @@ function Steps({ current }: { current: number }) {
     );
 }
 
-// ─── Create Return Modal ─────────────────────────────────────────────────────
+// ─── Create Return Workspace ─────────────────────────────────────────────────
 function CreateReturnModal({ onClose, refetch }: { onClose: () => void; refetch: () => void }) {
     const searchParams = useSearchParams();
     const invoiceIdParam = searchParams.get("invoiceId");
@@ -84,39 +84,138 @@ function CreateReturnModal({ onClose, refetch }: { onClose: () => void; refetch:
     const [notes, setNotes] = useState("");
     const [selectedItems, setSelectedItems] = useState<Record<string, number>>({});
     const [invoice, setInvoice] = useState<any>(null);
+    const [selectedSuggestion, setSelectedSuggestion] = useState<any>(null);
+    const [selectedCustomerKey, setSelectedCustomerKey] = useState("");
     const [error, setError] = useState("");
     const [success, setSuccess] = useState<any>(null);
+    const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 3;
     const debounceRef = useRef<any>(null);
+    const customerListRef = useRef<HTMLDivElement | null>(null);
 
-    const [searchInvoices, { loading: searching, data: searchData }] = useLazyQuery<any>(SEARCH_INVOICES, { fetchPolicy: "network-only" });
+    const { data: searchData, loading: searching, refetch: refetchInvoices } = useQuery<any>(SEARCH_INVOICES, {
+        variables: {
+            query: debouncedSearchQuery || "",
+            limit: debouncedSearchQuery ? 60 : 80,
+        },
+        fetchPolicy: "cache-and-network",
+        nextFetchPolicy: "cache-first",
+    });
     const [fetchInvoice, { loading: loadingInv }] = useLazyQuery<any>(GET_INVOICE);
     const [fetchCustomer, { data: customerData }] = useLazyQuery<any>(GET_CUSTOMER_BY_PHONE);
     const [createReturn, { loading: creating }] = useMutation<any, any>(CREATE_RETURN);
 
     const suggestions = searchData?.searchInvoices?.items || [];
+    const rankedSuggestions = useMemo(() => {
+        const q = searchQuery.trim().toLowerCase();
+        if (!q) return suggestions;
 
-    // Auto-fetch if invoiceId matches, else fetch recent invoices
+        const norm = (v: any) => String(v || "").toLowerCase();
+        const score = (sug: any) => {
+            const invoiceNo = norm(sug.invoiceNumber);
+            const customer = norm(sug.customerName);
+            const phone = norm(sug.customerPhone).replace(/\D/g, "");
+            const qDigits = q.replace(/\D/g, "");
+
+            let rank = 0;
+            if (invoiceNo === q) rank += 120;
+            else if (invoiceNo.startsWith(q)) rank += 90;
+            else if (invoiceNo.includes(q)) rank += 55;
+
+            if (customer.startsWith(q)) rank += 45;
+            else if (customer.includes(q)) rank += 25;
+
+            if (qDigits) {
+                if (phone.startsWith(qDigits)) rank += 40;
+                else if (phone.includes(qDigits)) rank += 20;
+            }
+
+            return rank;
+        };
+
+        return [...suggestions].sort((a, b) => score(b) - score(a));
+    }, [suggestions, searchQuery]);
+    const groupedCustomers = useMemo(() => {
+        const groups = new Map<string, any>();
+        rankedSuggestions.forEach((inv: any) => {
+            const key = inv.customerPhone || inv.customerName || inv.saleId;
+            if (!groups.has(key)) {
+                groups.set(key, {
+                    key,
+                    customerName: inv.customerName || "Walk-in customer",
+                    customerPhone: inv.customerPhone || "—",
+                    invoices: [],
+                    latestAt: inv.createdAt,
+                });
+            }
+            const g = groups.get(key);
+            g.invoices.push(inv);
+            if (new Date(inv.createdAt).getTime() > new Date(g.latestAt).getTime()) g.latestAt = inv.createdAt;
+        });
+        return Array.from(groups.values())
+            .map(g => ({
+                ...g,
+                invoices: g.invoices.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+            }))
+            .sort((a, b) => new Date(b.latestAt).getTime() - new Date(a.latestAt).getTime());
+    }, [rankedSuggestions]);
+    const totalPages = Math.max(1, Math.ceil(groupedCustomers.length / itemsPerPage));
+    const visibleCustomers = useMemo(
+        () => groupedCustomers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage),
+        [groupedCustomers, currentPage],
+    );
+    const hasSearchText = searchQuery.trim().length > 0;
+    const isSearching = hasSearchText && searching;
+    const isLoadingCustomers = searching;
+
+    // Auto-fetch selected invoice when invoiceId is present.
     useEffect(() => {
         if (invoiceIdParam) {
-            handleSelectSuggestion({ saleId: invoiceIdParam });
-        } else {
-            searchInvoices({ variables: { query: "", limit: 12 } });
+            handleSelectSuggestion({ saleId: invoiceIdParam }, true);
         }
     }, [invoiceIdParam]);
+    useEffect(() => {
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        const trimmed = searchQuery.trim();
+        if (!trimmed) {
+            setDebouncedSearchQuery("");
+            return;
+        }
+        if (trimmed.length < 3) return;
+        debounceRef.current = setTimeout(() => {
+            setDebouncedSearchQuery(trimmed);
+        }, 450);
+        return () => {
+            if (debounceRef.current) clearTimeout(debounceRef.current);
+        };
+    }, [searchQuery]);
+
+    useEffect(() => {
+        if (!groupedCustomers.length) return;
+        if (selectedCustomerKey && !groupedCustomers.some((c: any) => c.key === selectedCustomerKey)) {
+            setSelectedCustomerKey("");
+        }
+    }, [groupedCustomers, selectedCustomerKey]);
+    useEffect(() => {
+        setCurrentPage(1);
+        if (customerListRef.current) customerListRef.current.scrollTop = 0;
+    }, [searchQuery]);
 
     const handleSearchChange = (val: string) => {
         setSearchQuery(val);
-        if (debounceRef.current) clearTimeout(debounceRef.current);
-        debounceRef.current = setTimeout(() => {
-            searchInvoices({ variables: { query: val.trim(), limit: 12 } });
-        }, 280);
+        setInvoice(null);
+        setSelectedSuggestion(null);
+        setSelectedCustomerKey("");
+        if (!val.trim()) {
+            setDebouncedSearchQuery("");
+            refetchInvoices({ query: "", limit: 80 });
+        }
     };
 
-    const handleSelectSuggestion = async (sug: any) => {
-        if (sug.invoiceNumber) {
-            setSearchQuery(`${sug.invoiceNumber} — ${sug.customerName}`);
-        }
+    const handleSelectSuggestion = async (sug: any, goNext = false) => {
         setError("");
+        setSelectedSuggestion(sug);
         const r = await fetchInvoice({ variables: { saleId: sug.saleId } });
         if (!r.data?.getInvoice) { setError("Could not load invoice details."); return; }
         const init: Record<string, number> = {};
@@ -128,7 +227,7 @@ function CreateReturnModal({ onClose, refetch }: { onClose: () => void; refetch:
             fetchCustomer({ variables: { phone: r.data.getInvoice.customerPhone } });
         }
         
-        setStep(1);
+        if (goNext) setStep(1);
     };
 
     const totalSelected = invoice?.items?.reduce((s: number, it: any) =>
@@ -166,7 +265,7 @@ function CreateReturnModal({ onClose, refetch }: { onClose: () => void; refetch:
 
     // ── Success screen ───────────────────────────────────────────────────────
     if (success) return (
-        <ModalShell onClose={onClose} maxWidth={460}>
+        <ModalShell onClose={onClose} maxWidth={900} inline>
             <div style={{ textAlign: "center", padding: "12px 0 4px" }}>
                 {/* Animated checkmark */}
                 <div style={{ position: "relative", width: 80, height: 80, margin: "0 auto 20px" }}>
@@ -208,7 +307,14 @@ function CreateReturnModal({ onClose, refetch }: { onClose: () => void; refetch:
     );
 
     return (
-        <ModalShell onClose={onClose} maxWidth={620}>
+        <ModalShell onClose={onClose} maxWidth={1100} inline>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, gap: 12 }}>
+                <div>
+                    <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: "-0.2px" }}>Return Management</div>
+                    <div style={{ fontSize: 12.5, color: "var(--muted)" }}>Process returns in a full page view with invoice, items, and refund details.</div>
+                </div>
+                <button className="btn btn-ghost" onClick={onClose}>Back to list</button>
+            </div>
             <Steps current={step} />
 
             {error && (
@@ -219,74 +325,229 @@ function CreateReturnModal({ onClose, refetch }: { onClose: () => void; refetch:
 
             {/* ── Step 0: Search ───────────────────────────────────────── */}
             {step === 0 && (
-                <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                    <div>
-                        <div style={{ fontSize: 18, fontWeight: 900, marginBottom: 4, letterSpacing: "-0.2px" }}>Find Original Invoice</div>
-                        <div style={{ fontSize: 13, color: "var(--muted)" }}>Search by customer phone, name, or invoice number</div>
-                    </div>
-
-                    <div style={{ position: "relative" }}>
-                        <Search size={15} style={{ position: "absolute", left: 13, top: "50%", transform: "translateY(-50%)", color: searching ? "var(--indigo-l)" : "var(--muted)", pointerEvents: "none", transition: "color 0.2s" }} />
-                        <input
-                            className="input"
-                            style={{ paddingLeft: 40, paddingRight: 40, height: 48, fontSize: 14 }}
-                            placeholder="Type phone, name, or invoice number..."
-                            value={searchQuery}
-                            onChange={e => handleSearchChange(e.target.value)}
-                            autoFocus autoComplete="off"
-                        />
-                        {searching && <Loader2 size={14} style={{ position: "absolute", right: 13, top: "50%", transform: "translateY(-50%)", color: "var(--indigo-l)", animation: "spin 0.7s linear infinite" }} />}
-                    </div>
-
-                    {/* Suggestions List */}
-                    <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 310, overflowY: "auto", paddingRight: 4 }}>
-                        {suggestions.length > 0 ? (
-                            <>
-                                <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--muted)", paddingLeft: 4 }}>
-                                    {searchQuery.trim() ? "Search Results" : "Recent Invoices"}
-                                </div>
-                                {suggestions.map((sug: any) => (
-                                    <button key={sug.saleId} type="button" onClick={() => handleSelectSuggestion(sug)}
-                                        style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "12px 14px", textAlign: "left", background: "var(--bg-card2)", border: "1px solid var(--border)", borderRadius: 12, cursor: "pointer", transition: "all 0.15s" }}
-                                        onMouseEnter={e => { (e.currentTarget as any).style.borderColor = "var(--indigo-l)"; (e.currentTarget as any).style.background = "var(--bg-input)"}}
-                                        onMouseLeave={e => { (e.currentTarget as any).style.borderColor = "var(--border)"; (e.currentTarget as any).style.background = "var(--bg-card2)"}}
-                                    >
-                                        <div style={{ width: 38, height: 38, borderRadius: 10, background: "rgba(99,102,241,0.1)", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                                            <FileText size={16} color="var(--indigo-l)" />
-                                        </div>
-                                        <div style={{ flex: 1, minWidth: 0 }}>
-                                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
-                                                <span style={{ fontFamily: "monospace", fontSize: 13, fontWeight: 800, color: "var(--text)" }}>{sug.invoiceNumber}</span>
-                                                {sug.returns?.length > 0 && (
-                                                    <span style={{ fontSize: 9, fontWeight: 800, textTransform: "uppercase", padding: "2px 6px", borderRadius: 4, background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.3)", color: "var(--orange)" }}>Returned</span>
-                                                )}
-                                                <span style={{ width: 4, height: 4, borderRadius: "50%", background: "var(--muted)", flexShrink: 0 }} />
-                                                <span style={{ fontSize: 13, fontWeight: 600 }}>{sug.customerName}</span>
-                                            </div>
-                                            <div style={{ display: "flex", gap: 14, fontSize: 11.5, color: "var(--muted)" }}>
-                                                <span style={{ display: "flex", alignItems: "center", gap: 5 }}><Phone size={11} />{sug.customerPhone || "—"}</span>
-                                                <span style={{ display: "flex", alignItems: "center", gap: 5 }}><Calendar size={11} />{fmtDate(sug.createdAt)}</span>
-                                            </div>
-                                        </div>
-                                        <div style={{ fontSize: 14, fontWeight: 900, color: "var(--green)", flexShrink: 0 }}>{fmt(sug.totalAmount)}</div>
-                                    </button>
-                                ))}
-                            </>
-                        ) : !searching ? (
-                            <div style={{ padding: "32px 20px", textAlign: "center", color: "var(--muted)", fontSize: 13, background: "var(--bg-card2)", borderRadius: 14, border: "1px dashed var(--border)" }}>
-                                No invoices found{searchQuery.trim() ? ` for "${searchQuery}"` : ""}
-                            </div>
-                        ) : null}
-                    </div>
-
-                    {loadingInv && (
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, padding: "16px", color: "var(--muted)", fontSize: 13 }}>
-                            <Loader2 size={16} style={{ animation: "spin 0.7s linear infinite", color: "var(--indigo-l)" }} /> Loading invoice details...
+                <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: 16, alignItems: "stretch", flex: 1, minHeight: 0 }}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 12, minHeight: 0 }}>
+                        <div>
+                            <div style={{ fontSize: 18, fontWeight: 900, marginBottom: 4, letterSpacing: "-0.2px" }}>Customer Return Dashboard</div>
+                            <div style={{ fontSize: 13, color: "var(--muted)" }}>Search invoices by customer name, phone, or invoice number and select the one for return.</div>
+                            <div style={{ fontSize: 11.5, color: "var(--muted)", marginTop: 4 }}>Type at least 3 characters for live search.</div>
                         </div>
-                    )}
 
-                    <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4 }}>
-                        <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+                        <div style={{ position: "relative" }}>
+                            <Search size={15} style={{ position: "absolute", left: 13, top: "50%", transform: "translateY(-50%)", color: isSearching ? "var(--indigo-l)" : "var(--muted)", pointerEvents: "none", transition: "color 0.2s" }} />
+                            <input
+                                className="input"
+                                style={{ paddingLeft: 40, paddingRight: 40, height: 48, fontSize: 14 }}
+                                placeholder="Type phone, customer, or invoice number..."
+                                value={searchQuery}
+                                onChange={e => handleSearchChange(e.target.value)}
+                                onKeyDown={e => {
+                                    if (e.key === "Enter" && groupedCustomers.length > 0) {
+                                        e.preventDefault();
+                                        const firstCustomer = groupedCustomers[0];
+                                        setSelectedCustomerKey(firstCustomer.key);
+                                    }
+                                }}
+                                autoFocus autoComplete="off"
+                            />
+                            {searchQuery.trim() && !isSearching && (
+                                <button
+                                    type="button"
+                                    onClick={() => handleSearchChange("")}
+                                    style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", width: 22, height: 22, borderRadius: 6, border: "1px solid var(--border)", background: "var(--bg-card2)", color: "var(--muted)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+                                    aria-label="Clear search"
+                                >
+                                    <X size={12} />
+                                </button>
+                            )}
+                            {isSearching && <Loader2 size={14} style={{ position: "absolute", right: 13, top: "50%", transform: "translateY(-50%)", color: "var(--indigo-l)", animation: "spin 0.7s linear infinite" }} />}
+                        </div>
+
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "0 4px" }}>
+                            <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--muted)" }}>
+                                {searchQuery.trim() ? "Matching Customers" : "Recent Customers"}
+                            </div>
+                            <div style={{ fontSize: 11, color: "var(--muted)" }}>{groupedCustomers.length} customers</div>
+                        </div>
+
+                        <div
+                            ref={customerListRef}
+                            style={{ display: "flex", flexDirection: "column", gap: 8, flex: 1, overflowY: "auto", paddingRight: 6 }}
+                        >
+                            {groupedCustomers.length > 0 ? visibleCustomers.map((cx: any) => {
+                                const isCustomerOpen = selectedCustomerKey === cx.key;
+                                return (
+                                    <div key={cx.key} style={{ border: `1px solid ${isCustomerOpen ? "rgba(79,70,229,0.45)" : "var(--border)"}`, borderRadius: 12, background: isCustomerOpen ? "rgba(79,70,229,0.05)" : "var(--bg-card2)", overflow: "hidden" }}>
+                                        <div
+                                            onClick={() => {
+                                                if (selectedCustomerKey === cx.key) {
+                                                    setSelectedCustomerKey("");
+                                                } else {
+                                                    setSelectedCustomerKey(cx.key);
+                                                    setInvoice(null);
+                                                    setSelectedSuggestion(null);
+                                                }
+                                            }}
+                                            style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "12px 14px", minHeight: 72, cursor: "pointer" }}
+                                        >
+                                            <div style={{ width: 38, height: 38, borderRadius: 10, background: isCustomerOpen ? "rgba(79,70,229,0.12)" : "rgba(239,68,68,0.12)", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                                <User size={16} color={isCustomerOpen ? "var(--indigo-l)" : "#ef4444"} />
+                                            </div>
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 4 }}>
+                                                    <span style={{ fontSize: 14, fontWeight: 900, color: isCustomerOpen ? "var(--indigo-l)" : "#ef4444" }}>{cx.customerName}</span>
+                                                    <span style={{ fontSize: 11, color: "var(--muted)" }}>{cx.invoices.length} invoices</span>
+                                                </div>
+                                                <div style={{ display: "flex", gap: 12, fontSize: 11.5, color: "var(--muted)", flexWrap: "wrap" }}>
+                                                    <span style={{ display: "flex", alignItems: "center", gap: 5 }}><Phone size={11} />{cx.customerPhone}</span>
+                                                    <span style={{ display: "flex", alignItems: "center", gap: 5 }}><Calendar size={11} />Latest {fmtDate(cx.latestAt)}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {isCustomerOpen && (
+                                            <div style={{ borderTop: "1px solid var(--border)", padding: "8px 10px", display: "flex", flexDirection: "column", gap: 7, maxHeight: 320, overflowY: "auto" }}>
+                                                {cx.invoices.map((sug: any) => {
+                                                    const activeInvoice = (selectedSuggestion?.saleId || invoice?.saleId) === sug.saleId;
+                                                    return (
+                                                        <div
+                                                            key={sug.saleId}
+                                                            onClick={() => handleSelectSuggestion(sug, false)}
+                                                            style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", borderRadius: 9, border: `1px solid ${activeInvoice ? "rgba(79,70,229,0.55)" : "var(--border)"}`, background: activeInvoice ? "rgba(79,70,229,0.10)" : "var(--bg-card)", padding: "9px 10px", cursor: "pointer" }}
+                                                        >
+                                                            <FileText size={13} color={activeInvoice ? "var(--indigo-l)" : "#ef4444"} />
+                                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                                <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 2, flexWrap: "wrap" }}>
+                                                                    <span style={{ fontFamily: "monospace", fontSize: 12.5, fontWeight: 900, color: activeInvoice ? "var(--indigo-l)" : "var(--text)" }}>{sug.invoiceNumber}</span>
+                                                                    {sug.returns?.length > 0 && (
+                                                                        <span style={{ fontSize: 9, fontWeight: 800, textTransform: "uppercase", padding: "1px 5px", borderRadius: 4, background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.3)", color: "var(--orange)" }}>Returned</span>
+                                                                    )}
+                                                                </div>
+                                                                <div style={{ fontSize: 11, color: "var(--muted)" }}>{fmtDate(sug.createdAt)}</div>
+                                                            </div>
+                                                            <div style={{ fontSize: 12.5, fontWeight: 800, color: "var(--green)" }}>{fmt(sug.totalAmount)}</div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            }) : !isLoadingCustomers ? (
+                                <div style={{ padding: "32px 20px", textAlign: "center", color: "var(--muted)", fontSize: 13, background: "var(--bg-card2)", borderRadius: 14, border: "1px dashed var(--border)" }}>
+                                    No customers found{searchQuery.trim() ? ` for "${searchQuery}"` : ""}
+                                </div>
+                            ) : (
+                                <div style={{ padding: "24px 0", textAlign: "center", color: "var(--muted)", fontSize: 13 }}>
+                                    <Loader2 size={16} style={{ animation: "spin 0.7s linear infinite", marginBottom: 8 }} />
+                                    <div>Loading customers...</div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Pagination Controls */}
+                        {totalPages > 1 && (
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12, padding: "12px 0", borderTop: "1px solid var(--border)", marginTop: 4 }}>
+                                <button
+                                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                    disabled={currentPage === 1}
+                                    style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg-card2)", display: "flex", alignItems: "center", justifyContent: "center", cursor: currentPage === 1 ? "not-allowed" : "pointer", opacity: currentPage === 1 ? 0.5 : 1, color: "var(--text)" }}
+                                >
+                                    <ChevronLeft size={16} />
+                                </button>
+                                
+                                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                    {[...Array(totalPages)].map((_, i) => {
+                                        const pageNum = i + 1;
+                                        // Show first, last, current, and pages around current
+                                        if (pageNum === 1 || pageNum === totalPages || (pageNum >= currentPage - 1 && pageNum <= currentPage + 1)) {
+                                            return (
+                                                <button
+                                                    key={pageNum}
+                                                    onClick={() => setCurrentPage(pageNum)}
+                                                    style={{
+                                                        width: 32, height: 32, borderRadius: 8, border: `1px solid ${currentPage === pageNum ? "var(--indigo-l)" : "var(--border)"}`,
+                                                        background: currentPage === pageNum ? "rgba(79,70,229,0.1)" : "var(--bg-card2)",
+                                                        color: currentPage === pageNum ? "var(--indigo-l)" : "var(--text)",
+                                                        fontSize: 12, fontWeight: currentPage === pageNum ? 800 : 500, cursor: "pointer", transition: "all 0.2s"
+                                                    }}
+                                                >
+                                                    {pageNum}
+                                                </button>
+                                            );
+                                        }
+                                        if (pageNum === currentPage - 2 || pageNum === currentPage + 2) {
+                                            return <span key={pageNum} style={{ color: "var(--muted)", fontSize: 12 }}>...</span>;
+                                        }
+                                        return null;
+                                    })}
+                                </div>
+
+                                <button
+                                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                    disabled={currentPage === totalPages}
+                                    style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg-card2)", display: "flex", alignItems: "center", justifyContent: "center", cursor: currentPage === totalPages ? "not-allowed" : "pointer", opacity: currentPage === totalPages ? 0.5 : 1, color: "var(--text)" }}
+                                >
+                                    <ChevronRight size={16} />
+                                </button>
+                            </div>
+                        )}
+                    </div>
+
+                    <div style={{ border: "1px solid var(--border)", borderRadius: 14, background: "var(--bg-card2)", padding: 16, display: "flex", flexDirection: "column", minHeight: 0, overflowY: "auto" }}>
+                        {loadingInv ? (
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, height: "100%", color: "var(--muted)", fontSize: 13 }}>
+                                <Loader2 size={16} style={{ animation: "spin 0.7s linear infinite", color: "var(--indigo-l)" }} /> Loading invoice details...
+                            </div>
+                        ) : invoice ? (
+                            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                                <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--muted)" }}>Selected Invoice</div>
+                                <div style={{ padding: "12px 14px", borderRadius: 12, border: "1px solid rgba(99,102,241,0.25)", background: "rgba(99,102,241,0.06)" }}>
+                                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 6 }}>
+                                        <span style={{ fontFamily: "monospace", fontSize: 13, fontWeight: 800 }}>{invoice.invoiceNumber}</span>
+                                        <span style={{ fontSize: 14, fontWeight: 900, color: "var(--green)" }}>{fmt(invoice.totalAmount)}</span>
+                                    </div>
+                                    <div style={{ fontSize: 13, fontWeight: 700 }}>{invoice.customerName || "Walk-in customer"}</div>
+                                    <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>{invoice.customerPhone || "No phone"} • {fmtDate(invoice.createdAt)}</div>
+                                </div>
+
+                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                                    <div style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border)" }}>
+                                        <div style={{ fontSize: 10, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.07em" }}>Line Items</div>
+                                        <div style={{ fontSize: 20, fontWeight: 900 }}>{invoice.items?.length || 0}</div>
+                                    </div>
+                                    <div style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border)" }}>
+                                        <div style={{ fontSize: 10, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.07em" }}>Returnable Qty</div>
+                                        <div style={{ fontSize: 20, fontWeight: 900 }}>
+                                            {invoice.items?.reduce((s: number, it: any) => s + (it.remainingQuantity || 0), 0) || 0}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--muted)", marginBottom: 10 }}>Products in invoice</div>
+                                <div style={{ display: "flex", flexDirection: "column", gap: 7, flex: 1, overflowY: "auto", paddingRight: 2, minHeight: "150px" }}>
+                                    {invoice.items?.map((it: any) => (
+                                        <div key={it.productId} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", border: "1px solid var(--border)", borderRadius: 9, padding: "8px 10px" }}>
+                                            <div style={{ minWidth: 0 }}>
+                                                <div style={{ fontSize: 12.5, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{it.productName}</div>
+                                                <div style={{ fontSize: 11, color: "var(--muted)" }}>{it.sku || "—"} · Sold {it.quantity}</div>
+                                            </div>
+                                            <div style={{ fontSize: 11, color: "var(--muted)" }}>Returnable {it.remainingQuantity}</div>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                <button className="btn btn-primary" style={{ width: "100%", marginTop: 4 }} onClick={() => setStep(1)}>
+                                    Select Items for Return <ChevronRight size={14} />
+                                </button>
+                            </div>
+                        ) : (
+                            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", textAlign: "center", color: "var(--muted)" }}>
+                                <FileText size={28} />
+                                <div style={{ fontSize: 14, fontWeight: 700, marginTop: 10, marginBottom: 4 }}>Pick an invoice to continue</div>
+                                <div style={{ fontSize: 12.5, maxWidth: 260 }}>Select any invoice from the list to preview full details and process return.</div>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}
@@ -308,7 +569,7 @@ function CreateReturnModal({ onClose, refetch }: { onClose: () => void; refetch:
 
                     <div>
                         <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--muted)", marginBottom: 10 }}>Select Items to Return</div>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 260, overflowY: "auto", paddingRight: 4 }}>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: "calc(100vh - 500px)", minHeight: "300px", overflowY: "auto", paddingRight: 4 }}>
                             {invoice.items.map((it: any) => {
                                 const qty = selectedItems[it.productId] || 0;
                                 const selected = qty > 0;
@@ -489,7 +750,28 @@ function CreateReturnModal({ onClose, refetch }: { onClose: () => void; refetch:
 }
 
 // ─── Modal shell ─────────────────────────────────────────────────────────────
-function ModalShell({ onClose, children, maxWidth = 600 }: { onClose: () => void; children: React.ReactNode; maxWidth?: number }) {
+function ModalShell({ onClose, children, maxWidth = 600, inline = false }: { onClose: () => void; children: React.ReactNode; maxWidth?: number; inline?: boolean }) {
+    if (inline) {
+        return (
+            <div style={{ 
+                width: "100%", 
+                maxWidth, 
+                margin: "0 auto", 
+                borderRadius: 22, 
+                padding: "24px 24px", 
+                boxShadow: "0 20px 45px rgba(0,0,0,0.35)", 
+                position: "relative", 
+                background: "var(--bg-card)", 
+                border: "1px solid var(--border)", 
+                overflow: "visible",
+                display: "flex",
+                flexDirection: "column",
+                minHeight: "calc(100vh - 140px)"
+            }}>
+                {children}
+            </div>
+        );
+    }
     return (
         <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
             <div onClick={e => e.stopPropagation()} style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 22, padding: "28px 28px", width: "100%", maxWidth, maxHeight: "92vh", overflowY: "auto", boxShadow: "0 32px 80px rgba(0,0,0,0.6)", animation: "modalIn 0.22s cubic-bezier(0.34,1.56,0.64,1)", position: "relative" }}>
@@ -605,6 +887,7 @@ function ReturnsPageContent() {
 
     const [showCreate, setShowCreate] = useState(false);
     const [viewReturn, setViewReturn] = useState<any>(null);
+    const [historySearch, setHistorySearch] = useState("");
 
     // Auto-open modal if invoiceId is in URL
     useEffect(() => {
@@ -617,14 +900,41 @@ function ReturnsPageContent() {
     });
 
     const returns: any[] = data?.listReturns?.items || [];
+    
+    const filteredReturns = useMemo(() => {
+        const q = historySearch.toLowerCase().trim();
+        if (!q) return returns;
+        return returns.filter(r => 
+            r.customerName?.toLowerCase().includes(q) ||
+            r.customerPhone?.includes(q) ||
+            r.creditNoteNumber?.toLowerCase().includes(q) ||
+            r.originalInvoiceNumber?.toLowerCase().includes(q)
+        );
+    }, [returns, historySearch]);
+
     const total = data?.listReturns?.total || 0;
     const totalRefunded = returns.reduce((s, r) => s + r.totalAmount, 0);
     const cashRefunds = returns.filter(r => r.refundType === "CASH_REFUND").length;
     const creditNotes = returns.filter(r => r.refundType === "CREDIT_NOTE").length;
 
+    if (showCreate) {
+        return (
+            <AuthGuard>
+                {viewReturn && <CreditNoteModal ret={viewReturn} onClose={() => setViewReturn(null)} />}
+                <div className="page-header" style={{ marginBottom: 16 }}>
+                    <div>
+                        <h1 className="page-title" style={{ margin: 0 }}>New Return</h1>
+                        <p className="page-subtitle" style={{ margin: 0 }}>Full page return processing and invoice selection.</p>
+                    </div>
+                    <button className="btn btn-ghost" onClick={() => setShowCreate(false)}>Back</button>
+                </div>
+                <CreateReturnModal onClose={() => setShowCreate(false)} refetch={refetch} />
+            </AuthGuard>
+        );
+    }
+
     return (
         <AuthGuard>
-            {showCreate && <CreateReturnModal onClose={() => setShowCreate(false)} refetch={refetch} />}
             {viewReturn && <CreditNoteModal ret={viewReturn} onClose={() => setViewReturn(null)} />}
 
             {/* ── Page Header ──────────────────────────────────────────── */}
@@ -676,17 +986,38 @@ function ReturnsPageContent() {
             {/* ── Table ────────────────────────────────────────────────── */}
             <div className="table-wrapper">
                 {/* Table header bar */}
-                <div style={{ padding: "14px 20px", borderBottom: "1px solid var(--border)", background: "rgba(79,70,229,0.03)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div style={{ padding: "12px 20px", borderBottom: "1px solid var(--border)", background: "rgba(79,70,229,0.03)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                         <FileText size={15} color="var(--red)" />
                         <span style={{ fontSize: 13.5, fontWeight: 700 }}>Credit Note History</span>
                         {total > 0 && <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 9px", borderRadius: 20, background: "rgba(239,68,68,0.08)", color: "#f87171", border: "1px solid rgba(239,68,68,0.15)" }}>{total}</span>}
                     </div>
-                    <button onClick={() => refetch()} style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 8, background: "var(--bg-input)", border: "1px solid var(--border)", fontSize: 12, fontWeight: 600, cursor: "pointer", color: "var(--muted)", transition: "all 0.15s" }}
-                        onMouseEnter={e => { (e.currentTarget as any).style.color = "var(--text)"; }}
-                        onMouseLeave={e => { (e.currentTarget as any).style.color = "var(--muted)"; }}>
-                        <RefreshCw size={12} /> Refresh
-                    </button>
+
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, justifyContent: "flex-end" }}>
+                        <div style={{ position: "relative", width: "100%", maxWidth: 300 }}>
+                            <Search size={14} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--muted)" }} />
+                            <input 
+                                className="input" 
+                                placeholder="Search by name, phone or CN..." 
+                                value={historySearch}
+                                onChange={e => setHistorySearch(e.target.value)}
+                                style={{ height: 36, paddingLeft: 36, fontSize: 13, background: "var(--bg-card)" }}
+                            />
+                            {historySearch && (
+                                <button 
+                                    onClick={() => setHistorySearch("")}
+                                    style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", border: "none", background: "none", color: "var(--muted)", cursor: "pointer", display: "flex", alignItems: "center" }}
+                                >
+                                    <X size={14} />
+                                </button>
+                            )}
+                        </div>
+                        <button onClick={() => refetch()} style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 8, background: "var(--bg-input)", border: "1px solid var(--border)", fontSize: 12, fontWeight: 600, cursor: "pointer", color: "var(--muted)", transition: "all 0.15s", height: 36 }}
+                            onMouseEnter={e => { (e.currentTarget as any).style.color = "var(--text)"; }}
+                            onMouseLeave={e => { (e.currentTarget as any).style.color = "var(--muted)"; }}>
+                            <RefreshCw size={12} /> Refresh
+                        </button>
+                    </div>
                 </div>
 
                 {loading && !data ? (
@@ -694,17 +1025,26 @@ function ReturnsPageContent() {
                         <Loader2 size={28} style={{ animation: "spin 0.8s linear infinite", color: "var(--muted)" }} />
                         <span style={{ fontSize: 13, color: "var(--muted)" }}>Loading returns...</span>
                     </div>
-                ) : returns.length === 0 ? (
+                ) : filteredReturns.length === 0 ? (
                     <div style={{ padding: "80px 24px", textAlign: "center" }}>
                         <div style={{ width: 64, height: 64, borderRadius: 20, background: "var(--bg-card2)", border: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
                             <Package size={28} color="var(--muted)" />
                         </div>
-                        <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 6 }}>No returns yet</div>
-                        <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 24 }}>Click "New Return" to start processing a customer return</div>
-                        <button className="btn" onClick={() => setShowCreate(true)}
-                            style={{ background: "linear-gradient(135deg,#ef4444,#dc2626)", color: "#fff", boxShadow: "0 4px 14px rgba(239,68,68,0.3)", gap: 8 }}>
-                            <Plus size={14} /> New Return
-                        </button>
+                        <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 6 }}>
+                            {historySearch ? "No matching results" : "No returns yet"}
+                        </div>
+                        <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 24 }}>
+                            {historySearch ? `No credit notes found for "${historySearch}"` : 'Click "New Return" to start processing a customer return'}
+                        </div>
+                        {historySearch && (
+                            <button className="btn btn-ghost" onClick={() => setHistorySearch("")}>Clear Search</button>
+                        )}
+                        {!historySearch && (
+                            <button className="btn" onClick={() => setShowCreate(true)}
+                                style={{ background: "linear-gradient(135deg,#ef4444,#dc2626)", color: "#fff", boxShadow: "0 4px 14px rgba(239,68,68,0.3)", gap: 8 }}>
+                                <Plus size={14} /> New Return
+                            </button>
+                        )}
                     </div>
                 ) : (
                     <table className="data-table">
@@ -716,7 +1056,7 @@ function ReturnsPageContent() {
                             </tr>
                         </thead>
                         <tbody>
-                            {returns.map(ret => {
+                            {filteredReturns.map(ret => {
                                 const rColor = REASON_COLOR[ret.reason] || "#64748b";
                                 return (
                                     <tr key={ret.returnId}>
