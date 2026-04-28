@@ -2,8 +2,8 @@
 import { useQuery, useLazyQuery, useMutation } from "@apollo/client";
 import { AuthGuard } from "@/components/AuthGuard";
 import { GET_INVOICE, GET_INVOICE_DOWNLOAD_URL, GET_CUSTOMER_LEDGER } from "@/lib/graphql/queries";
-import { REGENERATE_INVOICE_PDF } from "@/lib/graphql/mutations";
-import { Download, ArrowLeft, CheckCircle2, Loader2, RefreshCw, RotateCcw } from "lucide-react";
+import { REGENERATE_INVOICE_PDF, SEND_INVOICE_SMS } from "@/lib/graphql/mutations";
+import { Download, ArrowLeft, CheckCircle2, Loader2, RefreshCw, RotateCcw, MessageSquare, X } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
@@ -62,6 +62,34 @@ export default function InvoiceDetailPage() {
     } as any);
 
     const [regeneratePdf, { loading: regenerating }] = useMutation(REGENERATE_INVOICE_PDF);
+    const [sendInvoiceSmsMut] = useMutation(SEND_INVOICE_SMS);
+
+    const [smsModalOpen, setSmsModalOpen] = useState(false);
+    const [smsInput, setSmsInput] = useState("");
+    const [isSendingSms, setIsSendingSms] = useState(false);
+    const [notification, setNotification] = useState<{ msg: string, type: "success" | "error" } | null>(null);
+
+    const showNotification = (msg: string, type: "success" | "error") => {
+        setNotification({ msg, type });
+        setTimeout(() => setNotification(null), 3000);
+    };
+
+    const confirmSendSms = async () => {
+        if (!smsInput || smsInput.length < 10) {
+            showNotification("Please enter a valid phone number.", "error");
+            return;
+        }
+        setIsSendingSms(true);
+        try {
+            await sendInvoiceSmsMut({ variables: { saleId, phoneNumber: smsInput.trim() } });
+            showNotification(`SMS sent successfully to ${smsInput}`, "success");
+            setSmsModalOpen(false);
+        } catch (err: any) {
+            showNotification("Failed to send SMS: " + err.message, "error");
+        } finally {
+            setIsSendingSms(false);
+        }
+    };
 
     const [fetchDownloadUrl, { loading: urlLoading }] = useLazyQuery<any, any>(
         GET_INVOICE_DOWNLOAD_URL,
@@ -101,6 +129,7 @@ export default function InvoiceDetailPage() {
         // Reset state for this invoice
         pdfReadyRef.current = false;
         setDownloadUrl(null);
+        setSmsInput(inv.customerPhone || "");
 
         // Kick off immediately
         fetchDownloadUrl();
@@ -212,6 +241,10 @@ export default function InvoiceDetailPage() {
                 <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                     {downloadUrl ? (
                         <div style={{ display: "flex", gap: 8 }}>
+                            <button onClick={() => setSmsModalOpen(true)}
+                                className="btn" style={{ background: "var(--green)", color: "white", border: "none", display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
+                                <MessageSquare size={14} /> Send SMS
+                            </button>
                             <a href={downloadUrl} target="_blank" rel="noreferrer"
                                 className="btn btn-primary" style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
                                 <Download size={14} /> Download PDF
@@ -596,6 +629,77 @@ export default function InvoiceDetailPage() {
                     </span>
                 </div>
             </div>
+
+            {/* ── SMS MODAL ─────────────────────────── */}
+            {smsModalOpen && (
+                <div className="no-print" style={{
+                    position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+                    background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)",
+                    display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100,
+                    padding: 20
+                }}>
+                    <div className="glass" style={{
+                        width: "100%", maxWidth: 400, background: "var(--bg-card)",
+                        padding: 30, borderRadius: 20, boxShadow: "0 20px 40px rgba(0,0,0,0.2)",
+                        position: "relative", animation: "slideUp 0.3s ease"
+                    }}>
+                        <button onClick={() => setSmsModalOpen(false)} style={{
+                            position: "absolute", top: 15, right: 15, background: "transparent", border: "none",
+                            color: "var(--muted)", cursor: "pointer", padding: 5
+                        }}>
+                            <X size={18} />
+                        </button>
+                        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+                            <div style={{ width: 44, height: 44, borderRadius: 12, background: "rgba(16, 185, 129, 0.1)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--green)" }}>
+                                <MessageSquare size={22} />
+                            </div>
+                            <div>
+                                <h3 style={{ margin: 0, fontSize: 18, color: "var(--text)", fontWeight: 700 }}>Send Invoice via SMS</h3>
+                                <p style={{ margin: 0, fontSize: 13, color: "var(--muted)" }}>Invoice #{inv.invoiceNumber}</p>
+                            </div>
+                        </div>
+
+                        <div style={{ marginBottom: 20 }}>
+                            <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--text)", marginBottom: 8 }}>Customer Phone Number</label>
+                            <input
+                                type="tel"
+                                className="input"
+                                style={{ width: "100%", fontSize: 14 }}
+                                placeholder="+91XXXXXXXXXX"
+                                value={smsInput}
+                                onChange={e => setSmsInput(e.target.value)}
+                                autoFocus
+                            />
+                        </div>
+
+                        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                            <button onClick={() => setSmsModalOpen(false)} className="btn btn-ghost" style={{ padding: "10px 16px" }} disabled={isSendingSms}>Cancel</button>
+                            <button onClick={confirmSendSms} disabled={isSendingSms || !smsInput} className="btn" style={{
+                                padding: "10px 16px", background: "var(--green)", color: "white", display: "flex", alignItems: "center", gap: 8,
+                                opacity: isSendingSms ? 0.7 : 1, border: "none"
+                            }}>
+                                {isSendingSms ? <Loader2 size={16} className="spin" /> : <MessageSquare size={16} />}
+                                {isSendingSms ? "Sending..." : "Send SMS"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── NOTIFICATION TOAST ─────────────────────────── */}
+            {notification && (
+                <div className="no-print" style={{
+                    position: "fixed", bottom: 30, left: "50%", transform: "translateX(-50%)",
+                    background: notification.type === "success" ? "#10b981" : "#ef4444",
+                    color: "white", padding: "12px 24px", borderRadius: 30,
+                    fontSize: 14, fontWeight: 600, boxShadow: "0 10px 25px rgba(0,0,0,0.2)",
+                    display: "flex", alignItems: "center", gap: 10, zIndex: 999,
+                    animation: "slideUpFade 0.3s cubic-bezier(0.16, 1, 0.3, 1)"
+                }}>
+                    {notification.type === "success" ? <CheckCircle2 size={16} /> : <X size={16} />}
+                    {notification.msg}
+                </div>
+            )}
 
             <style>{`
                 @media print {

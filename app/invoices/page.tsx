@@ -3,12 +3,12 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@apollo/client";
 import { AuthGuard } from "@/components/AuthGuard";
 import { LIST_INVOICES, LIST_RETURNS } from "@/lib/graphql/queries";
-import { DELETE_INVOICE } from "@/lib/graphql/mutations";
+import { DELETE_INVOICE, SEND_INVOICE_SMS } from "@/lib/graphql/mutations";
 import {
     FileText, Search, Printer, Eye, Loader2,
     IndianRupee, Receipt, Calendar,
     ChevronLeft, ChevronRight, Clock, CheckCircle2,
-    RotateCcw, ArrowDownCircle, Mail, X, Sparkles, TrendingUp, Trash2,
+    RotateCcw, ArrowDownCircle, Mail, MessageSquare, X, Sparkles, TrendingUp, Trash2,
 } from "lucide-react";
 
 // Returns true if the invoice was created within the last 2 hours
@@ -47,6 +47,12 @@ export default function InvoicesPage() {
     const [emailInvoice, setEmailInvoice] = useState<any>(null);
     const [emailInput, setEmailInput] = useState("");
     const [isSendingEmail, setIsSendingEmail] = useState(false);
+
+    // SMS Modal State
+    const [smsInvoice, setSmsInvoice] = useState<any>(null);
+    const [smsInput, setSmsInput] = useState("");
+    const [isSendingSms, setIsSendingSms] = useState(false);
+
     const [notification, setNotification] = useState<{ msg: string, type: "success" | "error" } | null>(null);
 
     const showNotification = (msg: string, type: "success" | "error") => {
@@ -63,6 +69,16 @@ export default function InvoicesPage() {
         },
         onError: (e) => {
             showNotification("Failed to delete invoice: " + e.message, "error");
+        }
+    });
+
+    const [sendInvoiceSmsMut] = useMutation(SEND_INVOICE_SMS, {
+        onCompleted: () => {
+            showNotification(`SMS sent successfully to ${smsInput}`, "success");
+            setSmsInvoice(null);
+        },
+        onError: (e) => {
+            showNotification("Failed to send SMS: " + e.message, "error");
         }
     });
 
@@ -172,6 +188,24 @@ export default function InvoicesPage() {
             showNotification("Error sending email: " + e.message, "error");
         } finally {
             setIsSendingEmail(false);
+        }
+    };
+
+    const openSmsModal = (inv: any) => {
+        setSmsInvoice(inv);
+        setSmsInput(inv.customerPhone || "");
+    };
+
+    const confirmSendSms = async () => {
+        if (!smsInput || smsInput.length < 10) {
+            showNotification("Please enter a valid phone number.", "error");
+            return;
+        }
+        setIsSendingSms(true);
+        try {
+            await sendInvoiceSmsMut({ variables: { saleId: smsInvoice.saleId, phoneNumber: smsInput.trim() } });
+        } finally {
+            setIsSendingSms(false);
         }
     };
 
@@ -377,6 +411,9 @@ export default function InvoicesPage() {
                                                         <button onClick={() => setInvoiceToDelete(inv)} className="btn btn-ghost" style={{ padding: 5, color: "var(--red)" }} title="Delete Invoice">
                                                             <Trash2 size={13} />
                                                         </button>
+                                                        <button onClick={() => openSmsModal(inv)} className="btn btn-ghost" style={{ padding: 5, color: 'var(--green)' }} title="Send via SMS">
+                                                            <MessageSquare size={13} />
+                                                        </button>
                                                         <button onClick={() => openEmailModal(inv)} className="btn btn-ghost" style={{ padding: 5, color: 'var(--indigo-l)' }} title="Send via Email">
                                                             <Mail size={13} />
                                                         </button>
@@ -554,6 +591,63 @@ export default function InvoicesPage() {
                             }}>
                                 {isSendingEmail ? <Loader2 size={16} className="spin" /> : <Mail size={16} />}
                                 {isSendingEmail ? "Sending..." : "Send Email"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── SMS MODAL ─────────────────────────── */}
+            {smsInvoice && (
+                <div style={{
+                    position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+                    background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)",
+                    display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100,
+                    padding: 20
+                }}>
+                    <div className="glass" style={{
+                        width: "100%", maxWidth: 400, background: "var(--bg-card)",
+                        padding: 30, borderRadius: 20, boxShadow: "0 20px 40px rgba(0,0,0,0.2)",
+                        position: "relative", animation: "slideUp 0.3s ease"
+                    }}>
+                        <button onClick={() => setSmsInvoice(null)} style={{
+                            position: "absolute", top: 15, right: 15, background: "transparent", border: "none",
+                            color: "var(--muted)", cursor: "pointer", padding: 5
+                        }}>
+                            <X size={18} />
+                        </button>
+                        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+                            <div style={{ width: 44, height: 44, borderRadius: 12, background: "rgba(16, 185, 129, 0.1)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--green)" }}>
+                                <MessageSquare size={22} />
+                            </div>
+                            <div>
+                                <h3 style={{ margin: 0, fontSize: 18, color: "var(--text)", fontWeight: 700 }}>Send Invoice via SMS</h3>
+                                <p style={{ margin: 0, fontSize: 13, color: "var(--muted)" }}>Invoice #{smsInvoice.invoiceNumber} for {smsInvoice.customerName}</p>
+                            </div>
+                        </div>
+
+                        <div style={{ marginBottom: 20 }}>
+                            <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--text)", marginBottom: 8 }}>Customer Phone Number</label>
+                            <input
+                                type="tel"
+                                className="input"
+                                style={{ width: "100%", fontSize: 14 }}
+                                placeholder="+91XXXXXXXXXX"
+                                value={smsInput}
+                                onChange={e => setSmsInput(e.target.value)}
+                                autoFocus
+                            />
+                            <p style={{ margin: "8px 0 0", fontSize: 11, color: "var(--muted)" }}>Ensure the CloudHisab Gateway App is connected to send the SMS.</p>
+                        </div>
+
+                        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                            <button onClick={() => setSmsInvoice(null)} className="btn btn-ghost" style={{ padding: "10px 16px" }} disabled={isSendingSms}>Cancel</button>
+                            <button onClick={confirmSendSms} disabled={isSendingSms || !smsInput} className="btn" style={{
+                                padding: "10px 16px", background: "var(--green)", color: "white", display: "flex", alignItems: "center", gap: 8,
+                                opacity: isSendingSms ? 0.7 : 1, border: "none"
+                            }}>
+                                {isSendingSms ? <Loader2 size={16} className="spin" /> : <MessageSquare size={16} />}
+                                {isSendingSms ? "Sending..." : "Send SMS"}
                             </button>
                         </div>
                     </div>

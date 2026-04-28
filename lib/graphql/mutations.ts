@@ -143,6 +143,12 @@ export const REGENERATE_INVOICE_PDF = gql`
   }
 `;
 
+export const SEND_INVOICE_SMS = gql`
+  mutation SendInvoiceSms($saleId: String!, $phoneNumber: String!) {
+    sendInvoiceSms(saleId: $saleId, phoneNumber: $phoneNumber)
+  }
+`;
+
 // ─── Stock / Purchases ───
 export const RECORD_PURCHASE = gql`
   mutation RecordPurchase($input: PurchaseInput!) {

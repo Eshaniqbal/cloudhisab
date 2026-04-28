@@ -15,6 +15,7 @@ import { useRouter } from "next/navigation";
 import Script from "next/script";
 import { PLANS } from "@/components/Subscription/plans";
 import { PlanCard } from "@/components/Subscription/PlanCard";
+import { QRCodeSVG } from "qrcode.react";
 
 interface Field {
     key: string; label: string; icon: any; placeholder: string;
@@ -224,7 +225,7 @@ export default function SettingsPage() {
     const [dirty, setDirty] = useState(false);
     const [saved, setSaved] = useState(false);
     const [saveErr, setSaveErr] = useState("");
-    const [activeTab, setActiveTab] = useState<"profile" | "billing">("profile");
+    const [activeTab, setActiveTab] = useState<"profile" | "billing" | "gateway">("profile");
     const [showPlans, setShowPlans] = useState(false);
     const [message, setMessage] = useState<string | null>(null);
 
@@ -332,6 +333,13 @@ export default function SettingsPage() {
                     style={{ background: "none", border: "none", cursor: "pointer" }}
                 >
                     💳 Billing & Plans
+                </button>
+                <button
+                    onClick={() => setActiveTab("gateway")}
+                    className={`settings-tab ${activeTab === "gateway" ? "active" : ""}`}
+                    style={{ background: "none", border: "none", cursor: "pointer" }}
+                >
+                    📲 SMS Gateway
                 </button>
             </div>
 
@@ -657,6 +665,53 @@ export default function SettingsPage() {
                                 <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text)", marginBottom: 4 }}>Need help with billing?</div>
                                 <div style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.6 }}>
                                     If you have any questions about your invoices, payments, or need custom business plans, reach out to our billing team at <a href="mailto:support@cloudhisaab.in" style={{ color: "#818cf8", fontWeight: 600 }}>support@cloudhisaab.in</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── SMS Gateway Section ── */}
+            {profile && activeTab === "gateway" && (
+                <div style={{
+                    background: "var(--bg-card)", border: "1px solid var(--border)",
+                    borderRadius: 20, overflow: "hidden", animation: "slideDown 0.2s ease"
+                }}>
+                    <div style={{ padding: "18px 24px", borderBottom: "1px solid var(--border)", background: "var(--bg-card2)", display: "flex", alignItems: "center", gap: 10 }}>
+                        <div style={{ width: 28, height: 28, borderRadius: 8, background: "rgba(99,102,241,0.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                            <Zap size={14} color="#6366f1" />
+                        </div>
+                        <div>
+                            <div style={{ fontSize: 13.5, fontWeight: 700, color: "var(--text)" }}>Gateway Auto-Configuration</div>
+                            <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 1 }}>Scan to connect your Android phone</div>
+                        </div>
+                    </div>
+
+                    <div style={{ padding: "32px", textAlign: "center" }}>
+                        <div style={{ maxWidth: 400, margin: "0 auto" }}>
+                            <div style={{ background: "#fff", padding: "20px", borderRadius: 16, display: "inline-block", boxShadow: "0 10px 30px rgba(0,0,0,0.1)", marginBottom: 20 }}>
+                                <QRCodeSVG 
+                                    value={JSON.stringify({
+                                        url: process.env.NEXT_PUBLIC_GRAPHQL_URL?.replace("/graphql", "") || "http://localhost:8000",
+                                        tid: profile.tenantId
+                                    })} 
+                                    size={200}
+                                />
+                            </div>
+                            
+                            <h3 style={{ fontSize: 18, fontWeight: 800, color: "var(--text)", marginBottom: 8 }}>Scan to Connect</h3>
+                            <p style={{ fontSize: 13, color: "var(--muted)", lineHeight: 1.6, marginBottom: 24 }}>
+                                Open the CloudHisab Gateway app on your Android phone, go to Settings, and click <strong>Scan QR Code</strong> to automatically link your device.
+                            </p>
+
+                            <div style={{ padding: "12px 16px", borderRadius: 12, background: "var(--bg-input)", border: "1px solid var(--border)", textAlign: "left" }}>
+                                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", marginBottom: 6 }}>Current Configuration</div>
+                                <div style={{ fontSize: 12, color: "var(--text)", marginBottom: 4 }}>
+                                    <strong>Server:</strong> {process.env.NEXT_PUBLIC_GRAPHQL_URL?.replace("/graphql", "") || "http://localhost:8000"}
+                                </div>
+                                <div style={{ fontSize: 12, color: "var(--text)" }}>
+                                    <strong>Org ID:</strong> {profile.tenantId}
                                 </div>
                             </div>
                         </div>
