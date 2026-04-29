@@ -8,7 +8,7 @@ import { patchUser } from "@/lib/auth";
 import {
     Building2, Phone, MapPin, FileText, Zap, Loader2,
     CheckCircle2, AlertTriangle, Save, RefreshCw, User,
-    Hash, Globe, Mail, ShieldCheck, ArrowRight, Users, CreditCard, ExternalLink,
+    Hash, Globe, Mail, ShieldCheck, ArrowRight, Users, CreditCard, ExternalLink, Download
 } from "lucide-react";
 import { useSubscription } from "@/lib/useSubscription";
 import { useRouter } from "next/navigation";
@@ -688,32 +688,63 @@ export default function SettingsPage() {
                         </div>
                     </div>
 
-                    <div style={{ padding: "32px", textAlign: "center" }}>
-                        <div style={{ maxWidth: 400, margin: "0 auto" }}>
-                            <div style={{ background: "#fff", padding: "20px", borderRadius: 16, display: "inline-block", boxShadow: "0 10px 30px rgba(0,0,0,0.1)", marginBottom: 20 }}>
-                                <QRCodeSVG 
-                                    value={JSON.stringify({
-                                        url: process.env.NEXT_PUBLIC_GRAPHQL_URL?.replace("/graphql", "") || "http://localhost:8000",
-                                        tid: profile.tenantId
-                                    })} 
-                                    size={200}
-                                />
-                            </div>
+                    <div style={{ padding: "32px" }}>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 32 }}>
                             
-                            <h3 style={{ fontSize: 18, fontWeight: 800, color: "var(--text)", marginBottom: 8 }}>Scan to Connect</h3>
-                            <p style={{ fontSize: 13, color: "var(--muted)", lineHeight: 1.6, marginBottom: 24 }}>
-                                Open the CloudHisab Gateway app on your Android phone, go to Settings, and click <strong>Scan QR Code</strong> to automatically link your device.
-                            </p>
-
-                            <div style={{ padding: "12px 16px", borderRadius: 12, background: "var(--bg-input)", border: "1px solid var(--border)", textAlign: "left" }}>
-                                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", marginBottom: 6 }}>Current Configuration</div>
-                                <div style={{ fontSize: 12, color: "var(--text)", marginBottom: 4 }}>
-                                    <strong>Server:</strong> {process.env.NEXT_PUBLIC_GRAPHQL_URL?.replace("/graphql", "") || "http://localhost:8000"}
+                            {/* Step 1: Install App */}
+                            <div style={{ textAlign: "center", padding: "20px", borderRadius: 16, background: "var(--bg-card2)", border: "1px solid var(--border)" }}>
+                                <div style={{ fontSize: 11, fontWeight: 700, color: "#818cf8", textTransform: "uppercase", marginBottom: 12 }}>Step 1: Install Gateway</div>
+                                <div style={{ background: "#fff", padding: "16px", borderRadius: 12, display: "inline-block", boxShadow: "0 8px 24px rgba(0,0,0,0.1)", marginBottom: 16 }}>
+                                    <QRCodeSVG 
+                                        value={typeof window !== "undefined" ? `${window.location.origin}/CloudHisabGateway.apk` : ""} 
+                                        size={140}
+                                    />
                                 </div>
-                                <div style={{ fontSize: 12, color: "var(--text)" }}>
-                                    <strong>Org ID:</strong> {profile.tenantId}
+                                <h4 style={{ fontSize: 15, fontWeight: 800, color: "var(--text)", marginBottom: 6 }}>Scan to Download</h4>
+                                <p style={{ fontSize: 12, color: "var(--muted)", marginBottom: 20 }}>Scan this with your phone camera to download the APK directly.</p>
+                                <a 
+                                    href="/CloudHisabGateway.apk" 
+                                    download 
+                                    style={{ 
+                                        display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 18px", 
+                                        borderRadius: 10, background: "linear-gradient(135deg,#4f46e5,#6366f1)", 
+                                        color: "#fff", textDecoration: "none", fontSize: 13, fontWeight: 700,
+                                        boxShadow: "0 4px 12px rgba(79,70,229,0.3)"
+                                    }}
+                                >
+                                    <Download size={14} /> Download APK
+                                </a>
+                            </div>
+
+                            {/* Step 2: Connect */}
+                            <div style={{ textAlign: "center", padding: "20px", borderRadius: 16, background: "var(--bg-card2)", border: "1px solid var(--border)" }}>
+                                <div style={{ fontSize: 11, fontWeight: 700, color: "#10b981", textTransform: "uppercase", marginBottom: 12 }}>Step 2: Link Device</div>
+                                <div style={{ background: "#fff", padding: "16px", borderRadius: 12, display: "inline-block", boxShadow: "0 8px 24px rgba(0,0,0,0.1)", marginBottom: 16 }}>
+                                    <QRCodeSVG 
+                                        value={JSON.stringify({
+                                            url: process.env.NEXT_PUBLIC_GRAPHQL_URL?.replace("/graphql", "") || (typeof window !== "undefined" ? window.location.origin : "http://localhost:8000"),
+                                            tid: profile.tenantId
+                                        })} 
+                                        size={140}
+                                    />
+                                </div>
+                                <h4 style={{ fontSize: 15, fontWeight: 800, color: "var(--text)", marginBottom: 6 }}>Scan to Connect</h4>
+                                <p style={{ fontSize: 12, color: "var(--muted)", marginBottom: 20 }}>Open the app and click "Scan QR Code" in Settings to link your device.</p>
+                                
+                                <div style={{ padding: "10px", borderRadius: 10, background: "var(--bg-input)", border: "1px solid var(--border)", textAlign: "left" }}>
+                                    <div style={{ fontSize: 9, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", marginBottom: 4 }}>Manual Config</div>
+                                    <div style={{ fontSize: 11, color: "var(--text)", fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>ID: {profile.tenantId}</div>
                                 </div>
                             </div>
+                        </div>
+
+                        <div style={{ marginTop: 32, padding: "16px", borderRadius: 14, background: "rgba(99,102,241,0.05)", border: "1px solid rgba(99,102,241,0.1)", textAlign: "left" }}>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text)", marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
+                                <ShieldCheck size={14} color="#818cf8" /> Pro Tip: Battery Optimization
+                            </div>
+                            <p style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.5 }}>
+                                Android often kills background apps to save battery. For a stable SMS gateway, ensure you <strong>disable battery optimization</strong> for the CloudHisab app in your phone settings.
+                            </p>
                         </div>
                     </div>
                 </div>
