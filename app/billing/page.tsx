@@ -2,13 +2,15 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useLazyQuery } from "@apollo/client";
 import { AuthGuard } from "@/components/AuthGuard";
+import { useSubscription } from "@/lib/useSubscription";
 import { LIST_PRODUCTS, GET_CUSTOMER_BY_PHONE } from "@/lib/graphql/queries";
 import { CREATE_INVOICE } from "@/lib/graphql/mutations";
+import { parseUpgradeRequired } from "@/lib/upgrade";
 import {
     Plus, Minus, Trash2, Receipt, Loader2, CheckCircle2,
     Search, X, Printer, ShoppingCart, Tag, Zap, User,
     Phone, CreditCard, IndianRupee, AlertTriangle, Wallet,
-    Package, Sparkles,
+    Package, Sparkles, Lock,
 } from "lucide-react";
 
 const PM = [
@@ -47,6 +49,9 @@ export default function BillingPage() {
         LIST_PRODUCTS,
         { fetchPolicy: "cache-and-network", variables: { search: "" } } as any
     );
+    const { status: subStatus } = useSubscription();
+    const isFree = subStatus?.plan === "FREE" || subStatus?.plan === "NONE";
+
     const [createInvoice, { loading: invoiceLoading }] = useMutation<any, any>(CREATE_INVOICE);
 
     const [cart, setCart] = useState<CartItem[]>([]);
@@ -232,7 +237,14 @@ export default function BillingPage() {
             setSuccess(data.createInvoice);
             clearCart();
         } catch (e: any) {
-            setError(e.message || "Failed to create invoice");
+            const up = parseUpgradeRequired(e.message);
+            if (up?.feature === "GST_BILLING") {
+                setError(`${up.message} (Go to Pricing → Upgrade)`);
+            } else if (up?.feature === "INVOICE_LIMIT") {
+                setError(`${up.message} (Go to Pricing → Upgrade)`);
+            } else {
+                setError(e.message || "Failed to create invoice");
+            }
         }
     };
 
@@ -686,12 +698,25 @@ export default function BillingPage() {
                                     value={discount} onChange={e => setDiscount(Math.max(0, +e.target.value))} />
                             </div>
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13, marginTop: 4, padding: "6px 0" }}>
-                                <span style={{ color: "var(--text)", fontWeight: 700 }}>Exempt GST</span>
+                                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                    <span style={{ color: "var(--text)", fontWeight: 700 }}>Exempt GST</span>
+                                    {isFree && <Lock size={12} color="var(--yellow)" />}
+                                </div>
                                 <input type="checkbox"
-                                    checked={gstExempt}
-                                    onChange={e => setGstExempt(e.target.checked)}
-                                    style={{ width: 16, height: 16, accentColor: "#818cf8", cursor: "pointer" }} />
+                                    checked={isFree ? true : gstExempt}
+                                    onChange={e => !isFree && setGstExempt(e.target.checked)}
+                                    disabled={isFree}
+                                    style={{ 
+                                        width: 16, height: 16, accentColor: "#818cf8", 
+                                        cursor: isFree ? "not-allowed" : "pointer",
+                                        opacity: isFree ? 0.5 : 1
+                                    }} />
                             </div>
+                            {isFree && (
+                                <div style={{ fontSize: 10, color: "var(--yellow)", fontWeight: 600, marginTop: -4, textAlign: "right" }}>
+                                    Upgrade to unlock GST billing
+                                </div>
+                            )}
                             {/* Grand total */}
                             <div style={{
                                 marginTop: 2, padding: "12px 14px", borderRadius: 11,

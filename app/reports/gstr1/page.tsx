@@ -3,6 +3,8 @@ import { useState } from "react";
 import { useQuery } from "@apollo/client";
 import { AuthGuard } from "@/components/AuthGuard";
 import { GET_GSTR1_REPORT } from "@/lib/graphql/queries";
+import { parseUpgradeRequired } from "@/lib/upgrade";
+import { UpgradePrompt } from "@/components/UpgradePrompt";
 import {
     FileText, Loader2, AlertCircle, TrendingUp, Receipt,
     IndianRupee, BarChart3, Hash, Building2, User, Download
@@ -145,6 +147,7 @@ export default function Gstr1ReportPage() {
     });
 
     const r = data?.getGstr1Report;
+    const upgrade = parseUpgradeRequired(error?.message);
 
     function exportCSV() {
         if (!r) return;
@@ -268,8 +271,19 @@ export default function Gstr1ReportPage() {
                     </div>
                 )}
 
+                {/* ── Upgrade gate ── */}
+                {!loading && upgrade && (
+                    <div style={{ padding: "18px 0 6px" }}>
+                        <UpgradePrompt
+                            title="GSTR-1 is locked"
+                            message={upgrade.message}
+                            ctaLabel="Upgrade to unlock GST reports"
+                        />
+                    </div>
+                )}
+
                 {/* ── Error ── */}
-                {!loading && error && (
+                {!loading && error && !upgrade && (
                     <div style={{
                         background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)",
                         borderRadius: 14, padding: "18px 22px", display: "flex", gap: 12, alignItems: "flex-start"
@@ -283,7 +297,7 @@ export default function Gstr1ReportPage() {
                 )}
 
                 {/* ── Report ── */}
-                {!loading && !error && r && (
+                {!loading && !error && !upgrade && r && (
                     <>
                         {/* Summary Cards */}
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>

@@ -85,7 +85,26 @@ export function AuthGuard({ children, requiredRole }: Props) {
     // Subscription Gate Rule:
     const isSettings = typeof window !== "undefined" && window.location.pathname === "/settings";
     const isPricing = typeof window !== "undefined" && window.location.pathname === "/pricing";
-    const isGated = status && !status.isActive && !isSettings && !isPricing;
+    const isPremiumPage = typeof window !== "undefined" && (
+        window.location.pathname === "/reports" || 
+        window.location.pathname.startsWith("/reports/")
+    );
+    
+    // Allow access if:
+    // 1. User is on Settings or Pricing page
+    // 2. User has an active subscription (status.isActive is true)
+    // 3. User is on the FREE plan (plan is "FREE" or "NONE")
+    const plan = status?.plan?.toUpperCase() || "NONE";
+    const isFree = plan === "FREE" || plan === "NONE";
+    
+    // Gated if:
+    // - status is loaded AND
+    // - NOT active AND NOT free (the original paywall)
+    // - OR if it's a premium page and user is on FREE plan
+    const isGated = status && (
+        (!status.isActive && !isFree && !isSettings && !isPricing) ||
+        (isFree && isPremiumPage)
+    );
 
     if (isGated) {
         return (
@@ -105,11 +124,13 @@ export function AuthGuard({ children, requiredRole }: Props) {
                             <CreditCard size={32} color="#ef4444" />
                         </div>
                         <h2 style={{ fontSize: 24, fontWeight: 900, color: "var(--text)", marginBottom: 8 }}>
-                            Subscription Required
+                            {isFree ? "Premium Feature" : "Subscription Required"}
                         </h2>
                         <p style={{ color: "var(--muted)", fontSize: 14, maxWidth: 400, lineHeight: 1.6, marginBottom: 32 }}>
-                            Your {status.plan !== "NONE" ? `${status.plan} plan` : "trial"} is not active.
-                            Please choose a plan in Settings to continue using CloudHisaab and access your business data.
+                            {isFree 
+                                ? "This feature is only available on paid plans. Upgrade now to unlock advanced reports and GST billing."
+                                : `Your ${status.plan !== "NONE" && status.plan !== "FREE" ? `${status.plan} plan` : "subscription"} is not active. Please choose a plan in Settings to continue using premium features.`
+                            }
                         </p>
 
                         <div style={{ display: "flex", gap: 12 }}>

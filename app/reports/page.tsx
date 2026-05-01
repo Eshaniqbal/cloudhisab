@@ -3,6 +3,8 @@ import { useState, useEffect } from "react";
 import { useLazyQuery } from "@apollo/client";
 import { AuthGuard } from "@/components/AuthGuard";
 import { GET_PROFIT_REPORT } from "@/lib/graphql/queries";
+import { parseUpgradeRequired } from "@/lib/upgrade";
+import { UpgradePrompt } from "@/components/UpgradePrompt";
 import {
     TrendingUp, TrendingDown, BarChart3, Loader2,
     IndianRupee, Receipt, Calendar, Zap, ArrowRight, AlertTriangle,
@@ -83,6 +85,7 @@ export default function ReportsPage() {
     };
 
     const r = data?.getProfitReport;
+    const upgrade = parseUpgradeRequired(error?.message);
 
     const marginColor = r
         ? r.profitMarginPercent >= 20 ? "#10b981"
@@ -142,8 +145,19 @@ export default function ReportsPage() {
                     </div>
                 )}
 
+                {/* ── Upgrade gate ── */}
+                {!loading && upgrade && (
+                    <div style={{ padding: "40px 0" }}>
+                        <UpgradePrompt
+                            title="Profit Reports are locked"
+                            message={upgrade.message}
+                            ctaLabel="Upgrade to unlock Reports"
+                        />
+                    </div>
+                )}
+
                 {/* ── Error ── */}
-                {!loading && error && (
+                {!loading && error && !upgrade && (
                     <div style={{
                         background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)",
                         borderRadius: 14, padding: "16px 20px", marginBottom: 8,
@@ -173,7 +187,7 @@ export default function ReportsPage() {
                 )}
 
                 {/* ── Report ── */}
-                {!loading && r && (<>
+                {!loading && !upgrade && r && (<>
 
                     {/* 4 stat cards */}
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 14 }}>

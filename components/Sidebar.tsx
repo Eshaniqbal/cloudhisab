@@ -4,9 +4,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { logout, getUser } from "@/lib/auth";
 import { useTheme } from "@/lib/useTheme";
+import { useSubscription } from "@/lib/useSubscription";
 import {
     LayoutDashboard, Package, Receipt, Layers,
-    TrendingUp, Wallet, LogOut, FileText, Sun, Moon, Users, Settings, ChevronUp, CreditCard, RotateCcw, X,
+    TrendingUp, Wallet, LogOut, FileText, Sun, Moon, Users, Settings, ChevronUp, CreditCard, RotateCcw, X, Lock,
 } from "lucide-react";
 
 const ROLE_LEVEL: Record<string, number> = {
@@ -29,8 +30,8 @@ const NAV_ITEMS = [
     { href: "/returns", icon: RotateCcw, label: "Returns", minRole: "MANAGER" },
     { href: "/expenses", icon: Wallet, label: "Expenses", minRole: "ACCOUNTANT" },
     { href: "/customers", icon: Users, label: "Customers", minRole: "CASHIER" },
-    { href: "/reports", icon: TrendingUp, label: "Reports", minRole: "ACCOUNTANT" },
-    { href: "/reports/gstr1", icon: FileText, label: "GSTR-1 Summary", minRole: "ACCOUNTANT" },
+    { href: "/reports", icon: TrendingUp, label: "Reports", minRole: "ACCOUNTANT", premium: true },
+    { href: "/reports/gstr1", icon: FileText, label: "GSTR-1 Summary", minRole: "ACCOUNTANT", premium: true },
     { href: "/settings", icon: Settings, label: "Settings", minRole: "SUPER_ADMIN" },
 ];
 
@@ -109,6 +110,10 @@ export function Sidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: () =>
     const [user, setUser] = useState<any>(null);
     const { theme, toggle } = useTheme();
     const [showSignOutModal, setShowSignOutModal] = useState(false);
+    const { status } = useSubscription();
+
+    const plan = status?.plan?.toUpperCase() || "NONE";
+    const isFree = plan === "FREE" || plan === "NONE";
 
     useEffect(() => {
         setUser(getUser());
@@ -170,12 +175,24 @@ export function Sidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: () =>
                         const userLevel = ROLE_LEVEL[user?.role || "CASHIER"] || 0;
                         const minLevel = ROLE_LEVEL[item.minRole] || 0;
                         return userLevel >= minLevel;
-                    }).map(({ href, icon: Icon, label }) => {
+                    }).map(({ href, icon: Icon, label, premium }) => {
                         const active = path === href || path.startsWith(href + "/");
+                        const locked = premium && isFree;
+                        
                         return (
-                            <Link key={href} href={href} className={`nav-item ${active ? "active" : ""}`}>
+                            <Link 
+                                key={href} 
+                                href={locked ? "/pricing" : href} 
+                                className={`nav-item ${active ? "active" : ""} ${locked ? "locked" : ""}`}
+                                onClick={locked ? (e) => {
+                                    // Optionally prevent navigation if you want a custom modal
+                                    // e.preventDefault();
+                                    // setShowUpgradeModal(true);
+                                } : undefined}
+                            >
                                 <Icon size={15} style={{ flexShrink: 0 }} />
-                                {label}
+                                <span style={{ flex: 1 }}>{label}</span>
+                                {locked && <Lock size={12} style={{ color: "var(--yellow)", opacity: 0.8 }} />}
                             </Link>
                         );
                     })}

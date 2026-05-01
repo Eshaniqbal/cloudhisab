@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import { getUser, isLoggedIn } from "@/lib/auth";
 import { useSubscription } from "@/lib/useSubscription";
 import Script from "next/script";
+import { ArrowLeft } from "lucide-react";
 
 import { PLANS } from "@/components/Subscription/plans";
 import { PlanCard } from "@/components/Subscription/PlanCard";
@@ -117,6 +118,25 @@ export default function PricingPage() {
       <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
 
       <div className="pricing-page">
+        {/* ── Back Button ── */}
+        <button 
+          onClick={() => router.back()}
+          className="back-btn"
+          style={{
+            display: "flex", alignItems: "center", gap: 8,
+            padding: "8px 16px", borderRadius: 12,
+            background: "var(--bg-card)", border: "1px solid var(--border)",
+            color: "var(--text)", fontSize: 14, fontWeight: 600,
+            cursor: "pointer", transition: "all 0.2s",
+            marginBottom: 24, alignSelf: "flex-start"
+          }}
+          onMouseEnter={e => { (e.currentTarget as any).style.background = "var(--bg-card2)"; (e.currentTarget as any).style.transform = "translateX(-2px)"; }}
+          onMouseLeave={e => { (e.currentTarget as any).style.background = "var(--bg-card)"; (e.currentTarget as any).style.transform = "none"; }}
+        >
+          <ArrowLeft size={16} />
+          Back
+        </button>
+
         {/* ── Hero ── */}
         <div className="pricing-hero">
           <div className="pricing-hero-pill">Subscription Plans</div>
@@ -250,6 +270,8 @@ export default function PricingPage() {
           max-width: 1100px;
           margin: 0 auto;
           padding: 48px 24px 80px;
+          display: flex;
+          flex-direction: column;
         }
 
         /* ── Hero ── */
