@@ -239,6 +239,9 @@ export default function InvoiceDetailPage() {
                     <ArrowLeft size={14} /> All Invoices
                 </a>
                 <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                    <a href={`/billing/${saleId}/edit`} className="btn btn-ghost" style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, border: "1px solid var(--border)" }}>
+                        Edit Invoice
+                    </a>
                     {downloadUrl ? (
                         <div style={{ display: "flex", gap: 8 }}>
                             <button onClick={() => setSmsModalOpen(true)}

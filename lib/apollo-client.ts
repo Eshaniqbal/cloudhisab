@@ -11,7 +11,7 @@ import { onError } from "@apollo/client/link/error";
 import { getToken, getValidToken, logout, isTokenExpired } from "./auth";
 
 const httpLink = createHttpLink({
-    uri: process.env.NEXT_PUBLIC_GRAPHQL_URL || "http://localhost:8000/graphql",
+    uri: process.env.NEXT_PUBLIC_GRAPHQL_URL || "http://127.0.0.1:8000/graphql",
 });
 
 // ── Auth link: attach token to every request ──────────────────────────────

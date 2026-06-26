@@ -131,6 +131,22 @@ export const CREATE_INVOICE = gql`
   }
 `;
 
+export const UPDATE_INVOICE = gql`
+  mutation UpdateInvoice($input: UpdateInvoiceInput!) {
+    updateInvoice(input: $input) {
+      saleId
+      invoiceNumber
+      totalAmount
+      totalProfit
+      totalGst
+      amountPaid
+      balanceDue
+      pdfUrl
+      createdAt
+    }
+  }
+`;
+
 export const DELETE_INVOICE = gql`
   mutation DeleteInvoice($saleId: String!) {
     deleteInvoice(saleId: $saleId)
