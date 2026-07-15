@@ -479,6 +479,7 @@ export default function InvoiceDetailPage() {
                                      let settlements = 0;
                                      let totalPendingBills = 0;
                                      let totalCredits = 0;
+                                     let settlementList: any[] = [];
                                      
                                      entries.forEach((e: any) => {
                                          if (e.entryType === "INVOICE" && (e.saleId === saleId || e.description === inv?.description)) return;
@@ -495,6 +496,13 @@ export default function InvoiceDetailPage() {
                                          } else if (["PAYMENT", "ADVANCE"].includes(e.entryType)) {
                                              settlements += e.amount;
                                              totalCredits += e.amount;
+                                             let d = e.createdAt || e.date;
+                                             let dateStr = "N/A";
+                                             if (d) {
+                                                 const dObj = new Date(d);
+                                                 dateStr = `${dObj.getDate().toString().padStart(2, '0')}/${(dObj.getMonth() + 1).toString().padStart(2, '0')}/${dObj.getFullYear()}`;
+                                             }
+                                             settlementList.push({ desc: `Payment (${dateStr}) - ${e.paymentMethod || 'CASH'}`, amount: e.amount });
                                          }
                                      });
 
@@ -525,19 +533,19 @@ export default function InvoiceDetailPage() {
                                                      {creditNotes.map((c: any, idx: number) => (
                                                          <tr key={`cr-${idx}`} style={{ fontSize: 8, color: "#666", fontStyle: "italic" }}>
                                                              <td style={{ padding: "2px 8px 2px 20px" }}>↳ {c.desc}</td>
-                                                             <td style={{ padding: "2px 8px", textAlign: "right", color: "#006600" }}>- {f2(c.amount)}</td>
+                                                             <td style={{ padding: "2px 8px", textAlign: "right", color: "#006600" }}>{f2(c.amount)}</td>
                                                          </tr>
                                                      ))}
-                                                     {settlements > 0 && (
-                                                         <tr style={{ fontSize: 8, color: "#666", fontStyle: "italic" }}>
-                                                             <td style={{ padding: "2px 8px 2px 20px" }}>↳ Payments & Settlements</td>
-                                                             <td style={{ padding: "2px 8px", textAlign: "right", color: "#006600" }}>- {f2(settlements)}</td>
+                                                     {settlementList.map((s: any, idx: number) => (
+                                                         <tr key={`set-${idx}`} style={{ fontSize: 8, color: "#666", fontStyle: "italic" }}>
+                                                             <td style={{ padding: "2px 8px 2px 20px" }}>↳ {s.desc}</td>
+                                                             <td style={{ padding: "2px 8px", textAlign: "right", color: "#006600" }}>{f2(s.amount)}</td>
                                                          </tr>
-                                                     )}
+                                                     ))}
                                                      {totalCredits > 0 && (
                                                          <tr style={{ fontSize: 8, color: "#333", fontStyle: "italic", fontWeight: "bold", background: "#f9f9f9" }}>
                                                              <td style={{ padding: "2px 8px 2px 20px" }}>• Total Settled & Credited</td>
-                                                             <td style={{ padding: "2px 8px", textAlign: "right", color: "#006600" }}>- {f2(totalCredits)}</td>
+                                                             <td style={{ padding: "2px 8px", textAlign: "right", color: "#006600" }}>{f2(totalCredits)}</td>
                                                          </tr>
                                                      )}
                                                  </>

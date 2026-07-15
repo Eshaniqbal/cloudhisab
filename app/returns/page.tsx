@@ -1,7 +1,7 @@
 "use client";
 import { useState, useRef, useEffect, useMemo, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { useQuery, useMutation, useLazyQuery } from "@apollo/client";
+import { useQuery, useMutation, useLazyQuery, useApolloClient } from "@apollo/client";
 import { AuthGuard } from "@/components/AuthGuard";
 import { LIST_RETURNS, GET_INVOICE, SEARCH_INVOICES, GET_CUSTOMER_BY_PHONE } from "@/lib/graphql/queries";
 import { CREATE_RETURN } from "@/lib/graphql/mutations";
@@ -87,7 +87,10 @@ function CreateReturnModal({ onClose, refetch }: { onClose: () => void; refetch:
     const [selectedSuggestion, setSelectedSuggestion] = useState<any>(null);
     const [selectedCustomerKey, setSelectedCustomerKey] = useState("");
     const [error, setError] = useState("");
-    const [success, setSuccess] = useState<any>(null);
+    const [success, setSuccess] = useState<any[] | null>(null);
+    const [loadingInvoices, setLoadingInvoices] = useState(false);
+    const [creatingReturns, setCreatingReturns] = useState(false);
+    const [productSearch, setProductSearch] = useState("");
     const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 3;
@@ -104,7 +107,8 @@ function CreateReturnModal({ onClose, refetch }: { onClose: () => void; refetch:
     });
     const [fetchInvoice, { loading: loadingInv }] = useLazyQuery<any>(GET_INVOICE);
     const [fetchCustomer, { data: customerData }] = useLazyQuery<any>(GET_CUSTOMER_BY_PHONE);
-    const [createReturn, { loading: creating }] = useMutation<any, any>(CREATE_RETURN);
+    const [createReturn] = useMutation<any, any>(CREATE_RETURN);
+    const client = useApolloClient();
 
     const suggestions = searchData?.searchInvoices?.items || [];
     const rankedSuggestions = useMemo(() => {
@@ -218,22 +222,101 @@ function CreateReturnModal({ onClose, refetch }: { onClose: () => void; refetch:
         setSelectedSuggestion(sug);
         const r = await fetchInvoice({ variables: { saleId: sug.saleId } });
         if (!r.data?.getInvoice) { setError("Could not load invoice details."); return; }
+        const inv = r.data.getInvoice;
         const init: Record<string, number> = {};
-        r.data.getInvoice.items.forEach((it: any) => { init[it.productId] = 0; });
+        const combinedItems = inv.items.map((it: any) => {
+            init[`${inv.saleId}_${it.productId}`] = 0;
+            return {
+                ...it,
+                _invoiceId: inv.saleId,
+                _invoiceNumber: inv.invoiceNumber,
+                _invoiceDate: inv.createdAt,
+            };
+        });
         setSelectedItems(init);
-        setInvoice(r.data.getInvoice);
+        setInvoice({
+            isCombined: true,
+            customerName: inv.customerName,
+            customerPhone: inv.customerPhone,
+            invoices: [inv],
+            items: combinedItems,
+        });
         
-        if (r.data.getInvoice.customerPhone) {
-            fetchCustomer({ variables: { phone: r.data.getInvoice.customerPhone } });
+        if (inv.customerPhone) {
+            fetchCustomer({ variables: { phone: inv.customerPhone } });
         }
         
         if (goNext) setStep(1);
     };
 
+    const handleSelectCustomer = async (cx: any) => {
+        if (selectedCustomerKey === cx.key) {
+            setSelectedCustomerKey("");
+            return;
+        }
+        setSelectedCustomerKey(cx.key);
+        setInvoice(null);
+        setSelectedSuggestion(null);
+        setError("");
+        
+        setLoadingInvoices(true);
+        try {
+            const recentInvoices = cx.invoices.slice(0, 5);
+            const results = await Promise.all(
+                recentInvoices.map((inv: any) => 
+                    client.query({ query: GET_INVOICE, variables: { saleId: inv.saleId }, fetchPolicy: 'network-only' })
+                )
+            );
+            
+            const allInvoices = results.map(r => r.data.getInvoice).filter(Boolean);
+            if (!allInvoices.length) {
+                setError("Could not load invoices.");
+                setLoadingInvoices(false);
+                return;
+            }
+            
+            const init: Record<string, number> = {};
+            const combinedItems: any[] = [];
+            allInvoices.forEach(inv => {
+                inv.items.forEach((it: any) => {
+                    init[`${inv.saleId}_${it.productId}`] = 0;
+                    combinedItems.push({
+                        ...it,
+                        _invoiceId: inv.saleId,
+                        _invoiceNumber: inv.invoiceNumber,
+                        _invoiceDate: inv.createdAt,
+                    });
+                });
+            });
+            
+            setSelectedItems(init);
+            setInvoice({
+                isCombined: true,
+                customerName: cx.customerName,
+                customerPhone: cx.customerPhone,
+                invoices: allInvoices,
+                items: combinedItems,
+            });
+            
+            if (cx.customerPhone && cx.customerPhone !== "—") {
+                fetchCustomer({ variables: { phone: cx.customerPhone } });
+            }
+            
+            setLoadingInvoices(false);
+            setStep(1);
+        } catch (err: any) {
+            setError(err.message);
+            setLoadingInvoices(false);
+        }
+    };
+
     const totalSelected = invoice?.items?.reduce((s: number, it: any) =>
-        s + (it.sellingPrice || 0) * (selectedItems[it.productId] || 0), 0) || 0;
-    const totalGst = invoice?.gstExempt ? 0 : (invoice?.items?.reduce((s: number, it: any) =>
-        s + (it.gstRate / 100) * (it.sellingPrice || 0) * (selectedItems[it.productId] || 0), 0) || 0);
+        s + (it.sellingPrice || 0) * (selectedItems[`${it._invoiceId}_${it.productId}`] || 0), 0) || 0;
+    const totalGst = invoice?.items?.reduce((s: number, it: any) => {
+        const origInv = invoice.invoices?.find((i: any) => i.saleId === it._invoiceId);
+        if (origInv?.gstExempt) return s;
+        return s + (it.gstRate / 100) * (it.sellingPrice || 0) * (selectedItems[`${it._invoiceId}_${it.productId}`] || 0);
+    }, 0) || 0;
     const itemsSelected = Object.values(selectedItems).some(v => v > 0);
 
     const customerOutstanding = customerData?.getCustomerByPhone?.outstanding || 0;
@@ -247,20 +330,31 @@ function CreateReturnModal({ onClose, refetch }: { onClose: () => void; refetch:
 
     const handleSubmit = async () => {
         setError("");
-        const items = invoice.items
-            .filter((it: any) => (selectedItems[it.productId] || 0) > 0)
-            .map((it: any) => ({
+        const itemsToReturn = invoice.items.filter((it: any) => (selectedItems[`${it._invoiceId}_${it.productId}`] || 0) > 0);
+        if (!itemsToReturn.length) { setError("Select at least one item to return."); return; }
+        
+        const byInvoice = itemsToReturn.reduce((acc: any, it: any) => {
+            if (!acc[it._invoiceId]) acc[it._invoiceId] = [];
+            acc[it._invoiceId].push({
                 productId: it.productId, productName: it.productName,
-                quantity: selectedItems[it.productId], sellingPrice: it.sellingPrice, gstRate: it.gstRate,
-            }));
-        if (!items.length) { setError("Select at least one item to return."); return; }
+                quantity: selectedItems[`${it._invoiceId}_${it.productId}`], sellingPrice: it.sellingPrice, gstRate: it.gstRate,
+            });
+            return acc;
+        }, {});
+
+        setCreatingReturns(true);
         try {
-            const res = await createReturn({
-                variables: { input: { originalInvoiceId: invoice.saleId, items, reason, refundType, restock, notes: notes || null } },
-            } as any);
-            setSuccess(res.data?.createReturn);
+            const successList = [];
+            for (const [invId, items] of Object.entries(byInvoice)) {
+                const res = await createReturn({
+                    variables: { input: { originalInvoiceId: invId, items: items as any, reason, refundType, restock, notes: notes || null } },
+                } as any);
+                successList.push(res.data?.createReturn);
+            }
+            setSuccess(successList);
             refetch();
         } catch (e: any) { setError(e.message); }
+        setCreatingReturns(false);
     };
 
     // ── Success screen ───────────────────────────────────────────────────────
@@ -276,19 +370,19 @@ function CreateReturnModal({ onClose, refetch }: { onClose: () => void; refetch:
                 </div>
                 <div style={{ fontSize: 22, fontWeight: 900, marginBottom: 6, letterSpacing: "-0.3px" }}>Return Processed!</div>
                 <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 28 }}>
-                    {success.refundType === "CREDIT_NOTE" 
+                    {success[0]?.refundType === "CREDIT_NOTE" 
                         ? "Amount has been adjusted against pending balance."
                         : "Cash refund has been processed."}
                 </div>
 
-                {/* CN card */}
-                <div style={{ background: "linear-gradient(135deg, rgba(239,68,68,0.08), rgba(239,68,68,0.03))", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 16, padding: "20px 24px", marginBottom: 20 }}>
-                    <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "#f87171", marginBottom: 8 }}>Credit Note</div>
-                    <div style={{ fontSize: 24, fontWeight: 900, fontFamily: "monospace", color: "var(--text)", letterSpacing: "0.05em", marginBottom: 16 }}>{success.creditNoteNumber}</div>
+                {success.map((succ, idx) => (
+                <div key={idx} style={{ background: "linear-gradient(135deg, rgba(239,68,68,0.08), rgba(239,68,68,0.03))", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 16, padding: "20px 24px", marginBottom: 20 }}>
+                    <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "#f87171", marginBottom: 8 }}>Credit Note for Invoice {succ.originalInvoiceNumber}</div>
+                    <div style={{ fontSize: 24, fontWeight: 900, fontFamily: "monospace", color: "var(--text)", letterSpacing: "0.05em", marginBottom: 16 }}>{succ.creditNoteNumber}</div>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                         {[
-                            { label: "Customer", value: success.customerName },
-                            { label: "Refund Type", value: REFUND_LABELS[success.refundType] },
+                            { label: "Customer", value: succ.customerName },
+                            { label: "Refund Type", value: REFUND_LABELS[succ.refundType] },
                         ].map(item => (
                             <div key={item.label} style={{ textAlign: "left" }}>
                                 <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", color: "var(--muted)", letterSpacing: "0.06em", marginBottom: 4 }}>{item.label}</div>
@@ -298,9 +392,11 @@ function CreateReturnModal({ onClose, refetch }: { onClose: () => void; refetch:
                     </div>
                     <div style={{ borderTop: "1px solid rgba(239,68,68,0.15)", marginTop: 14, paddingTop: 14, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                         <span style={{ fontSize: 12, color: "var(--muted)" }}>Total Refund Amount</span>
-                        <span style={{ fontSize: 22, fontWeight: 900, color: "#ef4444" }}>{fmt(success.totalAmount)}</span>
+                        <span style={{ fontSize: 22, fontWeight: 900, color: "#ef4444" }}>{fmt(succ.totalAmount)}</span>
                     </div>
                 </div>
+                ))}
+                
                 <button className="btn btn-primary" style={{ width: "100%", height: 44, fontSize: 14 }} onClick={onClose}>Done</button>
             </div>
         </ModalShell>
@@ -379,15 +475,7 @@ function CreateReturnModal({ onClose, refetch }: { onClose: () => void; refetch:
                                 return (
                                     <div key={cx.key} style={{ border: `1px solid ${isCustomerOpen ? "rgba(79,70,229,0.45)" : "var(--border)"}`, borderRadius: 12, background: isCustomerOpen ? "rgba(79,70,229,0.05)" : "var(--bg-card2)", overflow: "hidden" }}>
                                         <div
-                                            onClick={() => {
-                                                if (selectedCustomerKey === cx.key) {
-                                                    setSelectedCustomerKey("");
-                                                } else {
-                                                    setSelectedCustomerKey(cx.key);
-                                                    setInvoice(null);
-                                                    setSelectedSuggestion(null);
-                                                }
-                                            }}
+                                            onClick={() => handleSelectCustomer(cx)}
                                             style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "12px 14px", minHeight: 72, cursor: "pointer" }}
                                         >
                                             <div style={{ width: 38, height: 38, borderRadius: 10, background: isCustomerOpen ? "rgba(79,70,229,0.12)" : "rgba(239,68,68,0.12)", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -405,35 +493,15 @@ function CreateReturnModal({ onClose, refetch }: { onClose: () => void; refetch:
                                             </div>
                                         </div>
 
-                                        {isCustomerOpen && (
-                                            <div style={{ borderTop: "1px solid var(--border)", padding: "8px 10px", display: "flex", flexDirection: "column", gap: 7, maxHeight: 320, overflowY: "auto" }}>
-                                                {cx.invoices.map((sug: any) => {
-                                                    const activeInvoice = (selectedSuggestion?.saleId || invoice?.saleId) === sug.saleId;
-                                                    return (
-                                                        <div
-                                                            key={sug.saleId}
-                                                            onClick={() => handleSelectSuggestion(sug, false)}
-                                                            style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", borderRadius: 9, border: `1px solid ${activeInvoice ? "rgba(79,70,229,0.55)" : "var(--border)"}`, background: activeInvoice ? "rgba(79,70,229,0.10)" : "var(--bg-card)", padding: "9px 10px", cursor: "pointer" }}
-                                                        >
-                                                            <FileText size={13} color={activeInvoice ? "var(--indigo-l)" : "#ef4444"} />
-                                                            <div style={{ flex: 1, minWidth: 0 }}>
-                                                                <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 2, flexWrap: "wrap" }}>
-                                                                    <span style={{ fontFamily: "monospace", fontSize: 12.5, fontWeight: 900, color: activeInvoice ? "var(--indigo-l)" : "var(--text)" }}>{sug.invoiceNumber}</span>
-                                                                    {sug.returns?.length > 0 && (
-                                                                        <span style={{ fontSize: 9, fontWeight: 800, textTransform: "uppercase", padding: "1px 5px", borderRadius: 4, background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.3)", color: "var(--orange)" }}>Returned</span>
-                                                                    )}
-                                                                </div>
-                                                                <div style={{ fontSize: 11, color: "var(--muted)" }}>{fmtDate(sug.createdAt)}</div>
-                                                            </div>
-                                                            <div style={{ fontSize: 12.5, fontWeight: 800, color: "var(--green)" }}>{fmt(sug.totalAmount)}</div>
-                                                        </div>
-                                                    );
-                                                })}
+                                        {isCustomerOpen && loadingInvoices && (
+                                            <div style={{ borderTop: "1px solid var(--border)", padding: "16px 10px", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, color: "var(--muted)", fontSize: 13 }}>
+                                                <Loader2 size={16} style={{ animation: "spin 0.7s linear infinite", color: "var(--indigo-l)" }} />
+                                                <span>Fetching products from past invoices...</span>
                                             </div>
                                         )}
                                     </div>
                                 );
-                            }) : !isLoadingCustomers ? (
+                            }) : !loadingInvoices ? (<div style={{ padding: "24px 0", textAlign: "center", color: "var(--muted)", fontSize: 13 }}><Loader2 size={16} style={{ animation: "spin 0.7s linear infinite", marginBottom: 8 }} /><div>Loading recent invoices...</div></div>) : !isLoadingCustomers ? (
                                 <div style={{ padding: "32px 20px", textAlign: "center", color: "var(--muted)", fontSize: 13, background: "var(--bg-card2)", borderRadius: 14, border: "1px dashed var(--border)" }}>
                                     No customers found{searchQuery.trim() ? ` for "${searchQuery}"` : ""}
                                 </div>
@@ -568,28 +636,36 @@ function CreateReturnModal({ onClose, refetch }: { onClose: () => void; refetch:
                     </div>
 
                     <div>
-                        <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--muted)", marginBottom: 10 }}>Select Items to Return</div>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                            <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--muted)" }}>Select Items to Return</div>
+                            <div style={{ position: "relative" }}>
+                                <Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--muted)" }} />
+                                <input type="text" className="input" placeholder="Search Products..." value={productSearch} onChange={e => setProductSearch(e.target.value)} style={{ height: 32, paddingLeft: 32, fontSize: 13, width: 220 }} />
+                            </div>
+                        </div>
                         <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: "calc(100vh - 500px)", minHeight: "300px", overflowY: "auto", paddingRight: 4 }}>
-                            {invoice.items.map((it: any) => {
-                                const qty = selectedItems[it.productId] || 0;
+                            {invoice.items.filter((it:any) => productSearch ? it.productName.toLowerCase().includes(productSearch.toLowerCase()) || it.sku?.toLowerCase().includes(productSearch.toLowerCase()) : true).map((it: any) => {
+                                const itemKey = `${it._invoiceId}_${it.productId}`;
+                                const qty = selectedItems[itemKey] || 0;
                                 const selected = qty > 0;
                                 return (
-                                    <div key={it.productId} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", borderRadius: 13, background: selected ? "rgba(239,68,68,0.04)" : "var(--bg-card2)", border: `1.5px solid ${selected ? "rgba(239,68,68,0.25)" : "var(--border)"}`, transition: "all 0.18s" }}>
+                                    <div key={itemKey} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", borderRadius: 13, background: selected ? "rgba(239,68,68,0.04)" : "var(--bg-card2)", border: `1.5px solid ${selected ? "rgba(239,68,68,0.25)" : "var(--border)"}`, transition: "all 0.18s" }}>
                                         {/* Select toggle — sets to 1 if unchecked, 0 if checked */}
-                                        <button type="button" onClick={() => setSelectedItems(p => ({ ...p, [it.productId]: qty > 0 ? 0 : 1 }))}
+                                        <button type="button" onClick={() => setSelectedItems(p => ({ ...p, [itemKey]: qty > 0 ? 0 : 1 }))}
                                             style={{ width: 20, height: 20, borderRadius: 6, border: `2px solid ${selected ? "var(--red)" : "var(--border)"}`, background: selected ? "var(--red)" : "transparent", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "all 0.15s" }}>
                                             {selected && <CheckCircle2 size={11} color="#fff" />}
                                         </button>
                                         <div style={{ flex: 1, minWidth: 0 }}>
                                             <div style={{ fontSize: 13.5, fontWeight: 700, marginBottom: 2 }}>{it.productName}</div>
                                             <div style={{ fontSize: 11, color: "var(--muted)" }}>
-                                                {it.sku} · {fmt(it.sellingPrice)}/unit · sold: {it.quantity} 
+                                                {it.sku} · {fmt(it.sellingPrice)}/unit · sold: {it.quantity} <br/>
+                                                <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 6px", borderRadius: 4, background: "rgba(99,102,241,0.08)", color: "var(--indigo-l)", border: "1px solid rgba(99,102,241,0.2)" }}>Inv: {it._invoiceNumber} · {new Date(it._invoiceDate).toLocaleDateString("en-IN", {day: "numeric", month: "short", year:"numeric"})}</span>
                                                 {it.returnedQuantity > 0 && <span style={{ color: "var(--orange)", marginLeft: 6 }}>({it.returnedQuantity} already returned)</span>}
                                             </div>
                                         </div>
                                         {/* Qty stepper with direct input */}
                                         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                                            <button type="button" onClick={() => setSelectedItems(p => ({ ...p, [it.productId]: Math.max(0, (p[it.productId] || 0) - 1) }))}
+                                            <button type="button" onClick={() => setSelectedItems(p => ({ ...p, [itemKey]: Math.max(0, (p[itemKey] || 0) - 1) }))}
                                                 style={{ width: 28, height: 28, borderRadius: 7, border: "1px solid var(--border)", background: "var(--bg-input)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 15, color: "var(--muted)", flexShrink: 0 }}
                                             >−</button>
                                             <input
@@ -601,9 +677,9 @@ function CreateReturnModal({ onClose, refetch }: { onClose: () => void; refetch:
                                                 onChange={e => {
                                                     const v = parseInt(e.target.value, 10);
                                                     if (isNaN(v) || e.target.value === "") {
-                                                        setSelectedItems(p => ({ ...p, [it.productId]: 0 }));
+                                                        setSelectedItems(p => ({ ...p, [itemKey]: 0 }));
                                                     } else {
-                                                        setSelectedItems(p => ({ ...p, [it.productId]: Math.min(it.remainingQuantity, Math.max(0, v)) }));
+                                                        setSelectedItems(p => ({ ...p, [itemKey]: Math.min(it.remainingQuantity, Math.max(0, v)) }));
                                                     }
                                                 }}
                                                 style={{
@@ -614,7 +690,7 @@ function CreateReturnModal({ onClose, refetch }: { onClose: () => void; refetch:
                                                     MozAppearance: "textfield",
                                                 }}
                                             />
-                                            <button type="button" onClick={() => setSelectedItems(p => ({ ...p, [it.productId]: Math.min(it.remainingQuantity, (p[it.productId] || 0) + 1) }))}
+                                            <button type="button" onClick={() => setSelectedItems(p => ({ ...p, [itemKey]: Math.min(it.remainingQuantity, (p[itemKey] || 0) + 1) }))}
                                                 style={{ width: 28, height: 28, borderRadius: 7, border: "1px solid rgba(99,102,241,0.3)", background: "rgba(79,70,229,0.08)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 15, color: "var(--indigo-l)", flexShrink: 0 }}
                                             >+</button>
                                             <span style={{ fontSize: 10, color: "var(--muted)", whiteSpace: "nowrap" }}>/ {it.remainingQuantity}</span>
@@ -737,10 +813,10 @@ function CreateReturnModal({ onClose, refetch }: { onClose: () => void; refetch:
                         <button className="btn btn-ghost" style={{ gap: 6 }} onClick={() => setStep(1)}>
                             <ArrowLeft size={14} /> Back
                         </button>
-                        <button className="btn" disabled={creating} onClick={handleSubmit}
+                        <button className="btn" disabled={creatingReturns} onClick={handleSubmit}
                             style={{ flex: 1, background: "linear-gradient(135deg,#ef4444,#dc2626)", color: "#fff", boxShadow: "0 4px 14px rgba(239,68,68,0.35)", fontWeight: 700, fontSize: 14, height: 44 }}>
-                            {creating ? <Loader2 size={15} style={{ animation: "spin 0.7s linear infinite" }} /> : <RotateCcw size={15} />}
-                            {creating ? "Processing..." : "Create Return"}
+                            {creatingReturns ? <Loader2 size={15} style={{ animation: "spin 0.7s linear infinite" }} /> : <RotateCcw size={15} />}
+                            {creatingReturns ? "Processing..." : "Create Return"}
                         </button>
                     </div>
                 </div>
