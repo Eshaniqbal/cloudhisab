@@ -408,3 +408,38 @@ export const CREATE_RETURN = gql`
     }
   }
 `;
+
+// ─── Google Drive Backup ───
+export const GET_GOOGLE_DRIVE_CONNECT_URL = gql`
+  mutation GetGoogleDriveConnectUrl {
+    getGoogleDriveConnectUrl
+  }
+`;
+
+export const DISCONNECT_GOOGLE_DRIVE = gql`
+  mutation DisconnectGoogleDrive {
+    disconnectGoogleDrive
+  }
+`;
+
+export const TRIGGER_BACKUP_NOW = gql`
+  mutation TriggerBackupNow {
+    triggerBackupNow
+  }
+`;
+
+export const SET_BACKUP_PDF_SYNC = gql`
+  mutation SetBackupPdfSync($enabled: Boolean!) {
+    setBackupPdfSync(enabled: $enabled) {
+      connected
+      googleEmail
+      syncEnabled
+      pdfSyncEnabled
+      folderLink
+      connectedAt
+      lastBackupAt
+      lastBackupStatus
+      lastError
+    }
+  }
+`;

@@ -515,3 +515,20 @@ export const GET_STATEMENT_DOWNLOAD_URL = gql`
     getStatementDownloadUrl(phone: $phone, force: $force)
   }
 `;
+
+// ─── Google Drive Backup ───
+export const GET_BACKUP_STATUS = gql`
+  query GetBackupStatus {
+    getBackupStatus {
+      connected
+      googleEmail
+      syncEnabled
+      pdfSyncEnabled
+      folderLink
+      connectedAt
+      lastBackupAt
+      lastBackupStatus
+      lastError
+    }
+  }
+`;

@@ -16,6 +16,7 @@ import Script from "next/script";
 import { PLANS } from "@/components/Subscription/plans";
 import { PlanCard } from "@/components/Subscription/PlanCard";
 import { QRCodeSVG } from "qrcode.react";
+import { BackupSettings } from "@/components/BackupSettings";
 
 interface Field {
     key: string; label: string; icon: any; placeholder: string;
@@ -225,13 +226,20 @@ export default function SettingsPage() {
     const [dirty, setDirty] = useState(false);
     const [saved, setSaved] = useState(false);
     const [saveErr, setSaveErr] = useState("");
-    const [activeTab, setActiveTab] = useState<"profile" | "billing" | "gateway">("profile");
+    const [activeTab, setActiveTab] = useState<"profile" | "billing" | "gateway" | "backup">("profile");
     const [showPlans, setShowPlans] = useState(false);
     const [message, setMessage] = useState<string | null>(null);
 
     const { cancel, cancelling, subscribe, creating } = useSubscription();
 
     const profile = data?.getTenantProfile;
+
+    // Returning from Google OAuth → land on the Backup tab
+    useEffect(() => {
+        if (typeof window !== "undefined" && window.location.search.includes("gdrive=")) {
+            setActiveTab("backup");
+        }
+    }, []);
 
     useEffect(() => {
         if (profile) {
@@ -303,6 +311,7 @@ export default function SettingsPage() {
         <AuthGuard>
             <style>{`
                 @keyframes spin { to { transform: rotate(360deg); } }
+                .spin { animation: spin 1s linear infinite; }
                 @keyframes slideDown { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
                 .settings-tab { padding: 9px 18px; font-size: 13px; font-weight: 600; text-decoration: none; border-radius: 99px; transition: all 0.15s; }
                 .settings-tab.active { background: rgba(99,102,241,0.15); color: #818cf8; }
@@ -340,6 +349,13 @@ export default function SettingsPage() {
                     style={{ background: "none", border: "none", cursor: "pointer" }}
                 >
                     📲 SMS Gateway
+                </button>
+                <button
+                    onClick={() => setActiveTab("backup")}
+                    className={`settings-tab ${activeTab === "backup" ? "active" : ""}`}
+                    style={{ background: "none", border: "none", cursor: "pointer" }}
+                >
+                    💾 Backup & Sync
                 </button>
             </div>
 
@@ -749,6 +765,9 @@ export default function SettingsPage() {
                     </div>
                 </div>
             )}
+
+            {/* ── Google Drive Backup Section ── */}
+            {profile && activeTab === "backup" && <BackupSettings />}
 
             {/* Razorpay JS SDK */}
             <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
